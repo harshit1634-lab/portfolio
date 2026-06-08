@@ -250,22 +250,8 @@ html,body{height:100%;font-family:'DM Sans',system-ui,sans-serif;background:var(
   <div class="msg" id="loadingMsg">Running AI Analysis…</div>
 </div>
 
-<!-- API KEY MODAL -->
-<div class="modal-overlay hidden" id="apiModal">
-  <div class="modal">
-    <div class="modal-title">🤖 Claude API Key</div>
-    <div class="modal-sub">Enter your Anthropic API key to enable AI analysis. Stored locally in browser only.</div>
-    <div class="form-group">
-      <label>API Key</label>
-      <input type="password" id="apiKeyInput" placeholder="sk-ant-api03-..." style="letter-spacing:1px">
-    </div>
-    <div style="margin-top:8px;font-size:11px;color:var(--muted)">Get your key at <span style="color:var(--sky2)">console.anthropic.com</span></div>
-    <div class="flex-end mt16">
-      <button class="btn btn-ghost" onclick="closeApiModal()">Cancel</button>
-      <button class="btn btn-gold" onclick="saveApiKey()">Save Key</button>
-    </div>
-  </div>
-</div>
+<!-- AI STATUS TOAST -->
+<div id="aiToast" class="hidden" style="position:fixed;bottom:20px;right:20px;background:var(--ink2);border:1px solid var(--bdr);border-radius:8px;padding:10px 16px;font-size:12px;color:var(--text);z-index:600;display:flex;align-items:center;gap:8px"><span class="spinner" style="width:14px;height:14px;border-width:2px"></span><span id="aiToastMsg">Connecting to AI…</span></div>
 
 <!-- MAIN APP -->
 <div id="app" style="display:none;flex-direction:column">
@@ -301,8 +287,7 @@ html,body{height:100%;font-family:'DM Sans',system-ui,sans-serif;background:var(
       <option value="2">FY 2022-23</option>
     </select>
     <div class="tb-spacer"></div>
-    <div class="status-dot" title="AI Ready"></div>
-    <button class="btn btn-ghost btn-sm" onclick="showApiModal()">🔑 API Key</button>
+    <div class="status-dot" title="AI Ready — No API Key Required"></div>
     <button class="btn btn-gold btn-sm" onclick="runAIAnalysis()">✨ AI Analyse</button>
     <button class="btn btn-ghost btn-sm" onclick="exportExcel()">⬇ Excel</button>
   </div>
@@ -329,6 +314,8 @@ html,body{height:100%;font-family:'DM Sans',system-ui,sans-serif;background:var(
         <div class="side-item" onclick="nav('ai')"><span class="side-icon">🤖</span>AI Deep Analysis</div>
         <div class="side-item" onclick="nav('audit')"><span class="side-icon">🔍</span>Audit & Verification</div>
         <div class="side-item" onclick="nav('chat')"><span class="side-icon">💬</span>AI Chat</div>
+        <div class="side-item" onclick="nav('pbi')"><span class="side-icon">📊</span>Power BI Dashboard</div>
+        <div class="side-item" onclick="nav('present')"><span class="side-icon">🖥️</span>Presentation Mode</div>
       </div>
       <div class="side-group">
         <div class="side-title">Data</div>
@@ -580,9 +567,9 @@ html,body{height:100%;font-family:'DM Sans',system-ui,sans-serif;background:var(
       <div class="panel" id="panel-ai">
         <div class="page-header flex-between">
           <div><div class="page-title">🤖 AI Deep Analysis</div><div class="page-sub">Powered by Claude AI (claude-sonnet-4-6)</div></div>
-          <button class="btn btn-ghost btn-sm" onclick="showApiModal()">🔑 Configure API</button>
+          <span style="font-size:11px;color:var(--em)">✅ Free AI — No API key required</span>
         </div>
-        <div id="aiApiWarning" class="api-warning hidden">⚠️ No API key configured. <a href="#" onclick="showApiModal();return false" style="color:var(--gold)">Set your Claude API key</a> to enable AI analysis.</div>
+        <div class="api-warning" style="background:rgba(52,199,123,.08);border-color:var(--em);color:var(--em)">✅ AI Ready — No API key required. Uses free internet AI (Pollinations AI). Ensure internet connection is active.</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:16px">
           <button class="btn btn-gold" onclick="runAIAnalysis()" style="padding:10px 14px;font-size:13px;justify-content:center">✨ Full AI Analysis</button>
           <button class="btn btn-ghost" onclick="runAuditInquiries()">🔍 Audit Inquiries</button>
@@ -664,30 +651,94 @@ html,body{height:100%;font-family:'DM Sans',system-ui,sans-serif;background:var(
         </div>
       </div>
 
+      <!-- POWER BI DASHBOARD PANEL -->
+      <div class="panel" id="panel-pbi">
+        <div class="page-header flex-between">
+          <div><div class="page-title">📊 Power BI Interactive Dashboard</div><div class="page-sub">Live charts, slicers and KPI visualizations — auto-updated from your data</div></div>
+          <div class="flex">
+            <button class="btn btn-ghost btn-sm" onclick="nav('present')">🖥️ Present</button>
+            <button class="btn btn-gold btn-sm" onclick="renderPBI()">↻ Refresh</button>
+          </div>
+        </div>
+        <!-- SLICERS -->
+        <div class="box" style="padding:12px 16px">
+          <div class="flex" style="flex-wrap:wrap;gap:12px">
+            <div class="flex"><span style="font-size:11px;color:var(--muted);margin-right:6px">Period:</span>
+              <div style="display:flex;gap:4px" id="pbiPeriodSlicers">
+                <button class="btn btn-gold btn-sm pbi-slicer active" onclick="pbiSlicer('period',0,this)">P1</button>
+                <button class="btn btn-ghost btn-sm pbi-slicer" onclick="pbiSlicer('period',1,this)">P2</button>
+                <button class="btn btn-ghost btn-sm pbi-slicer" onclick="pbiSlicer('period',2,this)">P3</button>
+                <button class="btn btn-ghost btn-sm pbi-slicer" onclick="pbiSlicer('period','all',this)">All</button>
+              </div>
+            </div>
+            <div class="flex"><span style="font-size:11px;color:var(--muted);margin-right:6px">View:</span>
+              <select class="tb-select" id="pbiViewSelect" onchange="renderPBI()">
+                <option value="overview">Full Overview</option>
+                <option value="profitability">Profitability</option>
+                <option value="balance">Balance Sheet</option>
+                <option value="efficiency">Efficiency</option>
+                <option value="health">Financial Health</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <!-- KPI ROW -->
+        <div class="cards" id="pbiKpis" style="grid-template-columns:repeat(auto-fill,minmax(140px,1fr))"></div>
+        <!-- CHART GRID -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px" id="pbiChartGrid">
+          <div class="box"><div class="box-title"><span class="icon">📊</span>Revenue · EBITDA · PAT Trend</div><div class="chart-wrap"><canvas id="pbiChart1"></canvas></div></div>
+          <div class="box"><div class="box-title"><span class="icon">🥧</span>Asset Composition</div><div class="chart-wrap"><canvas id="pbiChart2"></canvas></div></div>
+          <div class="box"><div class="box-title"><span class="icon">🕸️</span>Financial Health Radar</div><div class="chart-wrap"><canvas id="pbiChart3"></canvas></div></div>
+          <div class="box"><div class="box-title"><span class="icon">🌊</span>P&L Waterfall Bridge</div><div class="chart-wrap"><canvas id="pbiChart4"></canvas></div></div>
+          <div class="box"><div class="box-title"><span class="icon">📉</span>Liquidity Trend</div><div class="chart-wrap"><canvas id="pbiChart5"></canvas></div></div>
+          <div class="box"><div class="box-title"><span class="icon">🏗️</span>Debt vs Equity Composition</div><div class="chart-wrap"><canvas id="pbiChart6"></canvas></div></div>
+        </div>
+        <!-- RATIO GAUGES -->
+        <div class="box mt16"><div class="box-title"><span class="icon">🎯</span>KPI Gauges</div><div id="pbiGauges" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:16px;padding:8px 0"></div></div>
+      </div>
+
+      <!-- PRESENTATION MODE PANEL -->
+      <div class="panel" id="panel-present">
+        <div class="page-header flex-between">
+          <div><div class="page-title">🖥️ Presentation Mode</div><div class="page-sub">Auto-generated slide deck from your financial data — click Fullscreen to present</div></div>
+          <div class="flex">
+            <button class="btn btn-ghost btn-sm" onclick="prevSlide()">◀ Prev</button>
+            <span id="slideNum" style="font-size:12px;color:var(--muted);padding:0 8px">1 / 1</span>
+            <button class="btn btn-ghost btn-sm" onclick="nextSlide()">Next ▶</button>
+            <button class="btn btn-gold btn-sm" onclick="enterFullscreen()">⛶ Fullscreen</button>
+          </div>
+        </div>
+        <!-- PROMPT NOTES — Stage 2 -->
+        <div class="box" style="margin-bottom:12px">
+          <div class="box-title"><span class="icon">📝</span>Stage 2 — AI Prompt Notes <span style="background:var(--amb);color:var(--ink);font-size:9px;padding:2px 7px;border-radius:10px;font-weight:700;margin-left:6px">PREVIEW</span></div>
+          <div style="font-size:11.5px;color:var(--muted);margin-bottom:8px">Write instructions below — AI will customise the presentation output exactly as prompted.</div>
+          <textarea id="promptNotes" style="width:100%;height:80px;background:var(--ink);border:1px solid var(--bdr);color:var(--text);padding:10px;border-radius:6px;font-family:inherit;font-size:12px;resize:vertical" placeholder="e.g. Focus on profitability trends, highlight going concern risks, include 5-year projections, use conservative language suitable for a bank credit committee, compare with sector benchmarks…"></textarea>
+          <button class="btn btn-gold btn-sm mt8" onclick="buildPresentationWithPrompt()">✨ Build AI Presentation from Prompt</button>
+        </div>
+        <!-- SLIDE VIEWER -->
+        <div id="slideViewer" style="background:var(--ink2);border:1px solid var(--bdr);border-radius:12px;overflow:hidden;min-height:480px;position:relative"></div>
+        <div style="display:flex;justify-content:center;gap:6px;margin-top:12px" id="slideDots"></div>
+      </div>
+
       <!-- SETTINGS PANEL -->
       <div class="panel" id="panel-settings">
         <div class="page-header"><div class="page-title">⚙️ Settings</div><div class="page-sub">Application configuration and preferences</div></div>
         <div class="box">
-          <div class="box-title"><span class="icon">🔑</span>Claude AI Configuration</div>
-          <div class="form-grid">
-            <div class="form-group" style="grid-column:1/-1">
-              <label>Anthropic Claude API Key</label>
-              <div class="flex">
-                <input type="password" id="settingsApiKey" placeholder="sk-ant-api03-…" style="flex:1;letter-spacing:1px">
-                <button class="btn btn-gold btn-sm" onclick="saveApiKeyFromSettings()">Save</button>
-                <button class="btn btn-ghost btn-sm" onclick="clearApiKey()">Clear</button>
-              </div>
-              <div style="font-size:11px;color:var(--muted);margin-top:4px">Stored locally in browser (localStorage). Never sent to any server other than Anthropic.</div>
-            </div>
+          <div class="box-title"><span class="icon">🤖</span>AI Engine</div>
+          <div style="font-size:12px;color:var(--text);line-height:2">
+            <div>✅ <strong style="color:var(--em)">No API Key Required</strong> — AI runs via free internet connection</div>
+            <div style="color:var(--muted)">Powered by Pollinations AI (OpenAI-large model) — completely free, no registration needed.</div>
+            <div style="margin-top:8px">AI Status: <span id="aiStatusText" style="color:var(--em)">● Ready (Internet-connected)</span></div>
           </div>
         </div>
         <div class="box">
           <div class="box-title"><span class="icon">ℹ️</span>About</div>
           <div style="font-size:12px;color:var(--muted);line-height:2">
-            <div><strong style="color:var(--text)">FinAnalyser Pro</strong> — AI-Powered Financial Analysis Suite v2.0</div>
-            <div>AI Model: Claude claude-sonnet-4-6 (Anthropic)</div>
+            <div><strong style="color:var(--text)">FinAnalyser Pro</strong> — AI-Powered Financial Analysis Suite v2.1</div>
+            <div>AI: Free Internet AI via Pollinations (no API key, no registration)</div>
             <div>Standards: Schedule III (Companies Act 2013), AS 3 / Ind AS 7, ICAI Guidelines</div>
-            <div>Password protected for secure distribution</div>
+            <div>Password protected · Distributable single-file HTML</div>
+            <div style="color:var(--amb)">Stage 2: Prompt-guided AI Presentation Mode (Preview included)</div>
           </div>
         </div>
         <div class="box">
@@ -1348,45 +1399,40 @@ function renderComparative(){
   el.innerHTML=html;
 }
 
-// ─── API KEY ─────────────────────────────────────────────────────────────────
-function showApiModal(){document.getElementById('apiModal').classList.remove('hidden');}
-function closeApiModal(){document.getElementById('apiModal').classList.add('hidden');}
-function saveApiKey(){
-  const k=document.getElementById('apiKeyInput').value.trim();
-  if(k){localStorage.setItem('fap_claude_key',k);closeApiModal();checkApiKey();}
-}
-function saveApiKeyFromSettings(){
-  const k=document.getElementById('settingsApiKey').value.trim();
-  if(k){localStorage.setItem('fap_claude_key',k);alert('API key saved!');}
-}
-function clearApiKey(){localStorage.removeItem('fap_claude_key');document.getElementById('settingsApiKey').value='';alert('API key cleared.');}
-function checkApiKey(){
-  const k=localStorage.getItem('fap_claude_key')||'';
-  const w=document.getElementById('aiApiWarning');
-  if(w)k?w.classList.add('hidden'):w.classList.remove('hidden');
-  const si=document.getElementById('settingsApiKey');
-  if(si&&k)si.value=k;
-}
+// ─── FREE AI ENGINE (No API Key) ─────────────────────────────────────────────
+function showApiModal(){}   // no-op — no API key needed
+function checkApiKey(){const w=document.getElementById('aiApiWarning');if(w)w.classList.add('hidden');}
 
-// ─── CLAUDE API CALL ─────────────────────────────────────────────────────────
-async function callClaude(prompt,systemMsg=''){
-  const apiKey=localStorage.getItem('fap_claude_key');
-  if(!apiKey){showApiModal();return null;}
-  showLoading('Calling Claude AI…');
+async function callAI(prompt, systemMsg='You are an expert Chartered Accountant and financial analyst specializing in Indian financial statements, Companies Act 2013, Schedule III format, and ICAI standards.'){
+  showLoading('Fetching AI Analysis from internet…');
+  showToast('Connecting to AI engine…');
   try{
-    const body={model:'claude-sonnet-4-6',max_tokens:4000,messages:[{role:'user',content:prompt}]};
-    if(systemMsg)body.system=systemMsg;
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{
+    const messages=[{role:'system',content:systemMsg},{role:'user',content:prompt}];
+    const resp=await fetch('https://text.pollinations.ai/',{
       method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-calls':'true'},
-      body:JSON.stringify(body)
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({messages,model:'openai-large',stream:false,seed:Math.floor(Math.random()*9999)})
     });
-    const data=await resp.json();
-    if(data.error)throw new Error(data.error.message);
-    return data.content[0].text;
-  }catch(e){alert('AI Error: '+e.message);return null;}
-  finally{hideLoading();}
+    if(!resp.ok)throw new Error('AI service error ('+resp.status+'). Check internet connection.');
+    const text=await resp.text();
+    hideToast();
+    return text;
+  }catch(e){
+    hideToast();
+    // fallback attempt
+    try{
+      const enc=encodeURIComponent(systemMsg.slice(0,200)+'\n\n'+prompt);
+      const r2=await fetch(`https://text.pollinations.ai/${enc}?model=openai-large`);
+      if(r2.ok)return await r2.text();
+    }catch(_){}
+    throw new Error('AI service unreachable. Please check your internet connection. '+e.message);
+  }finally{hideLoading();}
 }
+// alias for backward compat
+const callClaude=callAI;
+
+function showToast(msg){const t=document.getElementById('aiToast');const m=document.getElementById('aiToastMsg');if(t&&m){m.textContent=msg;t.classList.remove('hidden');}}
+function hideToast(){const t=document.getElementById('aiToast');if(t)t.classList.add('hidden');}
 
 function getFinancialContext(){
   const p0=S.periods[0],p1=S.periods[1],p2=S.periods[2];
@@ -1428,7 +1474,7 @@ async function runAIAnalysis(){
   nav('ai');
   const ctx=getFinancialContext();
   const prompt=`You are a senior Chartered Accountant and financial analyst. Perform a comprehensive financial analysis based on the following data:\n\n${ctx}\n\nProvide a structured report with these sections:\n1. **Executive Summary** (3-4 sentences)\n2. **Financial Health Score** (rate /100 with brief justification)\n3. **Strengths** (bulleted list, min 3)\n4. **Concerns & Red Flags** (bulleted list, min 3)\n5. **Ratio Analysis & Commentary** (key ratios with interpretation)\n6. **Working Capital Assessment**\n7. **Debt & Leverage Analysis**\n8. **Cash Flow Quality** (if CF data available)\n9. **Growth Trajectory** (based on 3-year trend)\n10. **Industry Benchmarking** (compare to typical ${document.getElementById('coSector')?.selectedOptions[0]?.text||'sector'} benchmarks)\n11. **Management Efficiency Metrics**\n12. **AI Growth Factor Suggestions** (5 data-driven growth levers for this entity type and sector, based on industry trends, without human intervention)\n13. **Recommendations** (min 5 actionable points)\n\nFormat with clear headings using ## and bullet points. Be specific with numbers. Flag any anomalies clearly.`;
-  const result=await callClaude(prompt,'You are an expert CA and financial analyst specializing in Indian financial statements, Companies Act 2013, and ICAI standards.');
+  const result=await callAI(prompt);
   if(result){
     S.aiResult=result;
     const el=document.getElementById('aiResult');
@@ -1441,7 +1487,7 @@ async function runAuditInquiries(){
   nav('ai');
   const ctx=getFinancialContext();
   const prompt=`Based on the following financial data, generate 18-20 specific audit inquiries that an external auditor should raise:\n\n${ctx}\n\nFormat as a numbered list with:\n- The specific inquiry/question\n- The financial basis/trigger for this inquiry\n- The area of risk (Revenue, Expenses, Assets, Liabilities, Cash Flow, Compliance)\n\nFocus on Schedule III compliance, ICAI standards, Companies Act 2013 requirements, and any financial anomalies visible in the data.`;
-  const result=await callClaude(prompt);
+  const result=await callAI(prompt);
   if(result){
     S.aiResult=result;
     const el=document.getElementById('aiResult');
@@ -1454,7 +1500,7 @@ async function runVouching(){
   nav('ai');
   const ctx=getFinancialContext();
   const prompt=`Based on the following financial data, list specific vouching and verification procedures:\n\n${ctx}\n\nFor each major financial statement item, specify:\n- What documents to vouch (invoices, bank statements, agreements, etc.)\n- Verification procedure\n- Sample size recommendation\n- Red flags to look for\n\nOrganize by: Revenue Vouching, Expense Vouching, Asset Verification, Liability Verification, Cash & Bank Verification, Investment Verification.`;
-  const result=await callClaude(prompt);
+  const result=await callAI(prompt);
   if(result){S.aiResult=result;const el=document.getElementById('aiResult');el.classList.remove('hidden');el.innerHTML='<h2>✅ Vouching & Verification Procedures</h2>'+markdownToHtml(result);}
 }
 
@@ -1462,7 +1508,7 @@ async function runGoingConcern(){
   nav('ai');
   const ctx=getFinancialContext();
   const prompt=`Assess the going concern risk for this entity based on the following data:\n\n${ctx}\n\nAnalyze:\n1. **Overall Going Concern Assessment** (Low/Medium/High Risk)\n2. **Positive Indicators** (factors supporting going concern)\n3. **Negative Indicators** (factors raising doubt)\n4. **Key Ratios Assessment** (liquidity, solvency, profitability trends)\n5. **Cash Flow Sustainability**\n6. **Audit Disclosure Requirements** (what the auditor must disclose under SA 570)\n7. **Management Actions Required**\n8. **Final Opinion** with justification\n\nBe specific and reference specific data points from the financials provided.`;
-  const result=await callClaude(prompt);
+  const result=await callAI(prompt);
   if(result){S.aiResult=result;const el=document.getElementById('aiResult');el.classList.remove('hidden');el.innerHTML='<h2>⚠️ Going Concern Assessment</h2>'+markdownToHtml(result);}
 }
 
@@ -1470,7 +1516,7 @@ async function runFraudIndicators(){
   nav('ai');
   const ctx=getFinancialContext();
   const prompt=`Perform a fraud risk analysis (Beneish M-Score style) on the following financial data:\n\n${ctx}\n\nAnalyze:\n1. **Fraud Risk Score** (Low/Medium/High)\n2. **Days Sales Outstanding Trend** (rapid increase = revenue manipulation risk)\n3. **Gross Margin Index** (declining margins)\n4. **Asset Quality Index** (non-current assets vs total assets trend)\n5. **Sales Growth Index** (vs industry norms)\n6. **Depreciation Index** (unexplained changes)\n7. **Leverage Index** (increasing debt)\n8. **Total Accruals to Total Assets** (high accruals = earnings manipulation risk)\n9. **Related Party Transaction Risks**\n10. **Specific Red Flags Found** (with data references)\n11. **Recommended Forensic Procedures**\n\nBe analytical and evidence-based. Reference specific financial figures.`;
-  const result=await callClaude(prompt);
+  const result=await callAI(prompt);
   if(result){S.aiResult=result;const el=document.getElementById('aiResult');el.classList.remove('hidden');el.innerHTML='<h2>🚨 Fraud Indicators & Risk Analysis</h2>'+markdownToHtml(result);}
 }
 
@@ -1480,7 +1526,7 @@ async function runGrowthAnalysis(){
   const entityText=document.getElementById('entitySelect')?.selectedOptions[0]?.text||'';
   const sectorText=document.getElementById('coSector')?.selectedOptions[0]?.text||'';
   const prompt=`Based on the financial data and entity profile, suggest data-driven growth factors WITHOUT human intervention:\n\n${ctx}\n\nFor a ${entityText} in the ${sectorText} sector, provide:\n1. **Sector CAGR Benchmark** (typical 3/5/10 year CAGR for this sector)\n2. **Technology Adoption Opportunities** (AI, automation, digitization relevant to sector)\n3. **Regulatory Tailwinds** (government policies, PLI schemes, etc. benefiting this sector)\n4. **Geographic Expansion Levers** (tier 2/3 cities, exports, international markets)\n5. **Margin Improvement Opportunities** (operational efficiency, procurement, automation)\n6. **Revenue Diversification Options** (new product lines, adjacent markets)\n7. **Capital Efficiency Improvements** (working capital optimization, asset turnover)\n8. **Digital Transformation Impact** (expected ROI from digital adoption)\n9. **ESG / Sustainability Opportunities** (green financing, ESG premium)\n10. **Projected Revenue Range** (3-year and 5-year projections based on current trends)\n11. **Key Risks to Growth** (macro, regulatory, competitive)\n12. **Industry Peers Benchmark** (typical metrics for comparable companies)\n\nAll suggestions should be based on verifiable industry data and trends, not opinions.`;
-  const result=await callClaude(prompt);
+  const result=await callAI(prompt);
   if(result){S.aiResult=result;const el=document.getElementById('aiResult');el.classList.remove('hidden');el.innerHTML='<h2>📊 AI Growth Factor Analysis</h2>'+markdownToHtml(result);}
 }
 
@@ -1492,30 +1538,29 @@ async function sendChat(){
   input.value='';
   addChatMsg('user',msg);
   const ctx=getFinancialContext();
-  const history=S.chat.slice(-10).map(m=>({role:m.role,content:m.content}));
-  const apiKey=localStorage.getItem('fap_claude_key');
-  if(!apiKey){showApiModal();return;}
   addChatMsg('ai','...',true);
-  showLoading('AI is thinking…');
+  showToast('AI is thinking…');
   try{
+    const history=S.chat.slice(-8);
     const messages=[
-      {role:'user',content:`Financial Data Context:\n${ctx}\n\nUser Question: ${msg}`},
-      ...history.filter(h=>h.role!=='system').slice(-8)
+      {role:'system',content:'You are an expert CA and financial analyst. Answer questions about the provided financial data concisely. Reference specific figures. Format clearly with short paragraphs.'},
+      {role:'user',content:`Financial Data:\n${ctx}`},
+      ...history,
+      {role:'user',content:msg}
     ];
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{
+    const resp=await fetch('https://text.pollinations.ai/',{
       method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-calls':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1500,system:'You are an expert CA and financial analyst. Answer questions about the provided financial data concisely and accurately. Reference specific figures from the data. Format clearly.',messages})
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({messages,model:'openai-large',stream:false})
     });
-    const data=await resp.json();
-    if(data.error)throw new Error(data.error.message);
-    const reply=data.content[0].text;
+    if(!resp.ok)throw new Error('AI service error ('+resp.status+')');
+    const reply=await resp.text();
     removeLastTyping();
     addChatMsg('ai',reply);
     S.chat.push({role:'user',content:msg},{role:'assistant',content:reply});
     if(S.chat.length>40)S.chat=S.chat.slice(-40);
-  }catch(e){removeLastTyping();addChatMsg('ai','Error: '+e.message);}
-  finally{hideLoading();}
+  }catch(e){removeLastTyping();addChatMsg('ai','⚠️ '+e.message);}
+  finally{hideToast();}
 }
 function quickChat(q){document.getElementById('chatInput').value=q;sendChat();}
 function addChatMsg(role,text,typing=false){
@@ -1897,6 +1942,366 @@ function resetAll(){
   localStorage.removeItem('fap_state');
   location.reload();
 }
+
+// ─── POWER BI DASHBOARD ───────────────────────────────────────────────────────
+const pbiCharts={};
+let pbiPeriod=0; // 0=P1, 1=P2, 2=P3, 'all'=all
+
+function pbiSlicer(type,val,btn){
+  if(type==='period'){
+    pbiPeriod=val;
+    document.querySelectorAll('.pbi-slicer').forEach(b=>{b.className='btn btn-ghost btn-sm pbi-slicer';});
+    btn.className='btn btn-gold btn-sm pbi-slicer active';
+  }
+  renderPBI();
+}
+
+function renderPBI(){
+  renderPBIKpis();
+  renderPBICharts();
+  renderPBIGauges();
+}
+
+function renderPBIKpis(){
+  const p=pbiPeriod==='all'?0:pbiPeriod;
+  const kpis=[
+    {label:'Revenue',val:getBSVPL('total_rev',p),prev:getBSVPL('total_rev',p+1),color:'var(--gold)'},
+    {label:'EBITDA',val:getBSVPL('ebitda',p),prev:getBSVPL('ebitda',p+1),color:'var(--sky2)'},
+    {label:'Net Profit',val:getBSVPL('pat',p),prev:getBSVPL('pat',p+1),color:'var(--em)'},
+    {label:'Total Assets',val:getBSVal('total_assets',p),prev:getBSVal('total_assets',p+1),color:'var(--gold2)'},
+    {label:'Equity',val:getBSVal('total_equity',p),prev:getBSVal('total_equity',p+1),color:'var(--sky)'},
+    {label:'Net Debt',val:getBSVal('lt_borrowings',p)+getBSVal('st_borrowings',p)-getBSVal('cash',p),prev:0,color:'var(--amb)'},
+  ];
+  const el=document.getElementById('pbiKpis');
+  el.innerHTML=kpis.map(k=>{
+    const chg=k.prev&&k.prev!==0?((k.val-k.prev)/Math.abs(k.prev)*100):null;
+    const arrow=chg===null?'':(chg>=0?'▲':'▼')+Math.abs(chg).toFixed(1)+'%';
+    const cls=chg===null?'neu-delta':chg>=0?'up':'dn';
+    return `<div class="card"><div class="card-label">${k.label}</div><div class="card-value" style="color:${k.color};font-size:16px">${fmt(k.val)}</div><div class="card-delta ${cls}">${arrow}</div></div>`;
+  }).join('');
+}
+
+function renderPBICharts(){
+  const COLORS=['rgba(200,168,75,.8)','rgba(77,169,232,.8)','rgba(52,199,123,.8)','rgba(224,92,104,.8)','rgba(232,164,53,.8)','rgba(126,200,247,.6)'];
+  const view=document.getElementById('pbiViewSelect')?.value||'overview';
+
+  // Chart 1 — Trend (grouped bar)
+  destroyChart('pbiChart1');
+  const c1=document.getElementById('pbiChart1');
+  if(c1){
+    const labels=pbiPeriod==='all'?S.periods.slice().reverse():[S.periods[pbiPeriod]];
+    const perArr=pbiPeriod==='all'?[2,1,0]:[pbiPeriod];
+    pbiCharts['pbiChart1']=new Chart(c1,{
+      type:'bar',
+      data:{labels,datasets:[
+        {label:'Revenue',data:perArr.map(p=>getBSVPL('total_rev',p)),backgroundColor:COLORS[0],borderRadius:5},
+        {label:'EBITDA',data:perArr.map(p=>getBSVPL('ebitda',p)),backgroundColor:COLORS[1],borderRadius:5},
+        {label:'PAT',data:perArr.map(p=>getBSVPL('pat',p)),backgroundColor:COLORS[2],borderRadius:5},
+      ]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#6a8caa',font:{size:10}}}},scales:{x:{ticks:{color:'#6a8caa'},grid:{color:'rgba(200,168,75,.05)'}},y:{ticks:{color:'#6a8caa'},grid:{color:'rgba(200,168,75,.05)'}}}}
+    });
+  }
+
+  // Chart 2 — Asset composition doughnut
+  destroyChart('pbiChart2');
+  const c2=document.getElementById('pbiChart2');
+  if(c2){
+    const p=pbiPeriod==='all'?0:pbiPeriod;
+    pbiCharts['pbiChart2']=new Chart(c2,{
+      type:'doughnut',
+      data:{labels:['Fixed Assets','NC Investments','Current Assets','Other NC'],datasets:[{
+        data:[getBSVal('total_fa',p),getBSVal('nc_investments',p),getBSVal('total_ca',p),getBSVal('other_nca',p)+getBSVal('dta',p)+getBSVal('lt_loans',p)],
+        backgroundColor:COLORS,borderWidth:0,hoverOffset:8
+      }]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#6a8caa',font:{size:10},boxWidth:10}}}}
+    });
+  }
+
+  // Chart 3 — Financial Health Radar
+  destroyChart('pbiChart3');
+  const c3=document.getElementById('pbiChart3');
+  if(c3){
+    const p=pbiPeriod==='all'?0:pbiPeriod;
+    const rev=getBSVPL('total_rev',p),pat=getBSVPL('pat',p),ebitda=getBSVPL('ebitda',p);
+    const ca=getBSVal('total_ca',p),cl=getBSVal('total_cl',p),eq=getBSVal('total_equity',p);
+    const td=getBSVal('lt_borrowings',p)+getBSVal('st_borrowings',p),ta=getBSVal('total_assets',p);
+    const npm=rev>0?Math.min((pat/rev)*100,30):0;
+    const cr=cl>0?Math.min((ca/cl)*20,100):50;
+    const de=td>0&&eq>0?Math.max(100-((td/eq)*20),0):80;
+    const roe=eq>0?Math.min((pat/eq)*100,40):0;
+    const at=ta>0?Math.min((rev/ta)*50,100):0;
+    const em=rev>0?Math.min((ebitda/rev)*100*2,100):0;
+    pbiCharts['pbiChart3']=new Chart(c3,{
+      type:'radar',
+      data:{labels:['Net Margin','Liquidity','Solvency','ROE','Asset Turn.','EBITDA%'],datasets:[{
+        label:S.periods[p],data:[npm,cr,de,roe,at,em],
+        backgroundColor:'rgba(200,168,75,.2)',borderColor:'rgba(200,168,75,.8)',pointBackgroundColor:'rgba(200,168,75,1)',borderWidth:2
+      }]},
+      options:{responsive:true,maintainAspectRatio:false,scales:{r:{ticks:{color:'#6a8caa',font:{size:9},backdropColor:'transparent'},grid:{color:'rgba(200,168,75,.1)'},pointLabels:{color:'#d8e8f8',font:{size:10}},min:0,max:100}},plugins:{legend:{labels:{color:'#6a8caa'}}}}
+    });
+  }
+
+  // Chart 4 — P&L Waterfall
+  destroyChart('pbiChart4');
+  const c4=document.getElementById('pbiChart4');
+  if(c4){
+    const p=pbiPeriod==='all'?0:pbiPeriod;
+    const rev=getBSVPL('total_rev',p);
+    const cogs=getPLInput('cost_materials',p)+getPLInput('purchases_stock',p)+getPLInput('chg_inventories',p);
+    const emp=getPLInput('emp_benefits',p);
+    const dep=getPLInput('depreciation',p);
+    const fin=getPLInput('finance_costs',p);
+    const oth=getPLInput('other_exp',p);
+    const pat=getBSVPL('pat',p);
+    pbiCharts['pbiChart4']=new Chart(c4,{
+      type:'bar',
+      data:{labels:['Revenue','COGS','Employee','Other Exp','Dep.','Finance','PAT'],datasets:[{
+        data:[rev,-cogs,-emp,-oth,-dep,-fin,pat],
+        backgroundColor:[
+          'rgba(52,199,123,.8)','rgba(224,92,104,.7)','rgba(224,92,104,.7)',
+          'rgba(224,92,104,.7)','rgba(232,164,53,.7)','rgba(232,164,53,.7)','rgba(200,168,75,.8)'
+        ],borderRadius:4
+      }]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#6a8caa',font:{size:9}},grid:{color:'rgba(200,168,75,.05)'}},y:{ticks:{color:'#6a8caa'},grid:{color:'rgba(200,168,75,.05)'}}}}
+    });
+  }
+
+  // Chart 5 — Liquidity Trend (line)
+  destroyChart('pbiChart5');
+  const c5=document.getElementById('pbiChart5');
+  if(c5){
+    const perArr=pbiPeriod==='all'?[2,1,0]:[pbiPeriod];
+    const labels=perArr.map(p=>S.periods[p]);
+    pbiCharts['pbiChart5']=new Chart(c5,{
+      type:'line',
+      data:{labels,datasets:[
+        {label:'Current Ratio',data:perArr.map(p=>{const cl=getBSVal('total_cl',p);return cl>0?(getBSVal('total_ca',p)/cl).toFixed(2):0;}),borderColor:'rgba(200,168,75,1)',tension:.4,fill:false,pointRadius:5},
+        {label:'Quick Ratio',data:perArr.map(p=>{const cl=getBSVal('total_cl',p);return cl>0?((getBSVal('total_ca',p)-getBSVal('inventories',p))/cl).toFixed(2):0;}),borderColor:'rgba(77,169,232,1)',tension:.4,fill:false,pointRadius:5},
+        {label:'Cash Ratio',data:perArr.map(p=>{const cl=getBSVal('total_cl',p);return cl>0?(getBSVal('cash',p)/cl).toFixed(2):0;}),borderColor:'rgba(52,199,123,1)',tension:.4,fill:false,pointRadius:5},
+      ]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#6a8caa',font:{size:10}}}},scales:{x:{ticks:{color:'#6a8caa'},grid:{color:'rgba(200,168,75,.05)'}},y:{ticks:{color:'#6a8caa'},grid:{color:'rgba(200,168,75,.05)'}}}}
+    });
+  }
+
+  // Chart 6 — Debt vs Equity (stacked bar)
+  destroyChart('pbiChart6');
+  const c6=document.getElementById('pbiChart6');
+  if(c6){
+    const perArr=pbiPeriod==='all'?[2,1,0]:[pbiPeriod];
+    const labels=perArr.map(p=>S.periods[p]);
+    pbiCharts['pbiChart6']=new Chart(c6,{
+      type:'bar',
+      data:{labels,datasets:[
+        {label:'Equity',data:perArr.map(p=>getBSVal('total_equity',p)),backgroundColor:'rgba(52,199,123,.8)',borderRadius:4,stack:'s'},
+        {label:'LT Debt',data:perArr.map(p=>getBSVal('lt_borrowings',p)),backgroundColor:'rgba(224,92,104,.7)',borderRadius:0,stack:'s'},
+        {label:'ST Debt',data:perArr.map(p=>getBSVal('st_borrowings',p)),backgroundColor:'rgba(232,164,53,.7)',borderRadius:0,stack:'s'},
+      ]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#6a8caa',font:{size:10}}}},scales:{x:{ticks:{color:'#6a8caa'},grid:{color:'rgba(200,168,75,.05)'},stacked:true},y:{ticks:{color:'#6a8caa'},grid:{color:'rgba(200,168,75,.05)'},stacked:true}}}
+    });
+  }
+}
+
+function destroyChart(id){if(pbiCharts[id]){pbiCharts[id].destroy();delete pbiCharts[id];}}
+
+function renderPBIGauges(){
+  const p=pbiPeriod==='all'?0:pbiPeriod;
+  const gauges=[
+    {label:'Current Ratio',val:()=>{const cl=getBSVal('total_cl',p);return cl>0?(getBSVal('total_ca',p)/cl):0;},min:0,max:4,good:2,unit:'x'},
+    {label:'Net Margin',val:()=>{const r=getBSVPL('total_rev',p);return r>0?(getBSVPL('pat',p)/r)*100:0;},min:-20,max:40,good:10,unit:'%'},
+    {label:'ROE',val:()=>{const eq=getBSVal('total_equity',p);return eq>0?(getBSVPL('pat',p)/eq)*100:0;},min:0,max:40,good:15,unit:'%'},
+    {label:'D/E Ratio',val:()=>{const eq=getBSVal('total_equity',p);return eq>0?(getBSVal('lt_borrowings',p)+getBSVal('st_borrowings',p))/eq:0;},min:0,max:5,good:2,unit:'x',inverted:true},
+    {label:'EBITDA Margin',val:()=>{const r=getBSVPL('total_rev',p);return r>0?(getBSVPL('ebitda',p)/r)*100:0;},min:0,max:50,good:20,unit:'%'},
+    {label:'Interest Cover',val:()=>{const fc=getPLInput('finance_costs',p);return fc>0?getBSVPL('ebit',p)/fc:0;},min:0,max:10,good:3,unit:'x'},
+  ];
+  const el=document.getElementById('pbiGauges');
+  el.innerHTML=gauges.map(g=>{
+    const v=g.val();
+    const pct=Math.min(Math.max((v-g.min)/(g.max-g.min)*100,0),100);
+    const isGood=g.inverted?v<=g.good:v>=g.good;
+    const color=isGood?'var(--em)':v<(g.inverted?g.good*1.5:g.good*0.5)?'var(--rose)':'var(--amb)';
+    return `<div style="text-align:center">
+      <svg width="120" height="70" viewBox="0 0 120 70">
+        <path d="M10,60 A50,50 0 0,1 110,60" fill="none" stroke="var(--ink3)" stroke-width="10" stroke-linecap="round"/>
+        <path d="M10,60 A50,50 0 0,1 110,60" fill="none" stroke="${color}" stroke-width="10" stroke-linecap="round"
+          stroke-dasharray="${pct*1.57} 157" opacity=".85"/>
+        <text x="60" y="55" text-anchor="middle" fill="${color}" font-size="14" font-weight="700" font-family="DM Sans">${isNaN(v)?'—':v.toFixed(1)+g.unit}</text>
+      </svg>
+      <div style="font-size:11px;color:var(--muted);margin-top:-4px">${g.label}</div>
+    </div>`;
+  }).join('');
+}
+
+// ─── PRESENTATION MODE ────────────────────────────────────────────────────────
+let slides=[],curSlide=0;
+
+function buildSlides(){
+  const co=S.co.name||'Company';
+  const entity=document.getElementById('entitySelect')?.selectedOptions[0]?.text||'';
+  const sector=document.getElementById('coSector')?.selectedOptions[0]?.text||'';
+  const p=0;
+  const rev=getBSVPL('total_rev',p),pat=getBSVPL('pat',p),ebitda=getBSVPL('ebitda',p);
+  const ta=getBSVal('total_assets',p),eq=getBSVal('total_equity',p);
+  const cr_val=(getBSVal('total_cl',p)>0?(getBSVal('total_ca',p)/getBSVal('total_cl',p)).toFixed(2):'-');
+  const npm=rev>0?((pat/rev)*100).toFixed(1):'—';
+
+  slides=[
+    {title:'Cover',html:`<div style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--ink2),var(--ink3));text-align:center;padding:40px">
+      <div style="width:80px;height:80px;border-radius:18px;background:linear-gradient(135deg,var(--gold),var(--gold2));display:flex;align-items:center;justify-content:center;font-family:Playfair Display,serif;font-size:32px;font-weight:700;color:var(--ink);margin-bottom:24px">F</div>
+      <div style="font-family:Playfair Display,serif;font-size:32px;color:var(--gold2);margin-bottom:8px">${co}</div>
+      <div style="font-size:16px;color:var(--muted);margin-bottom:4px">${entity} · ${sector}</div>
+      <div style="font-size:14px;color:var(--muted)">${S.periods[0]} · Financial Analysis Report</div>
+      <div style="margin-top:32px;font-size:11px;color:var(--bdr);letter-spacing:2px;text-transform:uppercase">Prepared by FinAnalyser Pro · AI-Powered</div>
+    </div>`},
+    {title:'Financial Snapshot',html:`<div style="padding:32px">
+      <div style="font-family:Playfair Display,serif;font-size:22px;color:var(--gold2);margin-bottom:24px">Financial Snapshot — ${S.periods[0]}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
+        ${[['Total Revenue',fmt(rev),'var(--gold)'],['EBITDA',fmt(ebitda),'var(--sky2)'],['Net Profit (PAT)',fmt(pat),'var(--em)'],['Total Assets',fmt(ta),'var(--gold2)'],['Shareholders Equity',fmt(eq),'var(--sky)'],['Net Profit Margin',npm+'%','var(--amb)']].map(([l,v,c])=>`<div style="background:var(--ink3);border:1px solid var(--bdr);border-radius:10px;padding:20px"><div style="font-size:11px;color:var(--muted);margin-bottom:6px">${l}</div><div style="font-size:22px;font-weight:700;color:${c};font-family:Playfair Display,serif">${v}</div></div>`).join('')}
+      </div>
+    </div>`},
+    {title:'Balance Sheet',html:`<div style="padding:32px">
+      <div style="font-family:Playfair Display,serif;font-size:22px;color:var(--gold2);margin-bottom:20px">Balance Sheet Summary</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div><div style="font-size:13px;font-weight:600;color:var(--sky2);margin-bottom:12px">EQUITY & LIABILITIES</div>
+          ${[['Shareholders Equity',getBSVal('total_equity',p)],['Non-Current Liabilities',getBSVal('total_ncl',p)],['Current Liabilities',getBSVal('total_cl',p)]].map(([l,v])=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--bdr);font-size:13px"><span style="color:var(--text)">${l}</span><span style="color:var(--gold2);font-weight:600">${fmt(v)}</span></div>`).join('')}
+          <div style="display:flex;justify-content:space-between;padding:10px 0;font-size:14px;font-weight:700;color:var(--gold)"><span>TOTAL</span><span>${fmt(getBSVal('total_assets',p))}</span></div>
+        </div>
+        <div><div style="font-size:13px;font-weight:600;color:var(--sky2);margin-bottom:12px">ASSETS</div>
+          ${[['Non-Current Assets',getBSVal('total_nca',p)],['Current Assets',getBSVal('total_ca',p)]].map(([l,v])=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--bdr);font-size:13px"><span style="color:var(--text)">${l}</span><span style="color:var(--gold2);font-weight:600">${fmt(v)}</span></div>`).join('')}
+          <div style="display:flex;justify-content:space-between;padding:10px 0;font-size:14px;font-weight:700;color:var(--gold)"><span>TOTAL</span><span>${fmt(getBSVal('total_assets',p))}</span></div>
+        </div>
+      </div>
+    </div>`},
+    {title:'P&L Summary',html:`<div style="padding:32px">
+      <div style="font-family:Playfair Display,serif;font-size:22px;color:var(--gold2);margin-bottom:20px">Profit & Loss Summary</div>
+      ${[['Revenue from Operations',getBSVPL('total_rev',p),'var(--em)'],['(-) Total Expenses',getBSVPL('total_exp',p),'var(--rose)'],['= EBITDA',getBSVPL('ebitda',p),'var(--gold)'],['(-) Depreciation',getPLInput('depreciation',p),'var(--amb)'],['(-) Finance Costs',getPLInput('finance_costs',p),'var(--amb)'],['= PBT',getBSVPL('pbt',p),'var(--sky2)'],['(-) Tax',getBSVPL('total_tax',p),'var(--muted)'],['= PAT (Net Profit)',getBSVPL('pat',p),'var(--em)']].map(([l,v,c],i,arr)=>{const isTot=l.startsWith('=');return `<div style="display:flex;justify-content:space-between;align-items:center;padding:${isTot?10:7}px ${isTot?12:0}px;border-radius:${isTot?6:0}px;background:${isTot?'var(--ink3)':'transparent'};border-bottom:${isTot?'none':'1px solid rgba(200,168,75,.08)'};font-size:${isTot?14:13}px"><span style="color:${isTot?c:'var(--text)'}${isTot?';font-weight:600':''}">${l}</span><span style="color:${c};font-weight:${isTot?700:400}">${fmt(v)}</span></div>`}).join('')}
+    </div>`},
+    {title:'Key Ratios',html:`<div style="padding:32px">
+      <div style="font-family:Playfair Display,serif;font-size:22px;color:var(--gold2);margin-bottom:20px">Key Financial Ratios — ${S.periods[0]}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        ${(()=>{const p=0;const ca=getBSVal('total_ca',p),cl=getBSVal('total_cl',p),eq=getBSVal('total_equity',p),td=getBSVal('lt_borrowings',p)+getBSVal('st_borrowings',p),rev=getBSVPL('total_rev',p),pat=getBSVPL('pat',p),ebitda=getBSVPL('ebitda',p),ebit=getBSVPL('ebit',p),fc=getPLInput('finance_costs',p),ta=getBSVal('total_assets',p);
+        const ratios=[['Current Ratio',(cl>0?ca/cl:0).toFixed(2)+'x',cl>0&&ca/cl>=2],['Debt/Equity',(eq>0?td/eq:0).toFixed(2)+'x',eq>0&&td/eq<=2],['Interest Cover',(fc>0?ebit/fc:0).toFixed(2)+'x',fc>0&&ebit/fc>=3],['Net Margin',(rev>0?(pat/rev*100):0).toFixed(1)+'%',rev>0&&pat/rev>=0.1],['EBITDA Margin',(rev>0?(ebitda/rev*100):0).toFixed(1)+'%',rev>0&&ebitda/rev>=0.15],['ROE',(eq>0?(pat/eq*100):0).toFixed(1)+'%',eq>0&&pat/eq>=0.12],['ROA',(ta>0?(pat/ta*100):0).toFixed(1)+'%',ta>0&&pat/ta>=0.06],['Asset Turnover',(ta>0?rev/ta:0).toFixed(2)+'x',ta>0&&rev/ta>=1]];
+        return ratios.map(([l,v,g])=>`<div style="background:var(--ink3);border:1px solid ${g?'rgba(52,199,123,.3)':'rgba(224,92,104,.3)'};border-radius:8px;padding:14px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:12px;color:var(--muted)">${l}</span><span style="font-size:16px;font-weight:700;color:${g?'var(--em)':'var(--rose)'}">${v}</span></div>`).join('');})()}
+      </div>
+    </div>`},
+    {title:'Comparative',html:`<div style="padding:32px">
+      <div style="font-family:Playfair Display,serif;font-size:22px;color:var(--gold2);margin-bottom:20px">3-Year Comparative Overview</div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead><tr style="background:var(--ink2)"><th style="padding:10px;text-align:left;color:var(--muted)">Particulars</th>${S.periods.map(p=>`<th style="padding:10px;text-align:right;color:var(--muted)">${p}</th>`).join('')}</tr></thead>
+        <tbody>
+          ${[['Revenue','total_rev',true],['EBITDA','ebitda',false],['PAT','pat',true],['Total Assets','total_assets',false],['Equity','total_equity',false]].map(([l,id,bold])=>{
+            const vals=[0,1,2].map(p=>id==='total_assets'||id==='total_equity'?getBSVal(id,p):getBSVPL(id,p));
+            return `<tr style="border-bottom:1px solid rgba(200,168,75,.08)"><td style="padding:10px;color:var(--text);${bold?'font-weight:600':''}"">${l}</td>${vals.map(v=>`<td style="padding:10px;text-align:right;color:var(--gold2)">${fmt(v)}</td>`).join('')}</tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`},
+    {title:'AI Analysis',html:`<div style="padding:32px;overflow:auto;max-height:440px">
+      <div style="font-family:Playfair Display,serif;font-size:22px;color:var(--gold2);margin-bottom:16px">AI Financial Analysis</div>
+      <div style="font-size:12.5px;line-height:1.9;color:var(--text)">${S.aiResult?markdownToHtml(S.aiResult.slice(0,2000)+'…'):'<div style="color:var(--muted);font-style:italic">Run AI Analysis first (from the AI Deep Analysis panel) to include AI commentary in this slide.</div>'}</div>
+    </div>`},
+    {title:'Thank You',html:`<div style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--ink2),var(--ink3));text-align:center;padding:40px">
+      <div style="font-family:Playfair Display,serif;font-size:28px;color:var(--gold2);margin-bottom:12px">Thank You</div>
+      <div style="font-size:14px;color:var(--muted);max-width:400px;line-height:2">This analysis was prepared using FinAnalyser Pro. All figures are as reported by the entity. This report is for informational purposes only.</div>
+      <div style="margin-top:24px;font-size:11px;color:var(--muted)">${co} · ${S.periods[0]} · FinAnalyser Pro v2.1</div>
+    </div>`},
+  ];
+}
+
+function renderSlide(idx){
+  const viewer=document.getElementById('slideViewer');
+  const numEl=document.getElementById('slideNum');
+  const dotsEl=document.getElementById('slideDots');
+  if(!viewer||!slides.length)return;
+  const slide=slides[idx];
+  viewer.innerHTML=`<div style="min-height:480px;color:var(--text)">${slide.html}</div>`;
+  if(numEl)numEl.textContent=(idx+1)+' / '+slides.length+' — '+slide.title;
+  if(dotsEl){
+    dotsEl.innerHTML=slides.map((_,i)=>`<div onclick="goSlide(${i})" style="width:${i===idx?20:8}px;height:8px;border-radius:4px;background:${i===idx?'var(--gold)':'var(--ink3)'};cursor:pointer;transition:all .2s"></div>`).join('');
+  }
+}
+function nextSlide(){if(curSlide<slides.length-1){curSlide++;renderSlide(curSlide);}}
+function prevSlide(){if(curSlide>0){curSlide--;renderSlide(curSlide);}}
+function goSlide(i){curSlide=i;renderSlide(curSlide);}
+
+function enterFullscreen(){
+  const viewer=document.getElementById('slideViewer');
+  if(!viewer)return;
+  const fs=document.createElement('div');
+  fs.id='fsOverlay';
+  fs.style.cssText='position:fixed;inset:0;background:var(--ink);z-index:9000;display:flex;flex-direction:column';
+  fs.innerHTML=`
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 20px;background:var(--ink2);border-bottom:1px solid var(--bdr)">
+      <div style="display:flex;gap:8px" id="fsDots"></div>
+      <div style="font-size:12px;color:var(--muted)" id="fsNum"></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost btn-sm" onclick="fsPrev()">◀</button>
+        <button class="btn btn-ghost btn-sm" onclick="fsNext()">▶</button>
+        <button class="btn btn-rose btn-sm" onclick="exitFullscreen()">✕ Exit</button>
+      </div>
+    </div>
+    <div id="fsContent" style="flex:1;overflow:auto;font-size:115%"></div>`;
+  document.body.appendChild(fs);
+  let fsIdx=curSlide;
+  function renderFS(){
+    document.getElementById('fsContent').innerHTML=`<div style="min-height:calc(100vh - 52px);color:var(--text)">${slides[fsIdx].html}</div>`;
+    document.getElementById('fsNum').textContent=(fsIdx+1)+' / '+slides.length+' — '+slides[fsIdx].title;
+    const d=document.getElementById('fsDots');
+    if(d)d.innerHTML=slides.map((_,i)=>`<div onclick="window._fsGo(${i})" style="width:${i===fsIdx?16:6}px;height:6px;border-radius:3px;background:${i===fsIdx?'var(--gold)':'var(--ink3)'};cursor:pointer;transition:all .2s"></div>`).join('');
+  }
+  window._fsGo=(i)=>{fsIdx=i;renderFS();};
+  window.fsPrev=()=>{if(fsIdx>0){fsIdx--;renderFS();}};
+  window.fsNext=()=>{if(fsIdx<slides.length-1){fsIdx++;renderFS();}};
+  document.addEventListener('keydown',fsKey);
+  function fsKey(e){if(e.key==='ArrowRight'||e.key==='ArrowDown')window.fsNext();if(e.key==='ArrowLeft'||e.key==='ArrowUp')window.fsPrev();if(e.key==='Escape')exitFullscreen();}
+  window._fsKey=fsKey;
+  renderFS();
+  if(fs.requestFullscreen)fs.requestFullscreen().catch(()=>{});
+}
+function exitFullscreen(){
+  const fs=document.getElementById('fsOverlay');
+  if(fs)fs.remove();
+  if(document.exitFullscreen)document.exitFullscreen().catch(()=>{});
+  if(window._fsKey)document.removeEventListener('keydown',window._fsKey);
+}
+
+async function buildPresentationWithPrompt(){
+  const prompt_notes=document.getElementById('promptNotes').value.trim();
+  if(!prompt_notes){buildSlides();curSlide=0;renderSlide(0);return;}
+  const ctx=getFinancialContext();
+  const prompt=`You are preparing a financial presentation for a CA/Finance professional.
+Based on the financial data below and the specific instructions provided, write a presentation narrative.
+
+INSTRUCTIONS FROM USER:
+${prompt_notes}
+
+FINANCIAL DATA:
+${ctx}
+
+Write a structured presentation with sections, each starting with ## Section Title.
+Each section should have 3-5 key bullet points as - items.
+Be specific, use actual numbers from the data.
+Format for business presentation audience.`;
+  const result=await callAI(prompt);
+  if(result){
+    S.aiResult=S.aiResult||result;
+    buildSlides();
+    // Add a custom AI slide from the prompt
+    const promptSlide={title:'AI Guided Analysis',html:`<div style="padding:32px;overflow:auto;max-height:440px">
+      <div style="font-family:Playfair Display,serif;font-size:22px;color:var(--gold2);margin-bottom:16px">✨ Prompt-Guided Analysis</div>
+      <div style="font-size:12.5px;line-height:1.9;color:var(--text)">${markdownToHtml(result)}</div>
+    </div>`};
+    slides.splice(slides.length-1,0,promptSlide);
+    curSlide=0;renderSlide(0);
+  }
+}
+
+// Hook nav for pbi and present panels
+const _baseNav=nav;
+window.nav=function(id){
+  _baseNav(id);
+  if(id==='pbi')setTimeout(renderPBI,80);
+  if(id==='present'){buildSlides();curSlide=0;setTimeout(()=>renderSlide(0),50);}
+};
 
 // Enter key on password
 document.getElementById('pwInput').addEventListener('keydown',e=>{if(e.key==='Enter')checkPw();});
