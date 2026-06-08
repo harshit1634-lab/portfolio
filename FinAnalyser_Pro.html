@@ -1,0 +1,1906 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FinAnalyser Pro | AI Financial Suite</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root{--ink:#0e1621;--ink2:#16243a;--ink3:#1f334d;--gold:#c8a84b;--gold2:#e8c97a;--gold3:rgba(200,168,75,.13);--sky:#4da9e8;--sky2:#7ec8f7;--em:#34c77b;--rose:#e05c68;--amb:#e8a435;--text:#d8e8f8;--muted:#6a8caa;--bdr:rgba(200,168,75,.18);--card:rgba(22,36,58,.8)}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:'DM Sans',system-ui,sans-serif;background:var(--ink);color:var(--text);font-size:13px;line-height:1.5}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--ink3);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--gold)}
+
+/* PASSWORD SCREEN */
+#pwScreen{position:fixed;inset:0;background:linear-gradient(135deg,#0a1020 0%,#16243a 50%,#0e1621 100%);display:flex;align-items:center;justify-content:center;z-index:9999;flex-direction:column;gap:0}
+.pw-card{background:var(--card);border:1px solid var(--bdr);border-radius:16px;padding:48px 40px;width:380px;max-width:95vw;text-align:center;backdrop-filter:blur(10px);box-shadow:0 24px 80px rgba(0,0,0,.6)}
+.pw-logo{width:64px;height:64px;border-radius:14px;background:linear-gradient(135deg,var(--gold) 0%,var(--gold2) 100%);color:var(--ink);display:flex;align-items:center;justify-content:center;font-weight:700;font-family:'Playfair Display',serif;font-size:24px;margin:0 auto 16px}
+.pw-title{font-family:'Playfair Display',serif;font-size:22px;color:var(--gold2);margin-bottom:4px}
+.pw-sub{color:var(--muted);font-size:12px;margin-bottom:32px}
+.pw-input{width:100%;background:var(--ink);border:1px solid var(--bdr);color:var(--text);padding:12px 16px;border-radius:8px;font-family:inherit;font-size:14px;text-align:center;letter-spacing:2px;outline:none;transition:border .2s}
+.pw-input:focus{border-color:var(--gold)}
+.pw-btn{width:100%;margin-top:16px;padding:12px;background:linear-gradient(135deg,var(--gold) 0%,var(--gold2) 100%);color:var(--ink);border:none;border-radius:8px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:opacity .2s}
+.pw-btn:hover{opacity:.9}
+.pw-err{color:var(--rose);font-size:12px;margin-top:10px;min-height:18px}
+.pw-lock{color:var(--amb);font-size:12px;margin-top:6px}
+
+/* TOPBAR */
+#app{display:none;height:100vh;overflow:hidden;flex-direction:column}
+.topbar{height:52px;background:linear-gradient(180deg,#16243a,#0e1621);border-bottom:1px solid var(--bdr);display:flex;align-items:center;padding:0 18px;gap:12px;position:fixed;top:0;left:0;right:0;z-index:100;flex-shrink:0}
+.brand-logo{width:30px;height:30px;border-radius:7px;background:linear-gradient(135deg,var(--gold),var(--gold2));color:var(--ink);display:flex;align-items:center;justify-content:center;font-weight:700;font-family:'Playfair Display',serif;font-size:13px;flex-shrink:0}
+.brand-name{font-family:'Playfair Display',serif;font-size:16px;color:var(--gold2);font-weight:600;white-space:nowrap}
+.brand-name span{color:var(--muted);font-size:11px;font-weight:400;margin-left:6px;font-family:'DM Sans',sans-serif}
+.tb-sep{width:1px;height:24px;background:var(--bdr);margin:0 4px}
+.tb-select{background:var(--ink);border:1px solid var(--bdr);color:var(--text);padding:5px 10px;border-radius:6px;font-family:inherit;font-size:11px;cursor:pointer;max-width:180px}
+.tb-select:focus{outline:none;border-color:var(--gold)}
+.tb-spacer{flex:1}
+.btn{padding:6px 12px;border-radius:6px;font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;border:1px solid transparent;transition:all .15s;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.btn-gold{background:var(--gold);color:var(--ink);border-color:var(--gold)}
+.btn-gold:hover{background:var(--gold2)}
+.btn-ghost{background:transparent;color:var(--text);border-color:var(--bdr)}
+.btn-ghost:hover{border-color:var(--gold);color:var(--gold2)}
+.btn-em{background:var(--em);color:#fff;border-color:var(--em)}
+.btn-rose{background:var(--rose);color:#fff;border-color:var(--rose)}
+.btn-sm{padding:4px 9px;font-size:11px}
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--em);box-shadow:0 0 6px var(--em)}
+
+/* LAYOUT */
+.layout{display:flex;height:100vh;padding-top:52px}
+
+/* SIDEBAR */
+.sidebar{width:210px;background:var(--ink);border-right:1px solid var(--bdr);overflow-y:auto;flex-shrink:0;padding:12px 0}
+.side-group{margin-bottom:16px}
+.side-title{font-size:9.5px;font-weight:700;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;padding:0 16px;margin-bottom:5px}
+.side-item{display:flex;align-items:center;gap:9px;padding:8px 16px;color:var(--text);font-size:12px;cursor:pointer;border-left:2px solid transparent;transition:all .15s}
+.side-item:hover{background:var(--ink2);color:var(--gold2)}
+.side-item.active{background:var(--gold3);color:var(--gold2);border-left-color:var(--gold)}
+.side-icon{font-size:14px;width:16px;text-align:center;flex-shrink:0}
+.side-badge{margin-left:auto;background:var(--gold);color:var(--ink);font-size:9px;font-weight:700;padding:1px 5px;border-radius:10px}
+
+/* MAIN CONTENT */
+.main{flex:1;overflow-y:auto;background:var(--ink);padding:24px}
+.panel{display:none}
+.panel.active{display:block}
+.page-header{margin-bottom:20px}
+.page-title{font-family:'Playfair Display',serif;font-size:20px;color:var(--gold2)}
+.page-sub{color:var(--muted);font-size:12px;margin-top:2px}
+
+/* CARDS */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px;margin-bottom:20px}
+.card{background:var(--card);border:1px solid var(--bdr);border-radius:10px;padding:16px}
+.card-label{font-size:11px;color:var(--muted);margin-bottom:6px}
+.card-value{font-size:20px;font-weight:600;color:var(--text);font-family:'Playfair Display',serif}
+.card-value.pos{color:var(--em)}
+.card-value.neg{color:var(--rose)}
+.card-sub{font-size:11px;color:var(--muted);margin-top:4px}
+.card-delta{font-size:11px;font-weight:500}
+.card-delta.up{color:var(--em)}
+.card-delta.dn{color:var(--rose)}
+
+/* SECTION BOXES */
+.box{background:var(--card);border:1px solid var(--bdr);border-radius:10px;padding:18px;margin-bottom:16px}
+.box-title{font-size:13px;font-weight:600;color:var(--gold2);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.box-title .icon{font-size:15px}
+
+/* FORMS */
+.form-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.form-group{display:flex;flex-direction:column;gap:4px}
+.form-group label{font-size:11px;color:var(--muted);font-weight:500}
+.form-group input,.form-group select,.form-group textarea{background:var(--ink);border:1px solid var(--bdr);color:var(--text);padding:8px 10px;border-radius:6px;font-family:inherit;font-size:12px;outline:none;transition:border .15s;width:100%}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--gold)}
+.form-group select option{background:var(--ink2)}
+
+/* FINANCIAL TABLES */
+.fin-table-wrap{overflow-x:auto;border-radius:8px;border:1px solid var(--bdr)}
+.fin-table{width:100%;border-collapse:collapse;min-width:600px}
+.fin-table th{background:var(--ink2);color:var(--muted);font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;padding:9px 12px;text-align:right;border-bottom:1px solid var(--bdr);white-space:nowrap}
+.fin-table th:first-child{text-align:left;width:40%}
+.fin-table td{padding:7px 12px;border-bottom:1px solid rgba(200,168,75,.06);vertical-align:middle}
+.fin-table td:first-child{color:var(--text);font-size:12px}
+.fin-table td.num{text-align:right;font-size:12px;color:var(--text)}
+.fin-table td input.num-in{background:transparent;border:none;color:var(--text);font-family:inherit;font-size:12px;text-align:right;width:100%;outline:none;padding:2px 0}
+.fin-table td input.num-in:focus{background:var(--ink3);border-radius:4px;padding:2px 6px}
+.fin-table tr.section-head td{background:var(--ink2);color:var(--gold2);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.6px;padding:6px 12px}
+.fin-table tr.sub-head td{color:var(--sky2);font-size:11.5px;font-weight:600;padding-left:20px}
+.fin-table tr.total-row td{background:rgba(200,168,75,.07);color:var(--gold2);font-weight:600;border-top:1px solid var(--bdr)}
+.fin-table tr.grand-total td{background:var(--gold3);color:var(--gold);font-weight:700;border-top:2px solid var(--gold);font-size:13px}
+.fin-table tr:hover:not(.section-head):not(.total-row):not(.grand-total){background:rgba(255,255,255,.02)}
+.fin-table td.indent1{padding-left:28px}
+.fin-table td.indent2{padding-left:44px}
+.fin-table tr.calc-row td{color:var(--em);font-style:italic}
+
+/* RATIO TABLE */
+.ratio-table{width:100%;border-collapse:collapse}
+.ratio-table th{background:var(--ink2);color:var(--muted);font-size:10.5px;font-weight:600;padding:8px 12px;text-align:center;border-bottom:1px solid var(--bdr)}
+.ratio-table th:first-child{text-align:left}
+.ratio-table td{padding:7px 12px;border-bottom:1px solid rgba(255,255,255,.04);font-size:12px;text-align:center}
+.ratio-table td:first-child{text-align:left;color:var(--text)}
+.ratio-table tr:hover{background:rgba(255,255,255,.02)}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600}
+.badge-em{background:rgba(52,199,123,.15);color:var(--em)}
+.badge-rose{background:rgba(224,92,104,.15);color:var(--rose)}
+.badge-amb{background:rgba(232,164,53,.15);color:var(--amb)}
+.badge-muted{background:rgba(106,140,170,.15);color:var(--muted)}
+
+/* AI ANALYSIS */
+.ai-result{background:var(--ink2);border:1px solid var(--bdr);border-radius:10px;padding:20px;margin-top:16px;line-height:1.8}
+.ai-result h2{color:var(--gold2);font-family:'Playfair Display',serif;font-size:16px;margin:16px 0 8px;border-bottom:1px solid var(--bdr);padding-bottom:6px}
+.ai-result h2:first-child{margin-top:0}
+.ai-result h3{color:var(--sky2);font-size:13px;margin:12px 0 6px}
+.ai-result p{color:var(--text);margin-bottom:8px;font-size:12.5px}
+.ai-result ul,.ai-result ol{padding-left:20px;color:var(--text);font-size:12.5px}
+.ai-result li{margin-bottom:4px}
+.ai-result strong{color:var(--gold2)}
+.ai-result em{color:var(--amb)}
+.health-meter{height:12px;background:var(--ink3);border-radius:6px;overflow:hidden;margin:8px 0}
+.health-fill{height:100%;border-radius:6px;transition:width .8s ease}
+
+/* CHAT */
+.chat-wrap{display:flex;flex-direction:column;height:500px}
+.chat-msgs{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px}
+.chat-msg{max-width:80%;border-radius:12px;padding:10px 14px;font-size:12.5px;line-height:1.6}
+.chat-msg.user{background:var(--gold3);border:1px solid var(--bdr);align-self:flex-end;color:var(--text)}
+.chat-msg.ai{background:var(--ink2);border:1px solid var(--bdr);align-self:flex-start;color:var(--text)}
+.chat-msg .role{font-size:10px;font-weight:600;margin-bottom:4px}
+.chat-msg.user .role{color:var(--gold);text-align:right}
+.chat-msg.ai .role{color:var(--sky2)}
+.chat-bar{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--bdr);background:var(--ink2)}
+.chat-input{flex:1;background:var(--ink);border:1px solid var(--bdr);color:var(--text);padding:10px 14px;border-radius:8px;font-family:inherit;font-size:12px;outline:none;resize:none}
+.chat-input:focus{border-color:var(--gold)}
+.quick-pills{display:flex;flex-wrap:wrap;gap:6px;padding:8px 16px;border-top:1px solid rgba(255,255,255,.04)}
+.quick-pill{background:var(--ink3);border:1px solid var(--bdr);color:var(--muted);padding:4px 10px;border-radius:14px;font-size:11px;cursor:pointer;transition:all .15s}
+.quick-pill:hover{border-color:var(--gold);color:var(--gold2)}
+
+/* AUDIT TABLE */
+.audit-table{width:100%;border-collapse:collapse}
+.audit-table th{background:var(--ink2);color:var(--muted);font-size:10.5px;font-weight:600;padding:8px 12px;text-align:left;border-bottom:1px solid var(--bdr)}
+.audit-table td{padding:7px 12px;border-bottom:1px solid rgba(255,255,255,.04);font-size:12px;vertical-align:top}
+.audit-table tr:hover{background:rgba(255,255,255,.02)}
+.audit-select{background:var(--ink);border:1px solid var(--bdr);color:var(--text);padding:3px 6px;border-radius:4px;font-family:inherit;font-size:11px;outline:none}
+
+/* LOADING */
+.spinner{display:inline-block;width:18px;height:18px;border:2px solid var(--bdr);border-top-color:var(--gold);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-overlay{position:fixed;inset:0;background:rgba(14,22,33,.85);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:500;gap:14px;backdrop-filter:blur(4px)}
+.loading-overlay .msg{color:var(--gold2);font-size:14px}
+
+/* TABS */
+.tabs{display:flex;gap:0;border-bottom:1px solid var(--bdr);margin-bottom:16px}
+.tab{padding:8px 16px;cursor:pointer;color:var(--muted);font-size:12px;font-weight:500;border-bottom:2px solid transparent;transition:all .15s}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--gold2);border-bottom-color:var(--gold)}
+
+/* TALLY */
+.tally-ok{color:var(--em);font-weight:600;font-size:12px}
+.tally-err{color:var(--rose);font-weight:600;font-size:12px}
+
+/* MISC */
+.flex{display:flex;align-items:center;gap:8px}
+.flex-end{display:flex;align-items:center;justify-content:flex-end;gap:8px}
+.flex-between{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}
+.mt8{margin-top:8px}
+.mt16{margin-top:16px}
+.mt24{margin-top:24px}
+.section-divider{height:1px;background:var(--bdr);margin:20px 0}
+.info-text{color:var(--muted);font-size:11.5px;font-style:italic}
+.api-warning{background:rgba(232,164,53,.1);border:1px solid var(--amb);border-radius:8px;padding:12px 16px;color:var(--amb);font-size:12px;margin-bottom:16px}
+.chart-wrap{position:relative;height:260px;margin-top:12px}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(14,22,33,.85);z-index:800;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.modal{background:var(--ink2);border:1px solid var(--bdr);border-radius:12px;padding:28px;width:440px;max-width:95vw}
+.modal-title{font-family:'Playfair Display',serif;font-size:16px;color:var(--gold2);margin-bottom:6px}
+.modal-sub{color:var(--muted);font-size:12px;margin-bottom:20px}
+.hidden{display:none!important}
+
+/* EXPORT BUTTONS */
+.export-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
+.export-card{background:var(--card);border:1px solid var(--bdr);border-radius:10px;padding:18px;cursor:pointer;transition:all .2s;text-align:center}
+.export-card:hover{border-color:var(--gold);background:var(--gold3)}
+.export-card .icon{font-size:28px;margin-bottom:8px}
+.export-card .name{font-size:13px;font-weight:600;color:var(--text)}
+.export-card .desc{font-size:11px;color:var(--muted);margin-top:4px}
+
+/* COMPARATIVE */
+.cmp-table{width:100%;border-collapse:collapse;font-size:12px}
+.cmp-table th{background:var(--ink2);color:var(--muted);font-size:10.5px;font-weight:600;padding:8px 10px;text-align:right;border-bottom:1px solid var(--bdr)}
+.cmp-table th:first-child{text-align:left}
+.cmp-table td{padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.04);text-align:right}
+.cmp-table td:first-child{text-align:left;color:var(--text)}
+.cmp-table tr.h{background:var(--ink2);font-weight:600;color:var(--gold2)}
+.cmp-table tr:hover:not(.h){background:rgba(255,255,255,.02)}
+.pos-delta{color:var(--em)}
+.neg-delta{color:var(--rose)}
+.neu-delta{color:var(--muted)}
+
+@media(max-width:768px){
+  .sidebar{width:0;overflow:hidden;position:fixed;z-index:90;height:100%;transition:width .2s}
+  .sidebar.open{width:210px}
+  .main{padding:14px}
+  .cards{grid-template-columns:repeat(2,1fr)}
+}
+</style>
+</head>
+<body>
+
+<!-- PASSWORD SCREEN -->
+<div id="pwScreen">
+  <div class="pw-card">
+    <div class="pw-logo">F</div>
+    <div class="pw-title">FinAnalyser Pro</div>
+    <div class="pw-sub">AI-Powered Financial Analysis Suite · v2.0</div>
+    <input type="password" class="pw-input" id="pwInput" placeholder="Enter access password" onkeydown="if(event.key==='Enter')checkPw()">
+    <button class="pw-btn" onclick="checkPw()">🔓 Unlock Suite</button>
+    <div class="pw-err" id="pwErr"></div>
+    <div class="pw-lock hidden" id="pwLock"></div>
+  </div>
+</div>
+
+<!-- LOADING OVERLAY -->
+<div class="loading-overlay hidden" id="loadingOverlay">
+  <div class="spinner" style="width:36px;height:36px;border-width:3px"></div>
+  <div class="msg" id="loadingMsg">Running AI Analysis…</div>
+</div>
+
+<!-- API KEY MODAL -->
+<div class="modal-overlay hidden" id="apiModal">
+  <div class="modal">
+    <div class="modal-title">🤖 Claude API Key</div>
+    <div class="modal-sub">Enter your Anthropic API key to enable AI analysis. Stored locally in browser only.</div>
+    <div class="form-group">
+      <label>API Key</label>
+      <input type="password" id="apiKeyInput" placeholder="sk-ant-api03-..." style="letter-spacing:1px">
+    </div>
+    <div style="margin-top:8px;font-size:11px;color:var(--muted)">Get your key at <span style="color:var(--sky2)">console.anthropic.com</span></div>
+    <div class="flex-end mt16">
+      <button class="btn btn-ghost" onclick="closeApiModal()">Cancel</button>
+      <button class="btn btn-gold" onclick="saveApiKey()">Save Key</button>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app" style="display:none;flex-direction:column">
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="brand-logo">F</div>
+    <div class="brand-name">FinAnalyser Pro <span>AI Suite</span></div>
+    <div class="tb-sep"></div>
+    <select class="tb-select" id="entitySelect" onchange="onEntityChange()">
+      <option value="unlisted_pvt">Unlisted Private Ltd</option>
+      <option value="unlisted_pub">Unlisted Public Ltd</option>
+      <option value="listed">Listed Company</option>
+      <option value="opc">One Person Company</option>
+      <option value="section8">Section 8 Company</option>
+      <option value="llp">LLP</option>
+      <option value="partnership">Partnership Firm</option>
+      <option value="proprietorship">Proprietorship</option>
+      <option value="psu">Public Sector Undertaking</option>
+      <option value="bank_pub">Banking (Public Sector)</option>
+      <option value="bank_pvt">Banking (Private Sector)</option>
+      <option value="nbfc">NBFC</option>
+      <option value="insurance_life">Insurance (Life)</option>
+      <option value="insurance_gen">Insurance (General)</option>
+      <option value="mfi">Microfinance Institution</option>
+      <option value="cooperative">Cooperative Society</option>
+      <option value="startup">Startup (DPIIT)</option>
+      <option value="sme">SME</option>
+    </select>
+    <div class="tb-sep"></div>
+    <select class="tb-select" id="periodSelect" onchange="onPeriodChange()" style="max-width:130px">
+      <option value="0">FY 2024-25</option>
+      <option value="1">FY 2023-24</option>
+      <option value="2">FY 2022-23</option>
+    </select>
+    <div class="tb-spacer"></div>
+    <div class="status-dot" title="AI Ready"></div>
+    <button class="btn btn-ghost btn-sm" onclick="showApiModal()">🔑 API Key</button>
+    <button class="btn btn-gold btn-sm" onclick="runAIAnalysis()">✨ AI Analyse</button>
+    <button class="btn btn-ghost btn-sm" onclick="exportExcel()">⬇ Excel</button>
+  </div>
+
+  <!-- LAYOUT -->
+  <div class="layout">
+    <!-- SIDEBAR -->
+    <div class="sidebar" id="sidebar">
+      <div class="side-group">
+        <div class="side-title">Overview</div>
+        <div class="side-item active" onclick="nav('dashboard')"><span class="side-icon">📊</span>Dashboard</div>
+        <div class="side-item" onclick="nav('profile')"><span class="side-icon">🏢</span>Company Profile</div>
+      </div>
+      <div class="side-group">
+        <div class="side-title">Financial Statements</div>
+        <div class="side-item" onclick="nav('bs')"><span class="side-icon">⚖️</span>Balance Sheet</div>
+        <div class="side-item" onclick="nav('pl')"><span class="side-icon">📈</span>Profit & Loss</div>
+        <div class="side-item" onclick="nav('cf')"><span class="side-icon">💧</span>Cash Flow</div>
+        <div class="side-item" onclick="nav('ratios')"><span class="side-icon">🔢</span>Financial Ratios</div>
+      </div>
+      <div class="side-group">
+        <div class="side-title">Analysis</div>
+        <div class="side-item" onclick="nav('comparative')"><span class="side-icon">↔️</span>Comparative</div>
+        <div class="side-item" onclick="nav('ai')"><span class="side-icon">🤖</span>AI Deep Analysis</div>
+        <div class="side-item" onclick="nav('audit')"><span class="side-icon">🔍</span>Audit & Verification</div>
+        <div class="side-item" onclick="nav('chat')"><span class="side-icon">💬</span>AI Chat</div>
+      </div>
+      <div class="side-group">
+        <div class="side-title">Data</div>
+        <div class="side-item" onclick="nav('importexport')"><span class="side-icon">🔄</span>Import / Export</div>
+        <div class="side-item" onclick="nav('settings')"><span class="side-icon">⚙️</span>Settings</div>
+      </div>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div class="main" id="mainContent">
+
+      <!-- DASHBOARD PANEL -->
+      <div class="panel active" id="panel-dashboard">
+        <div class="page-header">
+          <div class="page-title">📊 Dashboard</div>
+          <div class="page-sub" id="dashCoName">No company loaded — set up Company Profile first</div>
+        </div>
+        <div class="cards" id="dashCards">
+          <div class="card"><div class="card-label">Total Revenue</div><div class="card-value" id="dc-rev">—</div><div class="card-delta" id="dc-rev-d"></div></div>
+          <div class="card"><div class="card-label">Net Profit (PAT)</div><div class="card-value" id="dc-pat">—</div><div class="card-delta" id="dc-pat-d"></div></div>
+          <div class="card"><div class="card-label">Total Assets</div><div class="card-value" id="dc-assets">—</div><div class="card-sub"></div></div>
+          <div class="card"><div class="card-label">EBITDA Margin</div><div class="card-value" id="dc-ebitda">—</div><div class="card-sub">vs Revenue</div></div>
+          <div class="card"><div class="card-label">Current Ratio</div><div class="card-value" id="dc-cr">—</div><div class="card-sub">Benchmark ≥ 2</div></div>
+          <div class="card"><div class="card-label">Debt : Equity</div><div class="card-value" id="dc-de">—</div><div class="card-sub">Benchmark ≤ 2</div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          <div class="box"><div class="box-title"><span class="icon">📊</span>Revenue · EBITDA · PAT Trend</div><div class="chart-wrap"><canvas id="chartTrend"></canvas></div></div>
+          <div class="box"><div class="box-title"><span class="icon">🥧</span>Asset Composition</div><div class="chart-wrap"><canvas id="chartAssets"></canvas></div></div>
+        </div>
+      </div>
+
+      <!-- COMPANY PROFILE PANEL -->
+      <div class="panel" id="panel-profile">
+        <div class="page-header flex-between">
+          <div><div class="page-title">🏢 Company Profile</div><div class="page-sub">Entity information and reporting configuration</div></div>
+          <button class="btn btn-gold" onclick="saveProfile()">💾 Save Profile</button>
+        </div>
+        <div class="box">
+          <div class="box-title"><span class="icon">📋</span>Basic Information</div>
+          <div class="form-grid">
+            <div class="form-group"><label>Company / Entity Name *</label><input id="coName" placeholder="ABC Private Limited" oninput="updateCoName()"></div>
+            <div class="form-group"><label>PAN Number</label><input id="coPan" placeholder="AABCA1234Z" style="text-transform:uppercase"></div>
+            <div class="form-group"><label>CIN / Registration No.</label><input id="coCin" placeholder="U74999MH2010PTC123456"></div>
+            <div class="form-group"><label>Date of Incorporation</label><input type="date" id="coIncorp"></div>
+            <div class="form-group"><label>Financial Year End</label>
+              <select id="coFyEnd">
+                <option value="March">31st March</option>
+                <option value="June">30th June</option>
+                <option value="September">30th September</option>
+                <option value="December">31st December</option>
+              </select>
+            </div>
+            <div class="form-group"><label>Reporting Currency Unit</label>
+              <select id="coUnit" onchange="updateUnit()">
+                <option value="lakhs">₹ Lakhs</option>
+                <option value="crores">₹ Crores</option>
+                <option value="thousands">₹ Thousands</option>
+                <option value="actual">Actuals (₹)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="box">
+          <div class="box-title"><span class="icon">🏭</span>Classification</div>
+          <div class="form-grid">
+            <div class="form-group"><label>Primary Sector</label>
+              <select id="coSector">
+                <option value="technology">Technology & IT Services</option>
+                <option value="banking">Banking & Financial Services</option>
+                <option value="insurance">Insurance & Risk Management</option>
+                <option value="healthcare">Healthcare & Pharmaceuticals</option>
+                <option value="biotech">Biotechnology & Life Sciences</option>
+                <option value="fmcg">Fast Moving Consumer Goods (FMCG)</option>
+                <option value="auto">Automobiles & Auto Components</option>
+                <option value="realestate">Real Estate & Construction</option>
+                <option value="infra">Infrastructure & Utilities</option>
+                <option value="energy">Energy (Conventional)</option>
+                <option value="renewable">Renewable Energy & Green Tech</option>
+                <option value="oilgas">Oil & Gas & Petrochemicals</option>
+                <option value="metals">Metals & Mining</option>
+                <option value="chemicals">Chemicals & Specialty Chemicals</option>
+                <option value="fertilizers">Fertilizers & Agrochemicals</option>
+                <option value="textiles">Textiles & Apparel</option>
+                <option value="retail">Retail & E-commerce</option>
+                <option value="media">Media & Entertainment</option>
+                <option value="telecom">Telecom & Communication</option>
+                <option value="education">Education & EdTech</option>
+                <option value="agri">Agriculture & Food Processing</option>
+                <option value="logistics">Logistics & Transportation</option>
+                <option value="defence">Defence & Aerospace</option>
+                <option value="hospitality">Tourism & Hospitality</option>
+                <option value="capgoods">Capital Goods & Heavy Engineering</option>
+                <option value="cement">Cement & Building Materials</option>
+                <option value="consumer">Consumer Durables & Electronics</option>
+                <option value="gems">Gems & Jewellery</option>
+                <option value="paper">Paper & Packaging</option>
+                <option value="plastic">Plastic & Rubber Products</option>
+                <option value="aviation">Aviation</option>
+                <option value="shipping">Shipping & Ports</option>
+                <option value="railways">Railways & Metro</option>
+                <option value="startupvc">Startups & Venture-backed</option>
+                <option value="ngo">NGO / Trust / Non-Profit</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div class="form-group"><label>Sub-sector / Niche</label><input id="coSubSector" placeholder="e.g. SaaS, Generics, EV Components"></div>
+            <div class="form-group"><label>Statutory Auditor Name</label><input id="coAuditor" placeholder="CA Firm Name"></div>
+            <div class="form-group"><label>Audit Firm Registration No.</label><input id="coAuditFirm" placeholder="FRN: 123456W"></div>
+          </div>
+        </div>
+        <div class="box">
+          <div class="box-title"><span class="icon">📅</span>Reporting Periods</div>
+          <div class="form-grid">
+            <div class="form-group"><label>Period 1 (Current)</label><input id="period0" value="FY 2024-25" oninput="updatePeriods()"></div>
+            <div class="form-group"><label>Period 2 (Prior)</label><input id="period1" value="FY 2023-24" oninput="updatePeriods()"></div>
+            <div class="form-group"><label>Period 3 (Earlier)</label><input id="period2" value="FY 2022-23" oninput="updatePeriods()"></div>
+          </div>
+        </div>
+        <!-- Entity-specific fields -->
+        <div class="box" id="entityFields-listed" style="display:none">
+          <div class="box-title"><span class="icon">📈</span>Listed Company Details</div>
+          <div class="form-grid">
+            <div class="form-group"><label>Stock Exchange</label><select id="coExchange"><option>BSE</option><option>NSE</option><option>BSE & NSE</option></select></div>
+            <div class="form-group"><label>Scrip Code (BSE / NSE)</label><input id="coScripCode" placeholder="500325 / RELIANCE"></div>
+            <div class="form-group"><label>Market Capitalization (₹ Cr)</label><input type="number" id="coMktCap" placeholder="0.00"></div>
+            <div class="form-group"><label>Face Value per Share (₹)</label><input type="number" id="coFaceVal" value="10"></div>
+          </div>
+        </div>
+        <div class="box" id="entityFields-startup" style="display:none">
+          <div class="box-title"><span class="icon">🚀</span>Startup Details</div>
+          <div class="form-grid">
+            <div class="form-group"><label>Funding Stage</label><select id="coFundStage"><option>Pre-seed</option><option>Seed</option><option>Series A</option><option>Series B</option><option>Series C</option><option>Series D+</option><option>Bootstrapped</option></select></div>
+            <div class="form-group"><label>Total Funding Raised (₹ Cr)</label><input type="number" id="coFunding" placeholder="0.00"></div>
+            <div class="form-group"><label>Lead Investor(s)</label><input id="coInvestors" placeholder="Sequoia, SoftBank..."></div>
+            <div class="form-group"><label>DPIIT Recognition No.</label><input id="coDpiit" placeholder="DIPP12345"></div>
+          </div>
+        </div>
+        <div class="box" id="entityFields-section8" style="display:none">
+          <div class="box-title"><span class="icon">🏛️</span>Section 8 / Non-Profit Details</div>
+          <div class="form-grid">
+            <div class="form-group"><label>12A Registration</label><select id="co12a"><option>Yes</option><option>No</option><option>Applied</option></select></div>
+            <div class="form-group"><label>80G Registration</label><select id="co80g"><option>Yes</option><option>No</option><option>Applied</option></select></div>
+            <div class="form-group"><label>Primary Beneficiaries</label><input id="coBeneficiaries" placeholder="Rural women, Children..."></div>
+            <div class="form-group"><label>Geographical Focus</label><input id="coGeo" placeholder="Pan India, State-specific..."></div>
+          </div>
+        </div>
+        <div class="box" id="entityFields-banking" style="display:none">
+          <div class="box-title"><span class="icon">🏦</span>Banking / NBFC Specific</div>
+          <div class="form-grid">
+            <div class="form-group"><label>Gross NPA Target (%)</label><input type="number" id="coNpaTarget" placeholder="e.g. 3"></div>
+            <div class="form-group"><label>Capital Adequacy Ratio Target (%)</label><input type="number" id="coCarTarget" placeholder="e.g. 15"></div>
+            <div class="form-group"><label>CASA Ratio Target (%)</label><input type="number" id="coCasaTarget" placeholder="e.g. 40"></div>
+            <div class="form-group"><label>RBI License Type</label><input id="coRbiLicense" placeholder="Scheduled Commercial Bank..."></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BALANCE SHEET PANEL -->
+      <div class="panel" id="panel-bs">
+        <div class="page-header flex-between">
+          <div><div class="page-title">⚖️ Balance Sheet</div><div class="page-sub">Schedule III — Companies Act 2013</div></div>
+          <div class="flex">
+            <span id="bsTally" class="tally-ok">✓ Balanced</span>
+            <button class="btn btn-ghost btn-sm" onclick="recalcBS()">↻ Recalculate</button>
+          </div>
+        </div>
+        <div class="box" style="padding:0;overflow:hidden">
+          <div class="fin-table-wrap">
+            <table class="fin-table" id="bsTable">
+              <thead>
+                <tr>
+                  <th>Particulars</th>
+                  <th id="bsh0">FY 2024-25</th>
+                  <th id="bsh1">FY 2023-24</th>
+                  <th id="bsh2">FY 2022-23</th>
+                </tr>
+              </thead>
+              <tbody id="bsTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- P&L PANEL -->
+      <div class="panel" id="panel-pl">
+        <div class="page-header flex-between">
+          <div><div class="page-title">📈 Profit & Loss Account</div><div class="page-sub">Statement of Profit and Loss — Schedule III</div></div>
+          <button class="btn btn-ghost btn-sm" onclick="recalcPL()">↻ Recalculate</button>
+        </div>
+        <div class="box" style="padding:0;overflow:hidden">
+          <div class="fin-table-wrap">
+            <table class="fin-table" id="plTable">
+              <thead>
+                <tr>
+                  <th>Particulars</th>
+                  <th id="plh0">FY 2024-25</th>
+                  <th id="plh1">FY 2023-24</th>
+                  <th id="plh2">FY 2022-23</th>
+                </tr>
+              </thead>
+              <tbody id="plTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- CASH FLOW PANEL -->
+      <div class="panel" id="panel-cf">
+        <div class="page-header flex-between">
+          <div><div class="page-title">💧 Cash Flow Statement</div><div class="page-sub">Indirect Method — As per AS 3 / Ind AS 7</div></div>
+          <button class="btn btn-ghost btn-sm" onclick="recalcCF()">↻ Recalculate</button>
+        </div>
+        <div class="box" style="padding:0;overflow:hidden">
+          <div class="fin-table-wrap">
+            <table class="fin-table" id="cfTable">
+              <thead>
+                <tr>
+                  <th>Particulars</th>
+                  <th id="cfh0">FY 2024-25</th>
+                  <th id="cfh1">FY 2023-24</th>
+                  <th id="cfh2">FY 2022-23</th>
+                </tr>
+              </thead>
+              <tbody id="cfTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- RATIOS PANEL -->
+      <div class="panel" id="panel-ratios">
+        <div class="page-header flex-between">
+          <div><div class="page-title">🔢 Financial Ratios</div><div class="page-sub">Auto-calculated from Balance Sheet & P&L data</div></div>
+          <button class="btn btn-gold btn-sm" onclick="calcRatios();nav('ratios')">↻ Recalculate All</button>
+        </div>
+        <div id="ratiosContent"></div>
+      </div>
+
+      <!-- COMPARATIVE PANEL -->
+      <div class="panel" id="panel-comparative">
+        <div class="page-header">
+          <div class="page-title">↔️ Comparative Analysis</div>
+          <div class="page-sub">Year-on-year comparison with growth indicators</div>
+        </div>
+        <div id="comparativeContent"></div>
+      </div>
+
+      <!-- AI ANALYSIS PANEL -->
+      <div class="panel" id="panel-ai">
+        <div class="page-header flex-between">
+          <div><div class="page-title">🤖 AI Deep Analysis</div><div class="page-sub">Powered by Claude AI (claude-sonnet-4-6)</div></div>
+          <button class="btn btn-ghost btn-sm" onclick="showApiModal()">🔑 Configure API</button>
+        </div>
+        <div id="aiApiWarning" class="api-warning hidden">⚠️ No API key configured. <a href="#" onclick="showApiModal();return false" style="color:var(--gold)">Set your Claude API key</a> to enable AI analysis.</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:16px">
+          <button class="btn btn-gold" onclick="runAIAnalysis()" style="padding:10px 14px;font-size:13px;justify-content:center">✨ Full AI Analysis</button>
+          <button class="btn btn-ghost" onclick="runAuditInquiries()">🔍 Audit Inquiries</button>
+          <button class="btn btn-ghost" onclick="runVouching()">✅ Vouching Points</button>
+          <button class="btn btn-ghost" onclick="runGoingConcern()">⚠️ Going Concern</button>
+          <button class="btn btn-ghost" onclick="runFraudIndicators()">🚨 Fraud Indicators</button>
+          <button class="btn btn-ghost" onclick="runGrowthAnalysis()">📊 Growth Factors</button>
+        </div>
+        <div id="aiResult" class="ai-result hidden"></div>
+      </div>
+
+      <!-- AUDIT PANEL -->
+      <div class="panel" id="panel-audit">
+        <div class="page-header flex-between">
+          <div><div class="page-title">🔍 Audit & Verification</div><div class="page-sub">Audit checklist, vouching register and red flag indicators</div></div>
+          <button class="btn btn-ghost btn-sm" onclick="exportAuditCSV()">⬇ Export CSV</button>
+        </div>
+        <div class="tabs">
+          <div class="tab active" onclick="auditTab('checklist',this)">Audit Checklist</div>
+          <div class="tab" onclick="auditTab('vouching',this)">Vouching Register</div>
+          <div class="tab" onclick="auditTab('redflags',this)">Red Flag Indicators</div>
+        </div>
+        <div id="auditChecklist"></div>
+        <div id="auditVouching" class="hidden"></div>
+        <div id="auditRedflags" class="hidden"></div>
+      </div>
+
+      <!-- CHAT PANEL -->
+      <div class="panel" id="panel-chat">
+        <div class="page-header"><div class="page-title">💬 AI Financial Analyst Chat</div><div class="page-sub">Ask questions about the loaded financial data</div></div>
+        <div class="box" style="padding:0;overflow:hidden">
+          <div class="chat-wrap">
+            <div class="quick-pills">
+              <span class="quick-pill" onclick="quickChat('What are the main financial risks?')">Main risks?</span>
+              <span class="quick-pill" onclick="quickChat('Is this company a going concern?')">Going concern?</span>
+              <span class="quick-pill" onclick="quickChat('Compare profitability between years')">Profitability trend</span>
+              <span class="quick-pill" onclick="quickChat('What is driving revenue growth?')">Revenue growth drivers</span>
+              <span class="quick-pill" onclick="quickChat('Is the company over-leveraged?')">Over-leveraged?</span>
+              <span class="quick-pill" onclick="quickChat('Suggest 5 key audit procedures for this entity')">Audit procedures</span>
+            </div>
+            <div class="chat-msgs" id="chatMsgs">
+              <div class="chat-msg ai"><div class="role">🤖 AI Analyst</div>Hello! I'm your AI financial analyst. Load your financial data and ask me anything about the company's financials, ratios, trends, or audit concerns. How can I help?</div>
+            </div>
+            <div class="chat-bar">
+              <textarea class="chat-input" id="chatInput" rows="2" placeholder="Ask a question about the financials…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat()}"></textarea>
+              <button class="btn btn-gold" onclick="sendChat()" style="align-self:flex-end">Send</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- IMPORT/EXPORT PANEL -->
+      <div class="panel" id="panel-importexport">
+        <div class="page-header"><div class="page-title">🔄 Import / Export</div><div class="page-sub">Import financial data or export your analysis</div></div>
+        <div class="box">
+          <div class="box-title"><span class="icon">📥</span>Import Data</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+            <div>
+              <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Upload Excel (.xlsx) or CSV file — auto-maps to Balance Sheet / P&L rows</div>
+              <input type="file" id="importFile" accept=".xlsx,.csv,.json" onchange="importFile()" style="display:none">
+              <button class="btn btn-ghost" onclick="document.getElementById('importFile').click()">📂 Choose File (.xlsx / .csv / .json)</button>
+            </div>
+            <div>
+              <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Paste tab-separated data from Excel (Ctrl+V after clicking box)</div>
+              <textarea id="pasteArea" style="width:100%;height:80px;background:var(--ink);border:1px solid var(--bdr);color:var(--text);padding:8px;border-radius:6px;font-family:monospace;font-size:11px;resize:vertical" placeholder="Paste Excel data here…" onpaste="setTimeout(()=>parsePasteData(),100)"></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="box">
+          <div class="box-title"><span class="icon">📤</span>Export Options</div>
+          <div class="export-grid">
+            <div class="export-card" onclick="exportExcel()"><div class="icon">📊</div><div class="name">Excel Workbook</div><div class="desc">BS, P&L, CF, Ratios, Analysis — separate sheets</div></div>
+            <div class="export-card" onclick="exportCSV('bs')"><div class="icon">📄</div><div class="name">Balance Sheet CSV</div><div class="desc">Balance sheet data in CSV format</div></div>
+            <div class="export-card" onclick="exportCSV('pl')"><div class="icon">📄</div><div class="name">P&L CSV</div><div class="desc">Profit & Loss data in CSV format</div></div>
+            <div class="export-card" onclick="exportPDF()"><div class="icon">📕</div><div class="name">PDF Report</div><div class="desc">Formatted financial analysis report</div></div>
+            <div class="export-card" onclick="exportJSON()"><div class="icon">💾</div><div class="name">Session Backup (JSON)</div><div class="desc">Full session backup — restore later</div></div>
+            <div class="export-card" onclick="exportAIReport()"><div class="icon">🤖</div><div class="name">AI Analysis Report</div><div class="desc">Export AI analysis as HTML document</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SETTINGS PANEL -->
+      <div class="panel" id="panel-settings">
+        <div class="page-header"><div class="page-title">⚙️ Settings</div><div class="page-sub">Application configuration and preferences</div></div>
+        <div class="box">
+          <div class="box-title"><span class="icon">🔑</span>Claude AI Configuration</div>
+          <div class="form-grid">
+            <div class="form-group" style="grid-column:1/-1">
+              <label>Anthropic Claude API Key</label>
+              <div class="flex">
+                <input type="password" id="settingsApiKey" placeholder="sk-ant-api03-…" style="flex:1;letter-spacing:1px">
+                <button class="btn btn-gold btn-sm" onclick="saveApiKeyFromSettings()">Save</button>
+                <button class="btn btn-ghost btn-sm" onclick="clearApiKey()">Clear</button>
+              </div>
+              <div style="font-size:11px;color:var(--muted);margin-top:4px">Stored locally in browser (localStorage). Never sent to any server other than Anthropic.</div>
+            </div>
+          </div>
+        </div>
+        <div class="box">
+          <div class="box-title"><span class="icon">ℹ️</span>About</div>
+          <div style="font-size:12px;color:var(--muted);line-height:2">
+            <div><strong style="color:var(--text)">FinAnalyser Pro</strong> — AI-Powered Financial Analysis Suite v2.0</div>
+            <div>AI Model: Claude claude-sonnet-4-6 (Anthropic)</div>
+            <div>Standards: Schedule III (Companies Act 2013), AS 3 / Ind AS 7, ICAI Guidelines</div>
+            <div>Password protected for secure distribution</div>
+          </div>
+        </div>
+        <div class="box">
+          <div class="box-title"><span class="icon">🗑️</span>Data Management</div>
+          <button class="btn btn-rose" onclick="if(confirm('Reset ALL data? This cannot be undone.'))resetAll()">🗑️ Reset All Data</button>
+        </div>
+      </div>
+
+    </div><!-- /main -->
+  </div><!-- /layout -->
+</div><!-- /app -->
+<script>
+// ─── STATE ───────────────────────────────────────────────────────────────────
+const S = {
+  co:{name:'',pan:'',cin:'',incorp:'',fyEnd:'March',unit:'lakhs',sector:'technology',subSector:'',auditor:'',auditFirm:'',entity:'unlisted_pvt'},
+  periods:['FY 2024-25','FY 2023-24','FY 2022-23'],
+  curPeriod:0,
+  bs:{},pl:{},cf:{},
+  aiResult:'',
+  chat:[],
+  auditChecklist:[],
+  vouchingRows:[]
+};
+
+// ─── PASSWORD ────────────────────────────────────────────────────────────────
+let pwAttempts=0,pwLocked=false;
+function checkPw(){
+  if(pwLocked)return;
+  const val=document.getElementById('pwInput').value;
+  const correct=atob('SWNyZW9uQDIwMjY=');
+  if(val===correct){
+    document.getElementById('pwScreen').style.display='none';
+    document.getElementById('app').style.display='flex';
+    initApp();
+  } else {
+    pwAttempts++;
+    if(pwAttempts>=5){
+      pwLocked=true;
+      document.getElementById('pwErr').textContent='';
+      const lk=document.getElementById('pwLock');
+      lk.textContent='Too many attempts. Wait 30 seconds.';
+      lk.classList.remove('hidden');
+      setTimeout(()=>{pwLocked=false;pwAttempts=0;lk.classList.add('hidden');},30000);
+    } else {
+      document.getElementById('pwErr').textContent=`Incorrect password. ${5-pwAttempts} attempt(s) remaining.`;
+    }
+    document.getElementById('pwInput').value='';
+  }
+}
+
+// ─── NAVIGATION ──────────────────────────────────────────────────────────────
+function nav(id){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.side-item').forEach(s=>s.classList.remove('active'));
+  const panel=document.getElementById('panel-'+id);
+  if(panel)panel.classList.add('active');
+  document.querySelectorAll('.side-item').forEach(s=>{if(s.textContent.toLowerCase().includes(id.replace('importexport','import')))s.classList.add('active')});
+  if(id==='ratios')calcRatios();
+  if(id==='comparative')renderComparative();
+  if(id==='audit')renderAudit();
+  if(id==='dashboard')updateDashboard();
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+function initApp(){
+  initBS();initPL();initCF();
+  initAuditChecklist();initVouchingTable();initRedFlags();
+  updatePeriodHeaders();
+  updateDashboard();
+  checkApiKey();
+  loadFromStorage();
+}
+
+// ─── UNIT FORMATTER ─────────────────────────────────────────────────────────
+function fmt(v){
+  if(v===''||v===null||v===undefined||isNaN(v))return '—';
+  const n=parseFloat(v);
+  if(isNaN(n))return '—';
+  return '₹ '+n.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+function pct(v){
+  if(isNaN(v)||!isFinite(v))return '—';
+  return v.toFixed(2)+'%';
+}
+function getVal(id,period=0){
+  const el=document.getElementById(id+'_'+period);
+  if(!el)return 0;
+  return parseFloat(el.value)||0;
+}
+function setVal(id,period,v){
+  const el=document.getElementById(id+'_'+period);
+  if(el)el.value=v;
+}
+function autoVal(id,period,v){
+  const el=document.getElementById(id+'_'+period);
+  if(el){el.value=v;el.style.color='var(--em)'}
+}
+function numIn(id,period){
+  return `<input class="num-in" type="number" id="${id}_${period}" placeholder="0.00" oninput="recalcBS();recalcPL();recalcCF()">`;
+}
+
+// ─── PERIOD MANAGEMENT ───────────────────────────────────────────────────────
+function updatePeriods(){
+  for(let i=0;i<3;i++){
+    const v=document.getElementById('period'+i)?.value||S.periods[i];
+    S.periods[i]=v;
+  }
+  updatePeriodHeaders();
+  updateDashboard();
+}
+function updatePeriodHeaders(){
+  for(let i=0;i<3;i++){
+    const p=S.periods[i]||'Period '+(i+1);
+    ['bsh','plh','cfh'].forEach(prefix=>{
+      const el=document.getElementById(prefix+i);
+      if(el)el.textContent=p;
+    });
+    const ps=document.getElementById('periodSelect');
+    if(ps&&ps.options[i])ps.options[i].text=p;
+  }
+}
+function onPeriodChange(){S.curPeriod=parseInt(document.getElementById('periodSelect').value);updateDashboard();}
+function onEntityChange(){
+  const v=document.getElementById('entitySelect').value;
+  S.co.entity=v;
+  ['listed','startup','section8','banking'].forEach(t=>{
+    const el=document.getElementById('entityFields-'+t);
+    if(el)el.style.display='none';
+  });
+  if(v==='listed')document.getElementById('entityFields-listed').style.display='';
+  if(v==='startup')document.getElementById('entityFields-startup').style.display='';
+  if(v==='section8')document.getElementById('entityFields-section8').style.display='';
+  if(['bank_pub','bank_pvt','nbfc','mfi'].includes(v))document.getElementById('entityFields-banking').style.display='';
+}
+function updateUnit(){S.co.unit=document.getElementById('coUnit').value;}
+function updateCoName(){
+  const v=document.getElementById('coName').value;
+  document.getElementById('dashCoName').textContent=v?v+' — Financial Overview':'No company loaded';
+  S.co.name=v;
+}
+function saveProfile(){
+  S.co.name=document.getElementById('coName').value;
+  S.co.pan=document.getElementById('coPan').value;
+  S.co.cin=document.getElementById('coCin').value;
+  S.co.sector=document.getElementById('coSector').value;
+  S.co.subSector=document.getElementById('coSubSector').value;
+  S.co.auditor=document.getElementById('coAuditor').value;
+  saveToStorage();
+  alert('Profile saved!');
+}
+
+// ─── BALANCE SHEET ROWS ───────────────────────────────────────────────────────
+const BS_ROWS=[
+  {type:'section',label:'EQUITY AND LIABILITIES'},
+  {type:'head',label:'A. Shareholders\' Funds'},
+  {id:'share_capital',label:'1. Share Capital',indent:1},
+  {id:'reserves_surplus',label:'2. Reserves & Surplus',indent:1},
+  {id:'money_warrants',label:'3. Money received against share warrants',indent:1},
+  {type:'total',id:'total_equity',label:'Sub-total: Shareholders\' Funds',calcFn:(p)=>sum(p,['share_capital','reserves_surplus','money_warrants'])},
+  {id:'share_application',label:'B. Share application money pending allotment'},
+  {type:'head',label:'C. Non-Current Liabilities'},
+  {id:'lt_borrowings',label:'1. Long-term borrowings',indent:1},
+  {id:'dtl',label:'2. Deferred tax liabilities (Net)',indent:1},
+  {id:'other_ltl',label:'3. Other Long-term liabilities',indent:1},
+  {id:'lt_provisions',label:'4. Long-term provisions',indent:1},
+  {type:'total',id:'total_ncl',label:'Sub-total: Non-Current Liabilities',calcFn:(p)=>sum(p,['lt_borrowings','dtl','other_ltl','lt_provisions'])},
+  {type:'head',label:'D. Current Liabilities'},
+  {id:'st_borrowings',label:'1. Short-term borrowings',indent:1},
+  {id:'trade_pay_msme',label:'2. Trade payables (MSME)',indent:1},
+  {id:'trade_pay_others',label:'3. Trade payables (Others)',indent:1},
+  {id:'other_cl',label:'4. Other current liabilities',indent:1},
+  {id:'st_provisions',label:'5. Short-term provisions',indent:1},
+  {type:'total',id:'total_cl',label:'Sub-total: Current Liabilities',calcFn:(p)=>sum(p,['st_borrowings','trade_pay_msme','trade_pay_others','other_cl','st_provisions'])},
+  {type:'grand',id:'total_el',label:'TOTAL EQUITY AND LIABILITIES',calcFn:(p)=>sum(p,['total_equity','share_application','total_ncl','total_cl'])},
+  {type:'section',label:'ASSETS'},
+  {type:'head',label:'A. Non-Current Assets'},
+  {type:'head2',label:'1. Fixed Assets',indent:1},
+  {id:'tangible',label:'a. Tangible assets (net)',indent:2},
+  {id:'intangible',label:'b. Intangible assets (net)',indent:2},
+  {id:'cwip',label:'c. Capital work-in-progress',indent:2},
+  {id:'intangible_dev',label:'d. Intangible assets under development',indent:2},
+  {type:'total',id:'total_fa',label:'Sub-total: Fixed Assets',indent:1,calcFn:(p)=>sum(p,['tangible','intangible','cwip','intangible_dev'])},
+  {id:'nc_investments',label:'2. Non-current investments',indent:1},
+  {id:'dta',label:'3. Deferred tax assets (net)',indent:1},
+  {id:'lt_loans',label:'4. Long-term loans and advances',indent:1},
+  {id:'other_nca',label:'5. Other non-current assets',indent:1},
+  {type:'total',id:'total_nca',label:'Sub-total: Non-Current Assets',calcFn:(p)=>sum(p,['total_fa','nc_investments','dta','lt_loans','other_nca'])},
+  {type:'head',label:'B. Current Assets'},
+  {id:'cur_investments',label:'1. Current investments',indent:1},
+  {id:'inventories',label:'2. Inventories',indent:1},
+  {id:'trade_rec',label:'3. Trade receivables',indent:1},
+  {id:'cash',label:'4. Cash and cash equivalents',indent:1},
+  {id:'st_loans',label:'5. Short-term loans and advances',indent:1},
+  {id:'other_ca',label:'6. Other current assets',indent:1},
+  {type:'total',id:'total_ca',label:'Sub-total: Current Assets',calcFn:(p)=>sum(p,['cur_investments','inventories','trade_rec','cash','st_loans','other_ca'])},
+  {type:'grand',id:'total_assets',label:'TOTAL ASSETS',calcFn:(p)=>sum(p,['total_nca','total_ca'])},
+];
+
+function sum(period,ids){return ids.reduce((acc,id)=>{
+  const el=document.getElementById(id+'_'+period);
+  if(el)return acc+(parseFloat(el.value)||0);
+  return acc;
+},0);}
+
+function initBS(){
+  const tbody=document.getElementById('bsTbody');
+  if(!tbody)return;
+  tbody.innerHTML='';
+  BS_ROWS.forEach(row=>{
+    const tr=document.createElement('tr');
+    if(row.type==='section'){tr.className='section-head';tr.innerHTML=`<td colspan="4">${row.label}</td>`;tbody.appendChild(tr);return;}
+    if(row.type==='head'){tr.className='sub-head';tr.innerHTML=`<td colspan="4" class="${row.indent?'indent'+(row.indent-1):''}">${row.label}</td>`;tbody.appendChild(tr);return;}
+    if(row.type==='head2'){tr.innerHTML=`<td colspan="4" class="indent1" style="color:var(--sky2);font-weight:600;font-size:11.5px">${row.label}</td>`;tbody.appendChild(tr);return;}
+    if(row.type==='total'||row.type==='grand'){
+      const cls=row.type==='grand'?'grand-total':'total-row';
+      tr.className=cls;
+      const ind=row.indent?'indent'+(row.indent-1):'';
+      tr.innerHTML=`<td class="${ind}">${row.label}</td>`+[0,1,2].map(p=>`<td class="num" id="${row.id}_${p}">—</td>`).join('');
+      tbody.appendChild(tr);return;
+    }
+    const ind=row.indent?'indent'+row.indent:'';
+    tr.innerHTML=`<td class="${ind}">${row.label}</td>`+[0,1,2].map(p=>`<td class="num">${numIn(row.id,p)}</td>`).join('');
+    tbody.appendChild(tr);
+  });
+}
+
+function recalcBS(){
+  BS_ROWS.forEach(row=>{
+    if((row.type==='total'||row.type==='grand')&&row.calcFn){
+      [0,1,2].forEach(p=>{
+        const v=row.calcFn(p);
+        const el=document.getElementById(row.id+'_'+p);
+        if(el)el.textContent=fmt(v);
+      });
+    }
+  });
+  // tally check
+  const t0=parseFloat(getNumText('total_el_0'))||0;
+  const a0=parseFloat(getNumText('total_assets_0'))||0;
+  const diff=Math.abs(t0-a0);
+  const tallyEl=document.getElementById('bsTally');
+  if(diff<0.01){tallyEl.textContent='✓ Balanced';tallyEl.className='tally-ok';}
+  else{tallyEl.textContent=`✗ Difference: ${fmt(diff)}`;tallyEl.className='tally-err';}
+  updateDashboard();
+}
+
+function getNumText(id){
+  const el=document.getElementById(id);
+  if(!el)return 0;
+  const t=el.textContent.replace(/[₹,\s—]/g,'');
+  return parseFloat(t)||0;
+}
+function getBSVal(id,period=0){
+  const el=document.getElementById(id+'_'+period);
+  if(!el)return 0;
+  if(el.tagName==='INPUT')return parseFloat(el.value)||0;
+  const t=el.textContent.replace(/[₹,\s—]/g,'');
+  return parseFloat(t)||0;
+}
+
+// ─── P&L ROWS ─────────────────────────────────────────────────────────────────
+const PL_ROWS=[
+  {type:'section',label:'REVENUE'},
+  {id:'rev_gross',label:'I. Revenue from Operations (Gross)'},
+  {id:'excise_adj',label:'   Less: Excise / GST Adjustment'},
+  {type:'calc',id:'rev_net',label:'   Revenue from Operations (Net)',calcFn:(p)=>getPLInput('rev_gross',p)-getPLInput('excise_adj',p)},
+  {id:'other_income',label:'II. Other Income'},
+  {type:'total',id:'total_rev',label:'III. TOTAL REVENUE (I+II)',calcFn:(p)=>getBSVPL('rev_net',p)+getPLInput('other_income',p)},
+  {type:'section',label:'EXPENSES'},
+  {id:'cost_materials',label:'IV. Cost of Materials Consumed'},
+  {id:'purchases_stock',label:'V. Purchases of Stock-in-Trade'},
+  {id:'chg_inventories',label:'VI. Changes in Inventories (FG/WIP/Stock)'},
+  {id:'emp_benefits',label:'VII. Employee Benefits Expense'},
+  {id:'finance_costs',label:'VIII. Finance Costs'},
+  {id:'depreciation',label:'IX. Depreciation & Amortisation'},
+  {id:'other_exp',label:'X. Other Expenses'},
+  {type:'total',id:'total_exp',label:'XI. TOTAL EXPENSES',calcFn:(p)=>sumPL(p,['cost_materials','purchases_stock','chg_inventories','emp_benefits','finance_costs','depreciation','other_exp'])},
+  {type:'section',label:'PROFITABILITY'},
+  {type:'calc',id:'ebitda',label:'XII. EBITDA',calcFn:(p)=>getBSVPL('total_rev',p)-sumPL(p,['cost_materials','purchases_stock','chg_inventories','emp_benefits','other_exp'])},
+  {type:'calc',id:'ebit',label:'XIII. EBIT',calcFn:(p)=>getBSVPL('ebitda',p)-getPLInput('depreciation',p)},
+  {type:'calc',id:'pbt_before',label:'XIV. PBT (before exceptional)',calcFn:(p)=>getBSVPL('ebit',p)-getPLInput('finance_costs',p)},
+  {id:'exceptional',label:'XV. Exceptional Items'},
+  {type:'calc',id:'pbt',label:'XVI. PROFIT BEFORE TAX',calcFn:(p)=>getBSVPL('pbt_before',p)+getPLInput('exceptional',p)},
+  {id:'current_tax',label:'XVII. Current Tax',indent:1},
+  {id:'mat_credit',label:'        MAT Credit Entitlement',indent:2},
+  {id:'deferred_tax',label:'        Deferred Tax',indent:2},
+  {type:'total',id:'total_tax',label:'        Total Tax',indent:1,calcFn:(p)=>sumPL(p,['current_tax','mat_credit','deferred_tax'])},
+  {type:'grand',id:'pat',label:'XVIII. PROFIT AFTER TAX (PAT)',calcFn:(p)=>getBSVPL('pbt',p)-getBSVPL('total_tax',p)},
+  {id:'oci',label:'XIX. Other Comprehensive Income (OCI)'},
+  {type:'calc',id:'total_comp',label:'XX. TOTAL COMPREHENSIVE INCOME',calcFn:(p)=>getBSVPL('pat',p)+getPLInput('oci',p)},
+  {id:'eps_basic',label:'XXI. EPS — Basic (₹)'},
+  {id:'eps_diluted',label:'XXII. EPS — Diluted (₹)'},
+];
+
+function getPLInput(id,period){
+  const el=document.getElementById('pl_'+id+'_'+period);
+  return el?parseFloat(el.value)||0:0;
+}
+function getBSVPL(id,period){
+  const el=document.getElementById('pl_'+id+'_'+period);
+  if(!el)return 0;
+  if(el.tagName==='INPUT')return parseFloat(el.value)||0;
+  const t=el.textContent.replace(/[₹,\s—]/g,'');
+  return parseFloat(t)||0;
+}
+function sumPL(period,ids){return ids.reduce((acc,id)=>acc+getPLInput(id,period),0);}
+function plNumIn(id,period){
+  return `<input class="num-in" type="number" id="pl_${id}_${period}" placeholder="0.00" oninput="recalcPL()">`;
+}
+
+function initPL(){
+  const tbody=document.getElementById('plTbody');
+  if(!tbody)return;
+  tbody.innerHTML='';
+  PL_ROWS.forEach(row=>{
+    const tr=document.createElement('tr');
+    if(row.type==='section'){tr.className='section-head';tr.innerHTML=`<td colspan="4">${row.label}</td>`;tbody.appendChild(tr);return;}
+    if(row.type==='calc'){
+      tr.className='calc-row';
+      tr.innerHTML=`<td class="${row.indent?'indent'+row.indent:''}">${row.label}</td>`+[0,1,2].map(p=>`<td class="num" id="pl_${row.id}_${p}">—</td>`).join('');
+      tbody.appendChild(tr);return;
+    }
+    if(row.type==='total'||row.type==='grand'){
+      tr.className=row.type==='grand'?'grand-total':'total-row';
+      tr.innerHTML=`<td class="${row.indent?'indent'+row.indent:''}">${row.label}</td>`+[0,1,2].map(p=>`<td class="num" id="pl_${row.id}_${p}">—</td>`).join('');
+      tbody.appendChild(tr);return;
+    }
+    const ind=row.indent?'indent'+row.indent:'';
+    tr.innerHTML=`<td class="${ind}">${row.label}</td>`+[0,1,2].map(p=>`<td class="num">${plNumIn(row.id,p)}</td>`).join('');
+    tbody.appendChild(tr);
+  });
+}
+
+function recalcPL(){
+  PL_ROWS.forEach(row=>{
+    if((row.type==='calc'||row.type==='total'||row.type==='grand')&&row.calcFn){
+      [0,1,2].forEach(p=>{
+        const v=row.calcFn(p);
+        const el=document.getElementById('pl_'+row.id+'_'+p);
+        if(el)el.textContent=fmt(v);
+      });
+    }
+  });
+  updateDashboard();
+}
+
+// ─── CASH FLOW ROWS ───────────────────────────────────────────────────────────
+const CF_ROWS=[
+  {type:'section',label:'A. OPERATING ACTIVITIES'},
+  {id:'cf_pbt',label:'Net Profit before tax'},
+  {type:'head',label:'Adjustments for:'},
+  {id:'cf_dep',label:'Add: Depreciation & Amortisation',indent:1},
+  {id:'cf_fin_cost',label:'Add: Finance Costs',indent:1},
+  {id:'cf_loss_sale',label:'(Profit)/Loss on sale of assets',indent:1},
+  {id:'cf_other_adj',label:'Other non-cash items',indent:1},
+  {type:'head',label:'Changes in Working Capital:'},
+  {id:'cf_rec_chg',label:'(Increase)/Decrease in Trade Receivables',indent:1},
+  {id:'cf_inv_chg',label:'(Increase)/Decrease in Inventories',indent:1},
+  {id:'cf_oca_chg',label:'(Increase)/Decrease in Other Current Assets',indent:1},
+  {id:'cf_tp_chg',label:'Increase/(Decrease) in Trade Payables',indent:1},
+  {id:'cf_ocl_chg',label:'Increase/(Decrease) in Other Current Liabilities',indent:1},
+  {type:'total',id:'cf_ops_before',label:'Cash generated from operations',calcFn:(p)=>sumCF(p,['cf_pbt','cf_dep','cf_fin_cost','cf_loss_sale','cf_other_adj','cf_rec_chg','cf_inv_chg','cf_oca_chg','cf_tp_chg','cf_ocl_chg'])},
+  {id:'cf_tax_paid',label:'Less: Income Tax Paid'},
+  {type:'grand',id:'cf_ops',label:'A. NET CASH FROM OPERATING ACTIVITIES',calcFn:(p)=>getCFVal('cf_ops_before',p)-getCFIn('cf_tax_paid',p)},
+  {type:'section',label:'B. INVESTING ACTIVITIES'},
+  {id:'cf_capex',label:'Purchase of Fixed Assets (Capex)'},
+  {id:'cf_asset_sale',label:'Proceeds from sale of fixed assets'},
+  {id:'cf_inv_purch',label:'Purchase of Investments'},
+  {id:'cf_inv_sale',label:'Proceeds from sale of Investments'},
+  {id:'cf_int_recv',label:'Interest / Dividend received'},
+  {id:'cf_other_inv',label:'Other investing activities'},
+  {type:'grand',id:'cf_inv',label:'B. NET CASH FROM INVESTING ACTIVITIES',calcFn:(p)=>-getCFIn('cf_capex',p)+getCFIn('cf_asset_sale',p)-getCFIn('cf_inv_purch',p)+getCFIn('cf_inv_sale',p)+getCFIn('cf_int_recv',p)+getCFIn('cf_other_inv',p)},
+  {type:'section',label:'C. FINANCING ACTIVITIES'},
+  {id:'cf_share_issue',label:'Proceeds from issue of share capital'},
+  {id:'cf_lt_borrow',label:'Proceeds from long-term borrowings'},
+  {id:'cf_lt_repay',label:'Repayment of long-term borrowings'},
+  {id:'cf_st_net',label:'Net change in short-term borrowings'},
+  {id:'cf_fin_paid',label:'Finance costs paid'},
+  {id:'cf_dividend',label:'Dividend paid'},
+  {id:'cf_other_fin',label:'Other financing activities'},
+  {type:'grand',id:'cf_fin',label:'C. NET CASH FROM FINANCING ACTIVITIES',calcFn:(p)=>getCFIn('cf_share_issue',p)+getCFIn('cf_lt_borrow',p)-getCFIn('cf_lt_repay',p)+getCFIn('cf_st_net',p)-getCFIn('cf_fin_paid',p)-getCFIn('cf_dividend',p)+getCFIn('cf_other_fin',p)},
+  {type:'section',label:'NET CHANGE IN CASH'},
+  {type:'total',id:'cf_net',label:'Net Increase/(Decrease) in Cash & Equivalents',calcFn:(p)=>getCFVal('cf_ops',p)+getCFVal('cf_inv',p)+getCFVal('cf_fin',p)},
+  {id:'cf_open_cash',label:'Opening Cash & Cash Equivalents'},
+  {type:'calc',id:'cf_close_cash',label:'Closing Cash & Cash Equivalents',calcFn:(p)=>getCFVal('cf_net',p)+getCFIn('cf_open_cash',p)},
+];
+
+function getCFIn(id,period){const el=document.getElementById('cf_'+id+'_'+period);return el?parseFloat(el.value)||0:0;}
+function getCFVal(id,period){
+  const el=document.getElementById('cf_'+id+'_'+period);
+  if(!el)return 0;
+  if(el.tagName==='INPUT')return parseFloat(el.value)||0;
+  const t=el.textContent.replace(/[₹,\s—]/g,'');return parseFloat(t)||0;
+}
+function sumCF(period,ids){return ids.reduce((acc,id)=>acc+getCFIn(id,period),0);}
+function cfNumIn(id,period){
+  return `<input class="num-in" type="number" id="cf_${id}_${period}" placeholder="0.00" oninput="recalcCF()">`;
+}
+
+function initCF(){
+  const tbody=document.getElementById('cfTbody');
+  if(!tbody)return;
+  tbody.innerHTML='';
+  CF_ROWS.forEach(row=>{
+    const tr=document.createElement('tr');
+    if(row.type==='section'){tr.className='section-head';tr.innerHTML=`<td colspan="4">${row.label}</td>`;tbody.appendChild(tr);return;}
+    if(row.type==='head'){tr.className='sub-head';tr.innerHTML=`<td colspan="4">${row.label}</td>`;tbody.appendChild(tr);return;}
+    if(row.type==='calc'){
+      tr.className='calc-row';
+      tr.innerHTML=`<td class="${row.indent?'indent'+row.indent:''}">${row.label}</td>`+[0,1,2].map(p=>`<td class="num" id="cf_${row.id}_${p}">—</td>`).join('');
+      tbody.appendChild(tr);return;
+    }
+    if(row.type==='total'||row.type==='grand'){
+      tr.className=row.type==='grand'?'grand-total':'total-row';
+      tr.innerHTML=`<td>${row.label}</td>`+[0,1,2].map(p=>`<td class="num" id="cf_${row.id}_${p}">—</td>`).join('');
+      tbody.appendChild(tr);return;
+    }
+    const ind=row.indent?'indent'+row.indent:'';
+    tr.innerHTML=`<td class="${ind}">${row.label}</td>`+[0,1,2].map(p=>`<td class="num">${cfNumIn(row.id,p)}</td>`).join('');
+    tbody.appendChild(tr);
+  });
+}
+
+function recalcCF(){
+  CF_ROWS.forEach(row=>{
+    if((row.type==='calc'||row.type==='total'||row.type==='grand')&&row.calcFn){
+      [0,1,2].forEach(p=>{
+        const v=row.calcFn(p);
+        const el=document.getElementById('cf_'+row.id+'_'+p);
+        if(el)el.textContent=fmt(v);
+      });
+    }
+  });
+}
+
+// ─── FINANCIAL RATIOS ─────────────────────────────────────────────────────────
+function calcRatios(){
+  const rev=p=>getBSVPL('total_rev',p);
+  const pat=p=>getBSVPL('pat',p);
+  const ebitda=p=>getBSVPL('ebitda',p);
+  const ebit=p=>getBSVPL('ebit',p);
+  const ca=p=>getBSVal('total_ca',p);
+  const cl=p=>getBSVal('total_cl',p);
+  const inv=p=>getBSVal('inventories',p);
+  const tr=p=>getBSVal('trade_rec',p);
+  const tp=p=>getBSVal('trade_pay_msme',p)+getBSVal('trade_pay_others',p);
+  const cash=p=>getBSVal('cash',p);
+  const ta=p=>getBSVal('total_assets',p);
+  const eq=p=>getBSVal('total_equity',p);
+  const td=p=>getBSVal('lt_borrowings',p)+getBSVal('st_borrowings',p);
+  const fc=p=>getPLInput('finance_costs',p);
+  const dep=p=>getPLInput('depreciation',p);
+  const purch=p=>getPLInput('cost_materials',p)+getPLInput('purchases_stock',p);
+  const emp=p=>getPLInput('emp_benefits',p);
+  const fa=p=>getBSVal('total_fa',p);
+
+  const safe=(n,d)=>d===0?null:n/d;
+  const pctN=(n,d)=>d===0?null:(n/d)*100;
+
+  const ratioGroups=[
+    {title:'💧 Liquidity Ratios',ratios:[
+      {name:'Current Ratio',fn:(p)=>safe(ca(p),cl(p)),benchmark:'≥ 2.0',fmt:'x',good:(v)=>v>=2,ok:(v)=>v>=1&&v<2},
+      {name:'Quick Ratio',fn:(p)=>safe(ca(p)-inv(p),cl(p)),benchmark:'≥ 1.0',fmt:'x',good:(v)=>v>=1,ok:(v)=>v>=0.5&&v<1},
+      {name:'Cash Ratio',fn:(p)=>safe(cash(p),cl(p)),benchmark:'≥ 0.5',fmt:'x',good:(v)=>v>=0.5,ok:(v)=>v>=0.2&&v<0.5},
+      {name:'Working Capital',fn:(p)=>ca(p)-cl(p),benchmark:'>0',fmt:'₹',good:(v)=>v>0,ok:()=>false},
+      {name:'Working Capital Turnover',fn:(p)=>safe(rev(p),ca(p)-cl(p)),benchmark:'>0',fmt:'x',good:(v)=>v>0,ok:()=>false},
+    ]},
+    {title:'🏗️ Solvency / Leverage',ratios:[
+      {name:'Debt-to-Equity Ratio',fn:(p)=>safe(td(p),eq(p)),benchmark:'≤ 2.0',fmt:'x',good:(v)=>v<=2,ok:(v)=>v>2&&v<=3},
+      {name:'Interest Coverage (EBIT/FC)',fn:(p)=>safe(ebit(p),fc(p)),benchmark:'≥ 3.0',fmt:'x',good:(v)=>v>=3,ok:(v)=>v>=1.5&&v<3},
+      {name:'Total Debt to Total Assets',fn:(p)=>pctN(td(p),ta(p)),benchmark:'≤ 50%',fmt:'%',good:(v)=>v<=50,ok:(v)=>v>50&&v<=65},
+      {name:'Equity Multiplier',fn:(p)=>safe(ta(p),eq(p)),benchmark:'<3',fmt:'x',good:(v)=>v<3,ok:(v)=>v>=3&&v<5},
+    ]},
+    {title:'💰 Profitability',ratios:[
+      {name:'EBITDA Margin',fn:(p)=>pctN(ebitda(p),rev(p)),benchmark:'Sector-specific',fmt:'%',good:(v)=>v>=20,ok:(v)=>v>=10&&v<20},
+      {name:'EBIT Margin',fn:(p)=>pctN(ebit(p),rev(p)),benchmark:'Sector-specific',fmt:'%',good:(v)=>v>=15,ok:(v)=>v>=5&&v<15},
+      {name:'Net Profit Margin',fn:(p)=>pctN(pat(p),rev(p)),benchmark:'Sector-specific',fmt:'%',good:(v)=>v>=10,ok:(v)=>v>=3&&v<10},
+      {name:'Return on Equity (ROE)',fn:(p)=>pctN(pat(p),eq(p)),benchmark:'≥ 15%',fmt:'%',good:(v)=>v>=15,ok:(v)=>v>=10&&v<15},
+      {name:'Return on Assets (ROA)',fn:(p)=>pctN(pat(p),ta(p)),benchmark:'≥ 8%',fmt:'%',good:(v)=>v>=8,ok:(v)=>v>=4&&v<8},
+      {name:'Return on Capital Employed',fn:(p)=>pctN(ebit(p),ta(p)-cl(p)),benchmark:'≥ 12%',fmt:'%',good:(v)=>v>=12,ok:(v)=>v>=8&&v<12},
+    ]},
+    {title:'⚙️ Efficiency / Turnover',ratios:[
+      {name:'Asset Turnover',fn:(p)=>safe(rev(p),ta(p)),benchmark:'≥ 1.0',fmt:'x',good:(v)=>v>=1,ok:(v)=>v>=0.5&&v<1},
+      {name:'Fixed Asset Turnover',fn:(p)=>safe(rev(p),fa(p)),benchmark:'≥ 2.0',fmt:'x',good:(v)=>v>=2,ok:(v)=>v>=1&&v<2},
+      {name:'Inventory Turnover',fn:(p)=>safe(rev(p),inv(p)),benchmark:'≥ 6x',fmt:'x',good:(v)=>v>=6,ok:(v)=>v>=3&&v<6},
+      {name:'Inventory Days',fn:(p)=>{const it=safe(rev(p),inv(p));return it?365/it:null;},benchmark:'≤ 60 days',fmt:'days',good:(v)=>v<=60,ok:(v)=>v>60&&v<=90},
+      {name:'Debtor Days (DSO)',fn:(p)=>{const rt=safe(rev(p),tr(p));return rt?365/rt:null;},benchmark:'≤ 45 days',fmt:'days',good:(v)=>v<=45,ok:(v)=>v>45&&v<=90},
+      {name:'Creditor Days',fn:(p)=>{const pt=safe(purch(p),tp(p));return pt?365/pt:null;},benchmark:'30–60 days',fmt:'days',good:(v)=>v>=30&&v<=60,ok:(v)=>v<30},
+      {name:'Cash Conversion Cycle',fn:(p)=>{
+        const id=inv(p)>0&&rev(p)>0?365/safe(rev(p),inv(p)):0;
+        const dso=tr(p)>0&&rev(p)>0?365/safe(rev(p),tr(p)):0;
+        const cd=tp(p)>0&&purch(p)>0?365/safe(purch(p),tp(p)):0;
+        return id+dso-cd;
+      },benchmark:'Lower is better',fmt:'days',good:(v)=>v<60,ok:(v)=>v>=60&&v<90},
+    ]},
+    {title:'📈 Growth Rates',ratios:[
+      {name:'Revenue Growth',fn:(p)=>p<2?pctN(rev(p)-rev(p+1),rev(p+1)):null,benchmark:'>10%',fmt:'%',good:(v)=>v>10,ok:(v)=>v>=0&&v<=10},
+      {name:'PAT Growth',fn:(p)=>p<2?pctN(pat(p)-pat(p+1),pat(p+1)):null,benchmark:'>10%',fmt:'%',good:(v)=>v>10,ok:(v)=>v>=0&&v<=10},
+      {name:'Total Assets Growth',fn:(p)=>p<2?pctN(ta(p)-ta(p+1),ta(p+1)):null,benchmark:'>0%',fmt:'%',good:(v)=>v>0,ok:()=>false},
+      {name:'EBITDA Growth',fn:(p)=>p<2?pctN(ebitda(p)-ebitda(p+1),ebitda(p+1)):null,benchmark:'>10%',fmt:'%',good:(v)=>v>10,ok:(v)=>v>=0&&v<=10},
+    ]},
+  ];
+
+  const el=document.getElementById('ratiosContent');
+  el.innerHTML='';
+  ratioGroups.forEach(group=>{
+    const box=document.createElement('div');
+    box.className='box';
+    let html=`<div class="box-title"><span class="icon">${group.title.substring(0,2)}</span>${group.title.substring(2)}</div>`;
+    html+=`<div class="fin-table-wrap"><table class="ratio-table"><thead><tr><th>Ratio</th><th>${S.periods[0]}</th><th>${S.periods[1]}</th><th>${S.periods[2]}</th><th>Benchmark</th></tr></thead><tbody>`;
+    group.ratios.forEach(r=>{
+      html+='<tr>';
+      html+=`<td>${r.name}</td>`;
+      [0,1,2].forEach(p=>{
+        const v=r.fn(p);
+        if(v===null){html+='<td class="num" style="color:var(--muted)">N/A</td>';return;}
+        let cls='',badge='';
+        if(r.good&&r.good(v)){cls='pos-delta';badge=`<span class="badge badge-em">Good</span>`;}
+        else if(r.ok&&r.ok(v)){cls='';badge=`<span class="badge badge-amb">Fair</span>`;}
+        else if(r.good){badge=`<span class="badge badge-rose">Risk</span>`;}
+        const disp=r.fmt==='%'?v.toFixed(1)+'%':r.fmt==='₹'?fmt(v):v.toFixed(2)+(r.fmt==='days'?' d':'x');
+        html+=`<td class="num ${cls}">${disp} ${badge}</td>`;
+      });
+      html+=`<td style="color:var(--muted);font-size:11px">${r.benchmark}</td>`;
+      html+='</tr>';
+    });
+    html+='</tbody></table></div>';
+    box.innerHTML=html;
+    el.appendChild(box);
+  });
+}
+
+// ─── DASHBOARD ────────────────────────────────────────────────────────────────
+let chartTrend=null,chartAssets=null;
+function updateDashboard(){
+  const p=S.curPeriod;
+  const rev=getBSVPL('total_rev',p);
+  const pat=getBSVPL('pat',p);
+  const ebitda=getBSVPL('ebitda',p);
+  const ta=getBSVal('total_assets',p);
+  const ca=getBSVal('total_ca',p);
+  const cl=getBSVal('total_cl',p);
+  const eq=getBSVal('total_equity',p);
+  const td=getBSVal('lt_borrowings',p)+getBSVal('st_borrowings',p);
+
+  const setText=(id,v,extra='')=>{const el=document.getElementById(id);if(el)el.textContent=v+extra;};
+  setText('dc-rev',rev?fmt(rev):'—');
+  setText('dc-pat',pat?fmt(pat):'—');
+  setText('dc-assets',ta?fmt(ta):'—');
+  const ebitdaM=rev>0?((ebitda/rev)*100).toFixed(1)+'%':'—';
+  setText('dc-ebitda',ebitdaM);
+  const cr=cl>0?(ca/cl).toFixed(2):'—';
+  setText('dc-cr',cr);
+  const de=eq>0?(td/eq).toFixed(2):'—';
+  setText('dc-de',de);
+  // delta vs prior
+  if(p<2){
+    const rev1=getBSVPL('total_rev',p+1);
+    const pat1=getBSVPL('pat',p+1);
+    setDelta('dc-rev-d',rev,rev1);
+    setDelta('dc-pat-d',pat,pat1);
+  }
+  // charts
+  renderTrendChart();
+  renderAssetsChart();
+}
+
+function setDelta(id,cur,prev){
+  const el=document.getElementById(id);
+  if(!el)return;
+  if(!prev||prev===0){el.textContent='';return;}
+  const pct=((cur-prev)/Math.abs(prev)*100).toFixed(1);
+  el.textContent=(pct>0?'▲':'▼')+Math.abs(pct)+'% vs prior';
+  el.className='card-delta '+(pct>0?'up':'dn');
+}
+
+function renderTrendChart(){
+  const ctx=document.getElementById('chartTrend');
+  if(!ctx)return;
+  if(chartTrend)chartTrend.destroy();
+  const labels=S.periods.slice().reverse();
+  const revData=[2,1,0].map(p=>getBSVPL('total_rev',p));
+  const ebitdaData=[2,1,0].map(p=>getBSVPL('ebitda',p));
+  const patData=[2,1,0].map(p=>getBSVPL('pat',p));
+  chartTrend=new Chart(ctx,{
+    type:'bar',
+    data:{labels,datasets:[
+      {label:'Revenue',data:revData,backgroundColor:'rgba(200,168,75,.7)',borderRadius:4},
+      {label:'EBITDA',data:ebitdaData,backgroundColor:'rgba(77,169,232,.7)',borderRadius:4},
+      {label:'PAT',data:patData,backgroundColor:'rgba(52,199,123,.7)',borderRadius:4},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#6a8caa',font:{size:10}}}},scales:{x:{ticks:{color:'#6a8caa',font:{size:10}},grid:{color:'rgba(200,168,75,.07)'}},y:{ticks:{color:'#6a8caa',font:{size:10}},grid:{color:'rgba(200,168,75,.07)'}}}}
+  });
+}
+
+function renderAssetsChart(){
+  const ctx=document.getElementById('chartAssets');
+  if(!ctx)return;
+  if(chartAssets)chartAssets.destroy();
+  const p=S.curPeriod;
+  const fa=getBSVal('total_fa',p);
+  const nc_inv=getBSVal('nc_investments',p);
+  const ca=getBSVal('total_ca',p);
+  const other=getBSVal('other_nca',p)+getBSVal('dta',p)+getBSVal('lt_loans',p);
+  chartAssets=new Chart(ctx,{
+    type:'doughnut',
+    data:{
+      labels:['Fixed Assets','Non-current Investments','Current Assets','Other NC Assets'],
+      datasets:[{data:[fa,nc_inv,ca,other],backgroundColor:['rgba(200,168,75,.8)','rgba(77,169,232,.8)','rgba(52,199,123,.8)','rgba(106,140,170,.6)'],borderWidth:0,hoverOffset:6}]
+    },
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#6a8caa',font:{size:10},boxWidth:10,padding:8}}}}
+  });
+}
+
+// ─── COMPARATIVE ─────────────────────────────────────────────────────────────
+function renderComparative(){
+  const el=document.getElementById('comparativeContent');
+  const pct2=(a,b)=>b===0?'—':((a-b)/Math.abs(b)*100).toFixed(1)+'%';
+  const delta=(a,b)=>{if(b===0)return '<span class="neu-delta">—</span>';const v=((a-b)/Math.abs(b))*100;const s=v>0?'pos-delta':'neg-delta';return `<span class="${s}">${v>0?'▲':'▼'}${Math.abs(v).toFixed(1)}%</span>`;};
+
+  const bsItems=[
+    ['Total Assets','total_assets',true],
+    ['Fixed Assets','total_fa',true],
+    ['Current Assets','total_ca',true],
+    ['Total Equity','total_equity',true],
+    ['Non-Current Liabilities','total_ncl',true],
+    ['Current Liabilities','total_cl',true],
+    ['Long-term Borrowings','lt_borrowings',false],
+    ['Cash & Equivalents','cash',false],
+    ['Trade Receivables','trade_rec',false],
+    ['Inventories','inventories',false],
+  ];
+  const plItems=[
+    ['Total Revenue','total_rev',true],
+    ['EBITDA','ebitda',true],
+    ['EBIT','ebit',false],
+    ['PBT','pbt',false],
+    ['PAT','pat',true],
+    ['Finance Costs','finance_costs',false],
+    ['Employee Costs','emp_benefits',false],
+    ['Depreciation','depreciation',false],
+    ['EPS Basic','eps_basic',false],
+  ];
+
+  let html=`<div class="box"><div class="box-title"><span class="icon">⚖️</span>Balance Sheet — Comparative</div><div class="fin-table-wrap"><table class="cmp-table"><thead><tr><th>Particulars</th><th>${S.periods[0]}</th><th>${S.periods[1]}</th><th>${S.periods[2]}</th><th>YoY Change (P1 vs P2)</th><th>YoY Change (P2 vs P3)</th></tr></thead><tbody>`;
+  bsItems.forEach(([label,id,bold])=>{
+    const v=[0,1,2].map(p=>getBSVal(id,p));
+    html+=`<tr ${bold?'class="h"':''}><td>${label}</td>${v.map(x=>`<td>${fmt(x)}</td>`).join('')}<td>${delta(v[0],v[1])}</td><td>${delta(v[1],v[2])}</td></tr>`;
+  });
+  html+=`</tbody></table></div></div>`;
+
+  html+=`<div class="box"><div class="box-title"><span class="icon">📈</span>Profit & Loss — Comparative</div><div class="fin-table-wrap"><table class="cmp-table"><thead><tr><th>Particulars</th><th>${S.periods[0]}</th><th>${S.periods[1]}</th><th>${S.periods[2]}</th><th>YoY Change (P1 vs P2)</th><th>YoY Change (P2 vs P3)</th></tr></thead><tbody>`;
+  plItems.forEach(([label,id,bold])=>{
+    const v=[0,1,2].map(p=>getBSVPL(id,p));
+    html+=`<tr ${bold?'class="h"':''}><td>${label}</td>${v.map(x=>`<td>${fmt(x)}</td>`).join('')}<td>${delta(v[0],v[1])}</td><td>${delta(v[1],v[2])}</td></tr>`;
+  });
+  html+=`</tbody></table></div></div>`;
+  el.innerHTML=html;
+}
+
+// ─── API KEY ─────────────────────────────────────────────────────────────────
+function showApiModal(){document.getElementById('apiModal').classList.remove('hidden');}
+function closeApiModal(){document.getElementById('apiModal').classList.add('hidden');}
+function saveApiKey(){
+  const k=document.getElementById('apiKeyInput').value.trim();
+  if(k){localStorage.setItem('fap_claude_key',k);closeApiModal();checkApiKey();}
+}
+function saveApiKeyFromSettings(){
+  const k=document.getElementById('settingsApiKey').value.trim();
+  if(k){localStorage.setItem('fap_claude_key',k);alert('API key saved!');}
+}
+function clearApiKey(){localStorage.removeItem('fap_claude_key');document.getElementById('settingsApiKey').value='';alert('API key cleared.');}
+function checkApiKey(){
+  const k=localStorage.getItem('fap_claude_key')||'';
+  const w=document.getElementById('aiApiWarning');
+  if(w)k?w.classList.add('hidden'):w.classList.remove('hidden');
+  const si=document.getElementById('settingsApiKey');
+  if(si&&k)si.value=k;
+}
+
+// ─── CLAUDE API CALL ─────────────────────────────────────────────────────────
+async function callClaude(prompt,systemMsg=''){
+  const apiKey=localStorage.getItem('fap_claude_key');
+  if(!apiKey){showApiModal();return null;}
+  showLoading('Calling Claude AI…');
+  try{
+    const body={model:'claude-sonnet-4-6',max_tokens:4000,messages:[{role:'user',content:prompt}]};
+    if(systemMsg)body.system=systemMsg;
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-calls':'true'},
+      body:JSON.stringify(body)
+    });
+    const data=await resp.json();
+    if(data.error)throw new Error(data.error.message);
+    return data.content[0].text;
+  }catch(e){alert('AI Error: '+e.message);return null;}
+  finally{hideLoading();}
+}
+
+function getFinancialContext(){
+  const p0=S.periods[0],p1=S.periods[1],p2=S.periods[2];
+  const co=S.co;
+  const r=(id,period)=>getBSVal(id,period)||getBSVPL(id,period);
+  return `
+COMPANY: ${co.name||'[Not specified]'}
+ENTITY TYPE: ${document.getElementById('entitySelect')?.selectedOptions[0]?.text||co.entity}
+SECTOR: ${document.getElementById('coSector')?.selectedOptions[0]?.text||co.sector}
+CURRENCY UNIT: ₹ ${document.getElementById('coUnit')?.value||'Lakhs'}
+AUDITOR: ${co.auditor||'Not specified'}
+
+BALANCE SHEET (${p0} | ${p1} | ${p2}):
+Total Assets: ${getBSVal('total_assets',0)} | ${getBSVal('total_assets',1)} | ${getBSVal('total_assets',2)}
+Fixed Assets: ${getBSVal('total_fa',0)} | ${getBSVal('total_fa',1)} | ${getBSVal('total_fa',2)}
+Current Assets: ${getBSVal('total_ca',0)} | ${getBSVal('total_ca',1)} | ${getBSVal('total_ca',2)}
+Inventories: ${getBSVal('inventories',0)} | ${getBSVal('inventories',1)} | ${getBSVal('inventories',2)}
+Trade Receivables: ${getBSVal('trade_rec',0)} | ${getBSVal('trade_rec',1)} | ${getBSVal('trade_rec',2)}
+Cash: ${getBSVal('cash',0)} | ${getBSVal('cash',1)} | ${getBSVal('cash',2)}
+Total Equity: ${getBSVal('total_equity',0)} | ${getBSVal('total_equity',1)} | ${getBSVal('total_equity',2)}
+LT Borrowings: ${getBSVal('lt_borrowings',0)} | ${getBSVal('lt_borrowings',1)} | ${getBSVal('lt_borrowings',2)}
+ST Borrowings: ${getBSVal('st_borrowings',0)} | ${getBSVal('st_borrowings',1)} | ${getBSVal('st_borrowings',2)}
+Trade Payables: ${getBSVal('trade_pay_msme',0)+getBSVal('trade_pay_others',0)} | ${getBSVal('trade_pay_msme',1)+getBSVal('trade_pay_others',1)} | ${getBSVal('trade_pay_msme',2)+getBSVal('trade_pay_others',2)}
+Current Liabilities: ${getBSVal('total_cl',0)} | ${getBSVal('total_cl',1)} | ${getBSVal('total_cl',2)}
+
+P&L (${p0} | ${p1} | ${p2}):
+Total Revenue: ${getBSVPL('total_rev',0)} | ${getBSVPL('total_rev',1)} | ${getBSVPL('total_rev',2)}
+EBITDA: ${getBSVPL('ebitda',0)} | ${getBSVPL('ebitda',1)} | ${getBSVPL('ebitda',2)}
+EBIT: ${getBSVPL('ebit',0)} | ${getBSVPL('ebit',1)} | ${getBSVPL('ebit',2)}
+PBT: ${getBSVPL('pbt',0)} | ${getBSVPL('pbt',1)} | ${getBSVPL('pbt',2)}
+PAT: ${getBSVPL('pat',0)} | ${getBSVPL('pat',1)} | ${getBSVPL('pat',2)}
+Employee Costs: ${getPLInput('emp_benefits',0)} | ${getPLInput('emp_benefits',1)} | ${getPLInput('emp_benefits',2)}
+Finance Costs: ${getPLInput('finance_costs',0)} | ${getPLInput('finance_costs',1)} | ${getPLInput('finance_costs',2)}
+Depreciation: ${getPLInput('depreciation',0)} | ${getPLInput('depreciation',1)} | ${getPLInput('depreciation',2)}
+EPS (Basic): ${getPLInput('eps_basic',0)} | ${getPLInput('eps_basic',1)} | ${getPLInput('eps_basic',2)}`;
+}
+
+async function runAIAnalysis(){
+  nav('ai');
+  const ctx=getFinancialContext();
+  const prompt=`You are a senior Chartered Accountant and financial analyst. Perform a comprehensive financial analysis based on the following data:\n\n${ctx}\n\nProvide a structured report with these sections:\n1. **Executive Summary** (3-4 sentences)\n2. **Financial Health Score** (rate /100 with brief justification)\n3. **Strengths** (bulleted list, min 3)\n4. **Concerns & Red Flags** (bulleted list, min 3)\n5. **Ratio Analysis & Commentary** (key ratios with interpretation)\n6. **Working Capital Assessment**\n7. **Debt & Leverage Analysis**\n8. **Cash Flow Quality** (if CF data available)\n9. **Growth Trajectory** (based on 3-year trend)\n10. **Industry Benchmarking** (compare to typical ${document.getElementById('coSector')?.selectedOptions[0]?.text||'sector'} benchmarks)\n11. **Management Efficiency Metrics**\n12. **AI Growth Factor Suggestions** (5 data-driven growth levers for this entity type and sector, based on industry trends, without human intervention)\n13. **Recommendations** (min 5 actionable points)\n\nFormat with clear headings using ## and bullet points. Be specific with numbers. Flag any anomalies clearly.`;
+  const result=await callClaude(prompt,'You are an expert CA and financial analyst specializing in Indian financial statements, Companies Act 2013, and ICAI standards.');
+  if(result){
+    S.aiResult=result;
+    const el=document.getElementById('aiResult');
+    el.classList.remove('hidden');
+    el.innerHTML=markdownToHtml(result);
+  }
+}
+
+async function runAuditInquiries(){
+  nav('ai');
+  const ctx=getFinancialContext();
+  const prompt=`Based on the following financial data, generate 18-20 specific audit inquiries that an external auditor should raise:\n\n${ctx}\n\nFormat as a numbered list with:\n- The specific inquiry/question\n- The financial basis/trigger for this inquiry\n- The area of risk (Revenue, Expenses, Assets, Liabilities, Cash Flow, Compliance)\n\nFocus on Schedule III compliance, ICAI standards, Companies Act 2013 requirements, and any financial anomalies visible in the data.`;
+  const result=await callClaude(prompt);
+  if(result){
+    S.aiResult=result;
+    const el=document.getElementById('aiResult');
+    el.classList.remove('hidden');
+    el.innerHTML='<h2>🔍 Audit Inquiries</h2>'+markdownToHtml(result);
+  }
+}
+
+async function runVouching(){
+  nav('ai');
+  const ctx=getFinancialContext();
+  const prompt=`Based on the following financial data, list specific vouching and verification procedures:\n\n${ctx}\n\nFor each major financial statement item, specify:\n- What documents to vouch (invoices, bank statements, agreements, etc.)\n- Verification procedure\n- Sample size recommendation\n- Red flags to look for\n\nOrganize by: Revenue Vouching, Expense Vouching, Asset Verification, Liability Verification, Cash & Bank Verification, Investment Verification.`;
+  const result=await callClaude(prompt);
+  if(result){S.aiResult=result;const el=document.getElementById('aiResult');el.classList.remove('hidden');el.innerHTML='<h2>✅ Vouching & Verification Procedures</h2>'+markdownToHtml(result);}
+}
+
+async function runGoingConcern(){
+  nav('ai');
+  const ctx=getFinancialContext();
+  const prompt=`Assess the going concern risk for this entity based on the following data:\n\n${ctx}\n\nAnalyze:\n1. **Overall Going Concern Assessment** (Low/Medium/High Risk)\n2. **Positive Indicators** (factors supporting going concern)\n3. **Negative Indicators** (factors raising doubt)\n4. **Key Ratios Assessment** (liquidity, solvency, profitability trends)\n5. **Cash Flow Sustainability**\n6. **Audit Disclosure Requirements** (what the auditor must disclose under SA 570)\n7. **Management Actions Required**\n8. **Final Opinion** with justification\n\nBe specific and reference specific data points from the financials provided.`;
+  const result=await callClaude(prompt);
+  if(result){S.aiResult=result;const el=document.getElementById('aiResult');el.classList.remove('hidden');el.innerHTML='<h2>⚠️ Going Concern Assessment</h2>'+markdownToHtml(result);}
+}
+
+async function runFraudIndicators(){
+  nav('ai');
+  const ctx=getFinancialContext();
+  const prompt=`Perform a fraud risk analysis (Beneish M-Score style) on the following financial data:\n\n${ctx}\n\nAnalyze:\n1. **Fraud Risk Score** (Low/Medium/High)\n2. **Days Sales Outstanding Trend** (rapid increase = revenue manipulation risk)\n3. **Gross Margin Index** (declining margins)\n4. **Asset Quality Index** (non-current assets vs total assets trend)\n5. **Sales Growth Index** (vs industry norms)\n6. **Depreciation Index** (unexplained changes)\n7. **Leverage Index** (increasing debt)\n8. **Total Accruals to Total Assets** (high accruals = earnings manipulation risk)\n9. **Related Party Transaction Risks**\n10. **Specific Red Flags Found** (with data references)\n11. **Recommended Forensic Procedures**\n\nBe analytical and evidence-based. Reference specific financial figures.`;
+  const result=await callClaude(prompt);
+  if(result){S.aiResult=result;const el=document.getElementById('aiResult');el.classList.remove('hidden');el.innerHTML='<h2>🚨 Fraud Indicators & Risk Analysis</h2>'+markdownToHtml(result);}
+}
+
+async function runGrowthAnalysis(){
+  nav('ai');
+  const ctx=getFinancialContext();
+  const entityText=document.getElementById('entitySelect')?.selectedOptions[0]?.text||'';
+  const sectorText=document.getElementById('coSector')?.selectedOptions[0]?.text||'';
+  const prompt=`Based on the financial data and entity profile, suggest data-driven growth factors WITHOUT human intervention:\n\n${ctx}\n\nFor a ${entityText} in the ${sectorText} sector, provide:\n1. **Sector CAGR Benchmark** (typical 3/5/10 year CAGR for this sector)\n2. **Technology Adoption Opportunities** (AI, automation, digitization relevant to sector)\n3. **Regulatory Tailwinds** (government policies, PLI schemes, etc. benefiting this sector)\n4. **Geographic Expansion Levers** (tier 2/3 cities, exports, international markets)\n5. **Margin Improvement Opportunities** (operational efficiency, procurement, automation)\n6. **Revenue Diversification Options** (new product lines, adjacent markets)\n7. **Capital Efficiency Improvements** (working capital optimization, asset turnover)\n8. **Digital Transformation Impact** (expected ROI from digital adoption)\n9. **ESG / Sustainability Opportunities** (green financing, ESG premium)\n10. **Projected Revenue Range** (3-year and 5-year projections based on current trends)\n11. **Key Risks to Growth** (macro, regulatory, competitive)\n12. **Industry Peers Benchmark** (typical metrics for comparable companies)\n\nAll suggestions should be based on verifiable industry data and trends, not opinions.`;
+  const result=await callClaude(prompt);
+  if(result){S.aiResult=result;const el=document.getElementById('aiResult');el.classList.remove('hidden');el.innerHTML='<h2>📊 AI Growth Factor Analysis</h2>'+markdownToHtml(result);}
+}
+
+// ─── CHAT ─────────────────────────────────────────────────────────────────────
+async function sendChat(){
+  const input=document.getElementById('chatInput');
+  const msg=input.value.trim();
+  if(!msg)return;
+  input.value='';
+  addChatMsg('user',msg);
+  const ctx=getFinancialContext();
+  const history=S.chat.slice(-10).map(m=>({role:m.role,content:m.content}));
+  const apiKey=localStorage.getItem('fap_claude_key');
+  if(!apiKey){showApiModal();return;}
+  addChatMsg('ai','...',true);
+  showLoading('AI is thinking…');
+  try{
+    const messages=[
+      {role:'user',content:`Financial Data Context:\n${ctx}\n\nUser Question: ${msg}`},
+      ...history.filter(h=>h.role!=='system').slice(-8)
+    ];
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-calls':'true'},
+      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1500,system:'You are an expert CA and financial analyst. Answer questions about the provided financial data concisely and accurately. Reference specific figures from the data. Format clearly.',messages})
+    });
+    const data=await resp.json();
+    if(data.error)throw new Error(data.error.message);
+    const reply=data.content[0].text;
+    removeLastTyping();
+    addChatMsg('ai',reply);
+    S.chat.push({role:'user',content:msg},{role:'assistant',content:reply});
+    if(S.chat.length>40)S.chat=S.chat.slice(-40);
+  }catch(e){removeLastTyping();addChatMsg('ai','Error: '+e.message);}
+  finally{hideLoading();}
+}
+function quickChat(q){document.getElementById('chatInput').value=q;sendChat();}
+function addChatMsg(role,text,typing=false){
+  const msgs=document.getElementById('chatMsgs');
+  const div=document.createElement('div');
+  div.className='chat-msg '+role;
+  if(typing)div.id='typingIndicator';
+  div.innerHTML=`<div class="role">${role==='user'?'👤 You':'🤖 AI Analyst'}</div>${typing?'<div class="spinner"></div>':markdownToHtml(text)}`;
+  msgs.appendChild(div);
+  msgs.scrollTop=msgs.scrollHeight;
+}
+function removeLastTyping(){const el=document.getElementById('typingIndicator');if(el)el.remove();}
+
+// ─── MARKDOWN RENDERER ────────────────────────────────────────────────────────
+function markdownToHtml(md){
+  return md
+    .replace(/^### (.+)$/gm,'<h3>$1</h3>')
+    .replace(/^## (.+)$/gm,'<h2>$1</h2>')
+    .replace(/^# (.+)$/gm,'<h2>$1</h2>')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g,'<em>$1</em>')
+    .replace(/^- (.+)$/gm,'<li>$1</li>')
+    .replace(/^(\d+)\. (.+)$/gm,'<li><strong>$1.</strong> $2</li>')
+    .replace(/(<li>.*<\/li>)/gs,'<ul>$1</ul>')
+    .replace(/\n\n/g,'</p><p>')
+    .replace(/^(?!<[hul])/gm,'')
+    .replace(/<p><\/p>/g,'');
+}
+
+// ─── AUDIT MODULE ─────────────────────────────────────────────────────────────
+const AUDIT_ITEMS=[
+  {cat:'Financial Statement Preparation',items:[
+    'Balance Sheet is tally-checked (Assets = Liabilities + Equity)',
+    'Schedule III format has been followed',
+    'Comparative figures for prior year are provided',
+    'Significant accounting policies are disclosed in Notes',
+    'Changes in accounting policies (if any) are disclosed',
+    'All related party transactions are disclosed as per AS 18 / Ind AS 24',
+  ]},
+  {cat:'Internal Controls',items:[
+    'Internal audit report reviewed',
+    'Bank reconciliation statements verified',
+    'Physical verification of inventories conducted',
+    'Fixed asset register reconciled with books',
+    'Creditors and debtors ledgers reconciled',
+    'Petty cash verified and reconciled',
+  ]},
+  {cat:'Compliance',items:[
+    'Income Tax return filed (ITR)',
+    'GST returns filed (GSTR-1, GSTR-3B)',
+    'TDS deducted and deposited — Form 26Q/24Q',
+    'ROC annual return filed — MGT-7 / AOC-4',
+    'Statutory auditor appointed — Form ADT-1',
+    'AGM held within prescribed time',
+    'Director\'s Report prepared',
+    'MSME dues paid within 45 days',
+  ]},
+  {cat:'Disclosures',items:[
+    'Contingent liabilities disclosed',
+    'Capital commitments disclosed',
+    'Segment reporting (if applicable)',
+    'Going concern assessment completed',
+    'Subsequent events reviewed',
+    'Fraud reporting under Section 143(12) considered',
+  ]},
+];
+
+function initAuditChecklist(){
+  const el=document.getElementById('auditChecklist');
+  if(!el)return;
+  let html='';
+  AUDIT_ITEMS.forEach(group=>{
+    html+=`<div class="box"><div class="box-title">${group.cat}</div><table class="audit-table"><thead><tr><th style="width:50%">Procedure</th><th>Status</th><th>Notes</th></tr></thead><tbody>`;
+    group.items.forEach((item,i)=>{
+      const uid=group.cat.replace(/\s/g,'_')+'_'+i;
+      html+=`<tr><td>${item}</td><td><select class="audit-select" id="aud_${uid}"><option value="">—</option><option value="yes">✅ Yes</option><option value="no">❌ No</option><option value="na">⊘ N/A</option><option value="pending">⏳ Pending</option></select></td><td><input style="background:var(--ink);border:1px solid var(--bdr);color:var(--text);padding:3px 6px;border-radius:4px;font-family:inherit;font-size:11px;width:100%" placeholder="Notes…"></td></tr>`;
+    });
+    html+='</tbody></table></div>';
+  });
+  el.innerHTML=html;
+}
+
+function initVouchingTable(){
+  const el=document.getElementById('auditVouching');
+  if(!el)return;
+  el.innerHTML=`<div class="box flex-between" style="margin-bottom:12px"><div class="box-title" style="margin-bottom:0">Vouching Register</div><button class="btn btn-gold btn-sm" onclick="addVouchRow()">+ Add Row</button></div>
+  <div class="box" style="padding:0;overflow:hidden"><div class="fin-table-wrap"><table class="audit-table" id="vouchTable"><thead><tr><th>#</th><th>Document Type</th><th>Reference No.</th><th>Amount (₹)</th><th>Date</th><th>Verified By</th><th>Status</th><th>Remarks</th></tr></thead><tbody id="vouchTbody"></tbody></table></div></div>`;
+  for(let i=0;i<5;i++)addVouchRow();
+}
+
+function addVouchRow(){
+  const tbody=document.getElementById('vouchTbody');
+  if(!tbody)return;
+  const n=tbody.rows.length+1;
+  const tr=document.createElement('tr');
+  const inp=(ph)=>`<input style="background:var(--ink);border:1px solid var(--bdr);color:var(--text);padding:3px 6px;border-radius:4px;font-family:inherit;font-size:11px;width:100%" placeholder="${ph}">`;
+  tr.innerHTML=`<td style="color:var(--muted)">${n}</td><td>${inp('Invoice/Agreement…')}</td><td>${inp('Ref #')}</td><td>${inp('0.00')}</td><td><input type="date" style="background:var(--ink);border:1px solid var(--bdr);color:var(--text);padding:3px 6px;border-radius:4px;font-family:inherit;font-size:11px"></td><td>${inp('CA/Staff')}</td><td><select class="audit-select"><option>Pending</option><option>✅ Verified</option><option>❌ Exception</option><option>⊘ N/A</option></select></td><td>${inp('Remarks…')}</td>`;
+  tbody.appendChild(tr);
+}
+
+function initRedFlags(){
+  const el=document.getElementById('auditRedflags');
+  if(!el)return;
+  el.innerHTML=`<div class="box"><div class="box-title"><span class="icon">🚨</span>Automated Red Flag Indicators</div><div id="rfContent"><div class="info-text">Click "Recalculate All Ratios" in Financial Ratios section to auto-populate red flags.</div></div><div class="mt16"><button class="btn btn-gold" onclick="calcRedFlags()">↻ Check Red Flags Now</button></div></div>`;
+}
+
+function calcRedFlags(){
+  const flags=[];
+  const ca=getBSVal('total_ca',0),cl=getBSVal('total_cl',0);
+  const rev=getBSVPL('total_rev',0),pat=getBSVPL('pat',0);
+  const rev1=getBSVPL('total_rev',1);
+  const ta=getBSVal('total_assets',0),ta1=getBSVal('total_assets',1);
+  const eq=getBSVal('total_equity',0);
+  const td=getBSVal('lt_borrowings',0)+getBSVal('st_borrowings',0);
+  const tr=getBSVal('trade_rec',0);
+  const inv=getBSVal('inventories',0);
+  const ebit=getBSVPL('ebit',0);
+  const fc=getPLInput('finance_costs',0);
+  const cfOps=getCFVal('cf_ops',0);
+
+  const addFlag=(level,title,detail)=>flags.push({level,title,detail});
+  if(cl>0&&ca/cl<1)addFlag('high','Current Ratio below 1.0 — Severe Liquidity Risk',`Current Ratio: ${(ca/cl).toFixed(2)}x. Company may not meet short-term obligations.`);
+  else if(cl>0&&ca/cl<1.5)addFlag('medium','Current Ratio below 1.5 — Liquidity Concern',`Current Ratio: ${(ca/cl).toFixed(2)}x. Below comfortable threshold of 2.0.`);
+  if(eq>0&&td/eq>3)addFlag('high','High Debt-to-Equity Ratio',`D/E: ${(td/eq).toFixed(2)}x. Significant leverage risk — lender covenants may be breached.`);
+  if(fc>0&&ebit<fc)addFlag('high','Interest Coverage below 1.0 — Cannot Service Debt',`EBIT: ${fmt(ebit)}, Finance Costs: ${fmt(fc)}. Critical solvency concern.`);
+  else if(fc>0&&ebit/fc<2)addFlag('medium','Low Interest Coverage',`Interest Coverage: ${(ebit/fc).toFixed(2)}x. Below safe threshold of 3x.`);
+  if(rev>0&&tr>0&&365/(rev/tr)>90)addFlag('medium','High Debtor Days (DSO > 90 days)',`DSO: ${(365/(rev/tr)).toFixed(0)} days. High DSO may indicate collection issues or revenue manipulation.`);
+  if(rev>0&&inv>0&&365/(rev/inv)>180)addFlag('medium','High Inventory Days (>180 days)',`Inventory Days: ${(365/(rev/inv)).toFixed(0)} days. Potential obsolescence or overstocking.`);
+  if(pat>0&&cfOps<0)addFlag('high','Positive PAT but Negative Operating Cash Flow',`PAT: ${fmt(pat)}, Operating CF: ${fmt(cfOps)}. Possible earnings manipulation or aggressive accruals.`);
+  if(rev1>0&&rev>0&&(rev-rev1)/rev1>0.5&&ta1>0&&(ta-ta1)/ta1<0.1)addFlag('high','Revenue growth >50% without commensurate asset growth',`Revenue grew ${(((rev-rev1)/rev1)*100).toFixed(0)}% but assets grew only ${(((ta-ta1)/ta1)*100).toFixed(0)}%. Possible revenue inflation.`);
+  if(pat<0)addFlag('high','Net Loss Reported',`PAT: ${fmt(pat)}. Entity is loss-making. Evaluate going concern.`);
+
+  const rfEl=document.getElementById('rfContent');
+  if(!rfEl)return;
+  if(!flags.length){rfEl.innerHTML='<div class="tally-ok">✓ No major red flags detected based on available data.</div>';return;}
+  let html='';
+  flags.forEach(f=>{
+    const colors={high:'var(--rose)',medium:'var(--amb)',low:'var(--em)'};
+    const labels={high:'HIGH RISK',medium:'MEDIUM RISK',low:'LOW RISK'};
+    html+=`<div style="border:1px solid ${colors[f.level]};border-radius:8px;padding:12px 16px;margin-bottom:10px;background:${colors[f.level]}22">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <span style="background:${colors[f.level]};color:#fff;font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px">${labels[f.level]}</span>
+        <strong style="color:${colors[f.level]};font-size:12px">${f.title}</strong>
+      </div>
+      <div style="font-size:12px;color:var(--text)">${f.detail}</div>
+    </div>`;
+  });
+  rfEl.innerHTML=html;
+}
+
+function auditTab(tab,el){
+  ['auditChecklist','auditVouching','auditRedflags'].forEach(id=>{
+    const d=document.getElementById(id);
+    if(d)d.classList.toggle('hidden',id!=='audit'+tab.charAt(0).toUpperCase()+tab.slice(1));
+  });
+  document.querySelectorAll('#panel-audit .tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  if(tab==='redflags')calcRedFlags();
+}
+function renderAudit(){initAuditChecklist();initVouchingTable();initRedFlags();}
+
+// ─── IMPORT / EXPORT ─────────────────────────────────────────────────────────
+function importFile(){
+  const file=document.getElementById('importFile').files[0];
+  if(!file)return;
+  if(file.name.endsWith('.json')){
+    const reader=new FileReader();
+    reader.onload=e=>restoreFromJSON(e.target.result);
+    reader.readAsText(file);
+    return;
+  }
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const wb=XLSX.read(e.target.result,{type:'binary'});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    const data=XLSX.utils.sheet_to_json(ws,{header:1});
+    alert('File loaded: '+data.length+' rows detected. Manual mapping required — please enter values in the respective financial statement tables.');
+  };
+  reader.readAsBinaryString(file);
+}
+
+function parsePasteData(){
+  const raw=document.getElementById('pasteArea').value;
+  const rows=raw.split('\n').filter(r=>r.trim());
+  let mapped=0;
+  rows.forEach(row=>{
+    const cols=row.split('\t');
+    if(cols.length<2)return;
+    const label=cols[0].trim().toLowerCase();
+    const vals=cols.slice(1).map(c=>parseFloat(c.replace(/[,₹\s]/g,''))||0);
+    const map={
+      'revenue from operations':['rev_gross'],'other income':['other_income'],
+      'employee benefits':['emp_benefits'],'finance costs':['finance_costs'],
+      'depreciation':['depreciation'],'other expenses':['other_exp'],
+      'share capital':['share_capital'],'reserves':['reserves_surplus'],
+      'long-term borrowings':['lt_borrowings'],'short-term borrowings':['st_borrowings'],
+      'trade receivables':['trade_rec'],'inventories':['inventories'],
+      'cash':['cash'],'total assets':[],'total liabilities':[]
+    };
+    for(const [key,ids] of Object.entries(map)){
+      if(label.includes(key)&&ids.length){
+        ids.forEach(id=>{
+          vals.forEach((v,p)=>{
+            const el=document.getElementById('pl_'+id+'_'+p)||document.getElementById(id+'_'+p);
+            if(el&&el.tagName==='INPUT'){el.value=v;mapped++;}
+          });
+        });
+      }
+    }
+  });
+  if(mapped>0){recalcBS();recalcPL();alert(`Mapped ${mapped} values from pasted data.`);}
+  else alert('Could not auto-map pasted data. Please check format (Label\\tValue1\\tValue2…).');
+}
+
+function getAllData(){
+  const bsData={},plData={},cfData={};
+  BS_ROWS.filter(r=>r.id).forEach(r=>[0,1,2].forEach(p=>{const el=document.getElementById(r.id+'_'+p);if(el)bsData[r.id+'_'+p]=el.tagName==='INPUT'?el.value:el.textContent;}));
+  PL_ROWS.filter(r=>r.id).forEach(r=>[0,1,2].forEach(p=>{const el=document.getElementById('pl_'+r.id+'_'+p);if(el)plData[r.id+'_'+p]=el.tagName==='INPUT'?el.value:el.textContent;}));
+  CF_ROWS.filter(r=>r.id).forEach(r=>[0,1,2].forEach(p=>{const el=document.getElementById('cf_'+r.id+'_'+p);if(el)cfData[r.id+'_'+p]=el.tagName==='INPUT'?el.value:el.textContent;}));
+  return {company:S.co,periods:S.periods,bs:bsData,pl:plData,cf:cfData,aiResult:S.aiResult};
+}
+
+function exportJSON(){
+  const data=getAllData();
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=(S.co.name||'FinAnalyser')+'_session_'+new Date().toISOString().slice(0,10)+'.json';
+  a.click();
+}
+
+function restoreFromJSON(json){
+  try{
+    const data=JSON.parse(json);
+    if(data.company){Object.assign(S.co,data.company);}
+    if(data.periods)S.periods=data.periods;
+    updatePeriodHeaders();
+    if(data.bs)Object.entries(data.bs).forEach(([k,v])=>{const el=document.getElementById(k);if(el&&el.tagName==='INPUT')el.value=v;});
+    if(data.pl)Object.entries(data.pl).forEach(([k,v])=>{const el=document.getElementById('pl_'+k)||document.getElementById(k);if(el&&el.tagName==='INPUT')el.value=v;});
+    if(data.cf)Object.entries(data.cf).forEach(([k,v])=>{const el=document.getElementById('cf_'+k)||document.getElementById(k);if(el&&el.tagName==='INPUT')el.value=v;});
+    if(data.aiResult)S.aiResult=data.aiResult;
+    recalcBS();recalcPL();recalcCF();updateDashboard();
+    alert('Session restored successfully!');
+  }catch(e){alert('Error restoring session: '+e.message);}
+}
+
+function exportExcel(){
+  const wb=XLSX.utils.book_new();
+  // BS sheet
+  const bsArr=[['Balance Sheet','FY 2024-25','FY 2023-24','FY 2022-23']];
+  BS_ROWS.forEach(r=>{
+    if(r.type==='section'){bsArr.push([r.label,'','','']);return;}
+    if(r.id){const label=r.label;const vals=[0,1,2].map(p=>{const el=document.getElementById(r.id+'_'+p);return el?parseFloat(el.tagName==='INPUT'?el.value:el.textContent.replace(/[₹,\s—]/g,''))||0:0;});bsArr.push([label,...vals]);}
+  });
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(bsArr),'Balance Sheet');
+  // PL sheet
+  const plArr=[['Profit & Loss','FY 2024-25','FY 2023-24','FY 2022-23']];
+  PL_ROWS.forEach(r=>{
+    if(r.type==='section'){plArr.push([r.label,'','','']);return;}
+    if(r.id){const label=r.label;const vals=[0,1,2].map(p=>{const el=document.getElementById('pl_'+r.id+'_'+p);return el?parseFloat(el.tagName==='INPUT'?el.value:el.textContent.replace(/[₹,\s—]/g,''))||0:0;});plArr.push([label,...vals]);}
+  });
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(plArr),'Profit & Loss');
+  // AI sheet
+  if(S.aiResult){XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['AI Analysis'],[''],[ S.aiResult]]),'AI Analysis');}
+  XLSX.writeFile(wb,(S.co.name||'FinAnalyser')+'_Analysis_'+new Date().toISOString().slice(0,10)+'.xlsx');
+}
+
+function exportCSV(type){
+  let rows=[];
+  if(type==='bs'){
+    rows=[['Particulars','FY 2024-25','FY 2023-24','FY 2022-23']];
+    BS_ROWS.forEach(r=>{if(r.id){const label=r.label;const vals=[0,1,2].map(p=>{const el=document.getElementById(r.id+'_'+p);return el?el.tagName==='INPUT'?el.value:el.textContent.replace(/[₹,\s—]/g,''):0;});rows.push([label,...vals]);}});
+  }else{
+    rows=[['Particulars','FY 2024-25','FY 2023-24','FY 2022-23']];
+    PL_ROWS.forEach(r=>{if(r.id){const label=r.label;const vals=[0,1,2].map(p=>{const el=document.getElementById('pl_'+r.id+'_'+p);return el?el.tagName==='INPUT'?el.value:el.textContent.replace(/[₹,\s—]/g,''):0;});rows.push([label,...vals]);}});
+  }
+  const csv=rows.map(r=>r.map(c=>`"${c}"`).join(',')).join('\n');
+  const blob=new Blob([csv],{type:'text/csv'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=(S.co.name||'FinAnalyser')+'_'+(type==='bs'?'BalanceSheet':'PnL')+'_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+}
+
+function exportAIReport(){
+  if(!S.aiResult){alert('No AI analysis available. Run AI Analysis first.');return;}
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>AI Analysis — ${S.co.name||'Company'}</title><style>body{font-family:Georgia,serif;max-width:900px;margin:40px auto;color:#1a1a2e;line-height:1.8}h1{color:#c8a84b;border-bottom:2px solid #c8a84b;padding-bottom:8px}h2{color:#16243a;margin-top:24px}h3{color:#4da9e8}strong{color:#c8a84b}ul{padding-left:20px}li{margin-bottom:4px}.header{background:#16243a;color:#e8c97a;padding:24px;border-radius:8px;margin-bottom:24px}</style></head><body><div class="header"><h1>FinAnalyser Pro — AI Financial Analysis</h1><p>${S.co.name||'Company Name'} | Generated: ${new Date().toLocaleDateString('en-IN')}</p></div>${markdownToHtml(S.aiResult)}</body></html>`;
+  const blob=new Blob([html],{type:'text/html'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=(S.co.name||'FinAnalyser')+'_AI_Report_'+new Date().toISOString().slice(0,10)+'.html';
+  a.click();
+}
+
+function exportAuditCSV(){
+  const rows=[['Category','Procedure','Status','Notes']];
+  AUDIT_ITEMS.forEach(group=>{
+    group.items.forEach((item,i)=>{
+      const uid=group.cat.replace(/\s/g,'_')+'_'+i;
+      const el=document.getElementById('aud_'+uid);
+      rows.push([group.cat,item,el?el.value:'—','']);
+    });
+  });
+  const csv=rows.map(r=>r.map(c=>`"${c}"`).join(',')).join('\n');
+  const blob=new Blob([csv],{type:'text/csv'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='AuditChecklist_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+}
+
+function exportPDF(){
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const W=210,mg=15;
+  doc.setFillColor(22,36,58);
+  doc.rect(0,0,W,40,'F');
+  doc.setTextColor(232,201,122);
+  doc.setFontSize(18);doc.setFont('helvetica','bold');
+  doc.text('FinAnalyser Pro',mg,16);
+  doc.setFontSize(10);doc.setFont('helvetica','normal');
+  doc.text('AI-Powered Financial Analysis Report',mg,24);
+  doc.setTextColor(200,168,75);
+  doc.text(S.co.name||'Company Name',mg,32);
+  doc.setTextColor(100,140,170);
+  doc.text('Generated: '+new Date().toLocaleDateString('en-IN'),W-mg-40,32);
+  doc.setTextColor(30,30,50);
+  let y=52;
+  const line=(text,size=10,bold=false,color=[30,30,50])=>{doc.setFontSize(size);doc.setFont('helvetica',bold?'bold':'normal');doc.setTextColor(...color);doc.text(text,mg,y);y+=size*0.5+2;if(y>270){doc.addPage();y=20;}};
+  line('Balance Sheet Summary',13,true,[22,36,58]);
+  y+=2;
+  [['Total Assets','total_assets'],['Total Equity','total_equity'],['Current Assets','total_ca'],['Current Liabilities','total_cl'],['Long-term Borrowings','lt_borrowings']].forEach(([lbl,id])=>{
+    line(`${lbl}: ${fmt(getBSVal(id,0))}  |  ${fmt(getBSVal(id,1))}  |  ${fmt(getBSVal(id,2))}`,9,false,[50,50,80]);
+  });
+  y+=4;
+  line('Profit & Loss Summary',13,true,[22,36,58]);y+=2;
+  [['Total Revenue','total_rev'],['EBITDA','ebitda'],['PAT','pat']].forEach(([lbl,id])=>{
+    line(`${lbl}: ${fmt(getBSVPL(id,0))}  |  ${fmt(getBSVPL(id,1))}  |  ${fmt(getBSVPL(id,2))}`,9,false,[50,50,80]);
+  });
+  if(S.aiResult){
+    y+=6;line('AI Analysis Summary',13,true,[22,36,58]);y+=2;
+    const plain=S.aiResult.replace(/[#*`]/g,'').substring(0,1200);
+    const wrapped=doc.splitTextToSize(plain,W-mg*2);
+    wrapped.forEach(l=>{line(l,8,false,[60,60,80]);});
+  }
+  doc.save((S.co.name||'FinAnalyser')+'_Report_'+new Date().toISOString().slice(0,10)+'.pdf');
+}
+
+// ─── LOADING ──────────────────────────────────────────────────────────────────
+function showLoading(msg='Loading…'){
+  const el=document.getElementById('loadingOverlay');
+  const m=document.getElementById('loadingMsg');
+  if(el)el.classList.remove('hidden');
+  if(m)m.textContent=msg;
+}
+function hideLoading(){const el=document.getElementById('loadingOverlay');if(el)el.classList.add('hidden');}
+
+// ─── STORAGE ──────────────────────────────────────────────────────────────────
+function saveToStorage(){
+  try{localStorage.setItem('fap_state',JSON.stringify(getAllData()));}catch(e){}
+}
+function loadFromStorage(){
+  try{
+    const raw=localStorage.getItem('fap_state');
+    if(!raw)return;
+    const data=JSON.parse(raw);
+    if(data.company){
+      Object.assign(S.co,data.company);
+      if(data.company.name){document.getElementById('coName').value=data.company.name;updateCoName();}
+    }
+    if(data.periods){S.periods=data.periods;['period0','period1','period2'].forEach((id,i)=>{const el=document.getElementById(id);if(el)el.value=S.periods[i];});}
+    setTimeout(()=>{
+      if(data.bs)Object.entries(data.bs).forEach(([k,v])=>{const el=document.getElementById(k);if(el&&el.tagName==='INPUT')el.value=v;});
+      if(data.pl)Object.entries(data.pl).forEach(([k,v])=>{const el=document.getElementById(k);if(el&&el.tagName==='INPUT')el.value=v;});
+      if(data.cf)Object.entries(data.cf).forEach(([k,v])=>{const el=document.getElementById(k);if(el&&el.tagName==='INPUT')el.value=v;});
+      if(data.aiResult)S.aiResult=data.aiResult;
+      recalcBS();recalcPL();recalcCF();updateDashboard();
+    },100);
+  }catch(e){}
+}
+
+function resetAll(){
+  localStorage.removeItem('fap_state');
+  location.reload();
+}
+
+// Enter key on password
+document.getElementById('pwInput').addEventListener('keydown',e=>{if(e.key==='Enter')checkPw();});
+</script>
+</body>
+</html>
+</script>
