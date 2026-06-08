@@ -3424,6 +3424,14 @@ function openDataset(dsKey){
   const ds=window._datasets&&window._datasets[dsKey];
   if(!ds)return;
   showDynStmtViewer(ds.parsed,ds.sourceName,ds.swKey);
+  // Auto-push to pages on first open
+  if(!ds.pushed) setTimeout(()=>pushDatasetToPages(dsKey),400);
+}
+
+function syncActiveDataset(){
+  // Find key of currently displayed dataset
+  const key=Object.keys(window._datasets||{}).find(k=>window._datasets[k].parsed===window._dynParsed);
+  if(key)pushDatasetToPages(key);
 }
 
 function updateDatasetBar(){
@@ -3447,6 +3455,7 @@ function updateDatasetBar(){
         <span>${sw(ds.swKey).icon}</span>
         <span style="max-width:160px;overflow:hidden;text-overflow:ellipsis">${ds.sourceName.replace(/\.[^.]+$/,'')}</span>
         <span style="font-size:9px;color:var(--muted)">${nonT}p · ${ds.parsed.rows.filter(r=>r.hasValues).length}r</span>
+        <span onclick="event.stopPropagation();pushDatasetToPages('${k}')" style="margin-left:4px;background:rgba(0,212,170,.15);border-radius:4px;padding:1px 5px;font-size:9px;color:var(--teal);cursor:pointer" title="Push to all analysis pages">${ds.pushed?'✓ synced':'⬆ sync'}</span>
         <span onclick="event.stopPropagation();deleteDataset('${k}')" style="margin-left:2px;color:rgba(148,163,184,.4);font-size:12px;cursor:pointer" title="Remove">✕</span>
       </button>`;
     }).join('')}
@@ -3456,6 +3465,113 @@ function updateDatasetBar(){
 function deleteDataset(dsKey){
   if(window._datasets)delete window._datasets[dsKey];
   updateDatasetBar();
+}
+// ─── PUSH DATASET TO MAIN ANALYSIS PAGES ─────────────────────────────────────
+// Maps parsed rows → P&L / BS / CF input fields using keyword matching
+function pushDatasetToPages(dsKey, silent=false){
+  const ds=window._datasets&&window._datasets[dsKey];
+  if(!ds){alert('Dataset not found.');return;}
+  const p=ds.parsed;
+  const nonTotal=p.periodCols.filter(pc=>!pc.isTotal);
+  const totalCol=p.periodCols.find(pc=>pc.isTotal);
+
+  // Build period label → app period index mapping
+  // Total col → period 0 (most comprehensive); last 3 non-total → 0,1,2 fallback
+  const pm=[]; // {parsedLabel, appPeriod}
+  if(totalCol){
+    pm.push({parsedLabel:totalCol.label,appPeriod:0});
+    [...nonTotal].reverse().slice(0,2).forEach((pc,i)=>pm.push({parsedLabel:pc.label,appPeriod:i+1}));
+  } else {
+    [...nonTotal].reverse().slice(0,3).forEach((pc,i)=>pm.push({parsedLabel:pc.label,appPeriod:i}));
+  }
+
+  const MAPS=[
+    {kmap:PL_FIELD_KEYWORDS, prefix:'pl_'},
+    {kmap:BS_FIELD_KEYWORDS, prefix:''},
+    {kmap:CF_FIELD_KEYWORDS, prefix:'cf_'},
+  ];
+
+  let mapped=0, tried=0;
+  p.rows.filter(r=>r.hasValues).forEach(row=>{
+    const lbl=row.label.toLowerCase();
+    for(const {kmap,prefix} of MAPS){
+      for(const [fieldId,kws] of Object.entries(kmap)){
+        if(!kws.some(kw=>lbl.includes(kw)))continue;
+        tried++;
+        pm.forEach(({parsedLabel,appPeriod})=>{
+          const v=row.values?.[parsedLabel];
+          if(v==null)return;
+          const el=document.getElementById(prefix+fieldId+'_'+appPeriod);
+          if(el&&el.tagName==='INPUT'){
+            el.value=Math.round(v*100)/100;
+            el.style.borderColor='rgba(0,212,170,.5)';
+            el.style.background='rgba(0,212,170,.06)';
+            mapped++;
+          }
+        });
+        break;
+      }
+    }
+  });
+
+  // Recalculate all pages
+  try{recalcBS();}catch(e){}
+  try{recalcPL();}catch(e){}
+  try{recalcCF();}catch(e){}
+  try{calcRatios();}catch(e){}
+  try{updateDashboard();}catch(e){}
+
+  // Update periods labels if company name available
+  const company=p.meta.company||ds.sourceName.replace(/\.[^.]+$/,'');
+  const periodEl=document.getElementById('coName');
+  if(periodEl&&company)periodEl.value=company;
+
+  // Mark dataset as pushed
+  ds.pushed=true;ds.mappedCount=mapped;
+  updateDatasetBar();
+
+  if(!silent){
+    showPushSummary(p,pm,mapped,tried,ds.sourceName);
+  }
+  return mapped;
+}
+
+function showPushSummary(p,pm,mapped,tried,sourceName){
+  let overlay=document.getElementById('pushSummaryOverlay');
+  if(overlay)overlay.remove();
+  overlay=document.createElement('div');
+  overlay.id='pushSummaryOverlay';
+  overlay.style.cssText='position:fixed;inset:0;z-index:9500;background:rgba(4,8,16,.85);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)';
+  const nonTotal=p.periodCols.filter(pc=>!pc.isTotal);
+  const totalCol=p.periodCols.find(pc=>pc.isTotal);
+  overlay.innerHTML=`<div style="background:var(--ink2);border:1px solid rgba(0,212,170,.2);border-radius:16px;padding:28px 32px;max-width:540px;width:90vw;box-shadow:0 20px 60px rgba(0,0,0,.6)">
+    <div style="font-size:20px;font-weight:800;color:var(--teal);margin-bottom:4px">✅ Dataset Synced to All Pages</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:20px">${sourceName}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">
+      <div style="background:rgba(0,212,170,.08);border:1px solid rgba(0,212,170,.15);border-radius:10px;padding:12px">
+        <div style="font-size:24px;font-weight:800;color:var(--teal)">${mapped}</div>
+        <div style="font-size:11px;color:var(--muted)">fields populated across BS / P&L / CF</div>
+      </div>
+      <div style="background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.15);border-radius:10px;padding:12px">
+        <div style="font-size:24px;font-weight:800;color:var(--sky)">${nonTotal.length}</div>
+        <div style="font-size:11px;color:var(--muted)">periods detected in file</div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:16px;line-height:1.7">
+      <strong style="color:var(--text)">Period mapping applied:</strong><br>
+      ${pm.map(m=>`<span style="color:var(--sky)">${m.parsedLabel}</span> → App Period ${m.appPeriod+1} <span style="color:var(--muted)">(${['Current Year','Previous Year','2 Years Ago'][m.appPeriod]||'Period '+(m.appPeriod+1)})</span>`).join('<br>')}
+    </div>
+    <div style="font-size:11px;color:rgba(240,192,64,.7);margin-bottom:20px">
+      💡 Navigate to <strong>P&L</strong>, <strong>Balance Sheet</strong>, <strong>Cash Flow</strong> or <strong>Ratios</strong> — all fields have been filled in. Charts and ratios will reflect this data.
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-teal" onclick="document.getElementById('pushSummaryOverlay').remove();switchTab('pl')">📊 View P&L</button>
+      <button class="btn btn-sky" onclick="document.getElementById('pushSummaryOverlay').remove();switchTab('bs')">📋 View Balance Sheet</button>
+      <button class="btn btn-gold" onclick="document.getElementById('pushSummaryOverlay').remove();switchTab('ratios')">📐 View Ratios</button>
+      <button class="btn btn-ghost" onclick="document.getElementById('pushSummaryOverlay').remove()">✕ Close</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
 }
 
 function legacyFieldMap(stmtType,raw,swKey){
@@ -3611,6 +3727,7 @@ function showDynStmtViewer(parsedData,sourceName,swKey){
       <button class="btn btn-teal btn-sm" onclick="dynStmtTab('dept')" id="dynTabBtnDept">🔢 Data Grid</button>
       <button class="btn btn-coral btn-sm" onclick="dynAiAnalyse()">🤖 AI Analyse</button>
       <button class="btn btn-gold btn-sm" onclick="exportDynToExcel()">📥 Excel</button>
+      <button class="btn btn-teal btn-sm" onclick="syncActiveDataset()" title="Push this dataset to all analysis pages">📊 Sync to Pages</button>
       <button class="btn btn-ghost btn-sm" onclick="document.getElementById('dynStmtModal').style.display='none';updateDatasetBar()">✕ Hide</button>
     </div>
   </div>
@@ -3623,6 +3740,12 @@ function showDynStmtViewer(parsedData,sourceName,swKey){
   renderDynTable(parsedData);
 }
 
+function switchTab(tabName){
+  // Close the push summary overlay and navigate to a main app panel
+  document.getElementById('pushSummaryOverlay')?.remove();
+  document.getElementById('dynStmtModal') && (document.getElementById('dynStmtModal').style.display='none');
+  nav(tabName);
+}
 function dynStmtTab(tab){
   ['Table','Charts','Dept','AI'].forEach(t=>{
     const el=document.getElementById('dynPane'+t);
