@@ -391,7 +391,8 @@ html,body{height:100%;font-family:'DM Sans',system-ui,sans-serif;background:var(
       </div>
       <div class="side-group">
         <div class="side-title">Data</div>
-        <div class="side-item" onclick="nav('smartviewer')"><span class="side-icon">🗂️</span>Smart Data Viewer<span class="side-badge-new">NEW</span></div>
+        <div class="side-item" onclick="nav('smartviewer')"><span class="side-icon">🗂️</span>Smart Data Viewer</div>
+        <div class="side-item" onclick="nav('standards')"><span class="side-icon">🌍</span>Global Accounting Std<span class="side-badge-new">NEW</span></div>
         <div class="side-item" onclick="nav('importexport')"><span class="side-icon">🔄</span>Import / Export</div>
         <div class="side-item" onclick="nav('settings')"><span class="side-icon">⚙️</span>Settings</div>
       </div>
@@ -552,9 +553,11 @@ html,body{height:100%;font-family:'DM Sans',system-ui,sans-serif;background:var(
           <div><div class="page-title">⚖️ Balance Sheet</div><div class="page-sub">Schedule III — Companies Act 2013</div></div>
           <div class="flex">
             <span id="bsTally" class="tally-ok">✓ Balanced</span>
+            <button class="btn btn-teal btn-sm" onclick="toggleImportBar('bs')">📂 Import Data</button>
             <button class="btn btn-ghost btn-sm" onclick="recalcBS()">↻ Recalculate</button>
           </div>
         </div>
+        <div id="importBar-bs" class="hidden"><div id="importBarInner-bs"></div></div>
         <div class="box" style="padding:0;overflow:hidden">
           <div class="fin-table-wrap">
             <table class="fin-table" id="bsTable">
@@ -576,8 +579,12 @@ html,body{height:100%;font-family:'DM Sans',system-ui,sans-serif;background:var(
       <div class="panel" id="panel-pl">
         <div class="page-header flex-between">
           <div><div class="page-title">📈 Profit & Loss Account</div><div class="page-sub">Statement of Profit and Loss — Schedule III</div></div>
-          <button class="btn btn-ghost btn-sm" onclick="recalcPL()">↻ Recalculate</button>
+          <div class="flex">
+            <button class="btn btn-teal btn-sm" onclick="toggleImportBar('pl')">📂 Import Data</button>
+            <button class="btn btn-ghost btn-sm" onclick="recalcPL()">↻ Recalculate</button>
+          </div>
         </div>
+        <div id="importBar-pl" class="hidden"><div id="importBarInner-pl"></div></div>
         <div class="box" style="padding:0;overflow:hidden">
           <div class="fin-table-wrap">
             <table class="fin-table" id="plTable">
@@ -599,8 +606,12 @@ html,body{height:100%;font-family:'DM Sans',system-ui,sans-serif;background:var(
       <div class="panel" id="panel-cf">
         <div class="page-header flex-between">
           <div><div class="page-title">💧 Cash Flow Statement</div><div class="page-sub">Indirect Method — As per AS 3 / Ind AS 7</div></div>
-          <button class="btn btn-ghost btn-sm" onclick="recalcCF()">↻ Recalculate</button>
+          <div class="flex">
+            <button class="btn btn-teal btn-sm" onclick="toggleImportBar('cf')">📂 Import Data</button>
+            <button class="btn btn-ghost btn-sm" onclick="recalcCF()">↻ Recalculate</button>
+          </div>
         </div>
+        <div id="importBar-cf" class="hidden"><div id="importBarInner-cf"></div></div>
         <div class="box" style="padding:0;overflow:hidden">
           <div class="fin-table-wrap">
             <table class="fin-table" id="cfTable">
@@ -622,8 +633,12 @@ html,body{height:100%;font-family:'DM Sans',system-ui,sans-serif;background:var(
       <div class="panel" id="panel-ratios">
         <div class="page-header flex-between">
           <div><div class="page-title">🔢 Financial Ratios</div><div class="page-sub">Auto-calculated from Balance Sheet & P&L data</div></div>
-          <button class="btn btn-gold btn-sm" onclick="calcRatios();nav('ratios')">↻ Recalculate All</button>
+          <div class="flex">
+            <button class="btn btn-teal btn-sm" onclick="toggleImportBar('ratios')">📂 Import Raw Data</button>
+            <button class="btn btn-gold btn-sm" onclick="calcRatios();nav('ratios')">↻ Recalculate All</button>
+          </div>
         </div>
+        <div id="importBar-ratios" class="hidden"><div id="importBarInner-ratios"></div></div>
         <div id="ratiosContent"></div>
       </div>
 
@@ -862,6 +877,40 @@ html,body{height:100%;font-family:'DM Sans',system-ui,sans-serif;background:var(
             <div class="export-card" onclick="downloadTemplate('ratios')"><div class="icon">🔢</div><div class="name">Ratio Analysis</div><div class="desc">Pre-filled ratio calculator</div></div>
           </div>
         </div>
+      </div>
+
+      <!-- GLOBAL ACCOUNTING STANDARDS PANEL -->
+      <div class="panel" id="panel-standards">
+        <div class="page-header flex-between">
+          <div><div class="page-title">🌍 Global Accounting Standards</div><div class="page-sub">Comprehensive reference — IFRS, US GAAP, Ind AS, UK GAAP, China CAS, Japan JGAAP, German HGB and more</div></div>
+          <div class="flex">
+            <select class="tb-select" id="stdFilterSel" onchange="filterStandards()" style="max-width:180px">
+              <option value="all">All Standards</option>
+              <option value="ifrs">IFRS</option>
+              <option value="usgaap">US GAAP</option>
+              <option value="indas">Ind AS</option>
+              <option value="ukgaap">UK GAAP</option>
+              <option value="china">China CAS</option>
+              <option value="japan">Japan JGAAP</option>
+              <option value="germany">German HGB</option>
+              <option value="canada">Canadian ASPE</option>
+            </select>
+            <button class="btn btn-gold btn-sm" onclick="exportStandardsPDF()">⬇ Export Reference</button>
+          </div>
+        </div>
+        <div class="tabs">
+          <div class="tab active" onclick="stdTab('overview',this)">🌐 Overview</div>
+          <div class="tab" onclick="stdTab('comparison',this)">↔ Key Differences</div>
+          <div class="tab" onclick="stdTab('revenue',this)">💰 Revenue Recognition</div>
+          <div class="tab" onclick="stdTab('leases',this)">🏢 Leases</div>
+          <div class="tab" onclick="stdTab('instruments',this)">📊 Financial Instruments</div>
+          <div class="tab" onclick="stdTab('inventory',this)">📦 Inventory</div>
+          <div class="tab" onclick="stdTab('goodwill',this)">🔮 Goodwill & Intangibles</div>
+          <div class="tab" onclick="stdTab('tax',this)">🧾 Deferred Tax</div>
+          <div class="tab" onclick="stdTab('presentation',this)">📄 FS Presentation</div>
+          <div class="tab" onclick="stdTab('auditing',this)">🔍 Auditing Standards</div>
+        </div>
+        <div id="stdContent"></div>
       </div>
 
       <!-- SETTINGS PANEL -->
@@ -2884,6 +2933,571 @@ function downloadTemplate(type){
   XLSX.utils.book_append_sheet(wb,ws,sheetName);
   XLSX.writeFile(wb,`FinAnalyser_${sheetName.replace(/\s/g,'_')}_Template.xlsx`);
 }
+
+// ─── IMPORT BAR (BS / PL / CF / RATIOS) ──────────────────────────────────────
+const SOFTWARE_PROFILES={
+  netsuite:{name:'NetSuite',icon:'🟦',color:'var(--sky)',detect:(h)=>h.some(x=>/financial row/i.test(x)),
+    desc:'Detects "Financial Row" column + account code hierarchy (3xxxxxx-xx format)'},
+  tally:{name:'Tally ERP / Prime',icon:'🟧',color:'var(--amb)',detect:(h)=>h.some(x=>/particulars/i.test(x))&&h.some(x=>/ledger|closing|opening/i.test(x)),
+    desc:'Detects "Particulars" column with Ledger/Opening/Closing structure'},
+  zoho:{name:'Zoho Books',icon:'🟩',color:'var(--teal)',detect:(h)=>h.some(x=>/account name/i.test(x))&&h.some(x=>/debit|credit/i.test(x)),
+    desc:'Detects Account Name with Debit/Credit columns'},
+  quickbooks:{name:'QuickBooks',icon:'🟦',color:'var(--sky2)',detect:(h)=>h.some(x=>/transaction type/i.test(x))||( h.some(x=>/\bnum\b/i.test(x))&&h.some(x=>/memo/i.test(x))),
+    desc:'Detects Transaction Type or Num/Memo columns'},
+  dynamics:{name:'Microsoft Dynamics 365',icon:'🔷',color:'var(--purple)',detect:(h)=>h.some(x=>/main account/i.test(x))||h.some(x=>/dimension/i.test(x)),
+    desc:'Detects "Main Account" or Dimension columns'},
+  sap:{name:'SAP S/4HANA / ERP',icon:'🔵',color:'var(--sky)',detect:(h)=>h.some(x=>/g\/l account|gl account/i.test(x))||h.some(x=>/cost center/i.test(x)),
+    desc:'Detects G/L Account or Cost Center columns'},
+  xero:{name:'Xero',icon:'🟦',color:'var(--sky2)',detect:(h)=>h.some(x=>/account code/i.test(x))&&h.some(x=>/contact/i.test(x)),
+    desc:'Detects Account Code + Contact columns'},
+  sage:{name:'Sage 50 / Sage 200',icon:'🟩',color:'var(--teal)',detect:(h)=>h.some(x=>/nominal code/i.test(x))||h.some(x=>/sage/i.test(x)),
+    desc:'Detects Nominal Code columns'},
+  freshbooks:{name:'FreshBooks',icon:'🟥',color:'var(--coral)',detect:(h)=>h.some(x=>/client name/i.test(x))&&h.some(x=>/invoice/i.test(x)),
+    desc:'Detects Client Name + Invoice columns'},
+  wave:{name:'Wave Accounting',icon:'🟪',color:'var(--purple)',detect:(h)=>h.some(x=>/account type/i.test(x))&&h.some(x=>/category/i.test(x)),
+    desc:'Detects Account Type + Category columns'},
+  myob:{name:'MYOB AccountRight',icon:'🟧',color:'var(--amb)',detect:(h)=>h.some(x=>/myob|account number/i.test(x)),
+    desc:'Detects MYOB or Account Number columns'},
+  oracle:{name:'Oracle Financials',icon:'🔴',color:'var(--coral)',detect:(h)=>h.some(x=>/natural account/i.test(x))||h.some(x=>/legal entity/i.test(x)),
+    desc:'Detects Natural Account or Legal Entity columns'},
+  schedule3:{name:'Schedule III (India)',icon:'🇮🇳',color:'var(--gold)',detect:(h)=>h.some(x=>/share capital|reserves|surplus/i.test(x)),
+    desc:'Standard Indian Schedule III format'},
+  generic:{name:'Generic / Unknown',icon:'📄',color:'var(--muted)',detect:()=>true,desc:'Will use best-guess column mapping'}
+};
+
+// P&L keyword mappings for field detection
+const PL_FIELD_KEYWORDS={
+  rev_gross:['revenue from operations','revenue from ops','sales','turnover','gross revenue','income from operations'],
+  other_income:['other income','non-operating income','miscellaneous income','interest income'],
+  cost_materials:['cost of materials','raw material','cost of goods','cogs','cost of sales','direct cost','material cost'],
+  purchases_stock:['purchases','stock-in-trade','purchase of stock','goods purchased'],
+  chg_inventories:['change in inventor','(increase)/decrease in stock','change in stock','inventory change'],
+  emp_benefits:['employee benefit','salary','salaries','wages','staff cost','personnel cost','payroll','remuneration'],
+  finance_costs:['finance cost','interest expense','borrowing cost','interest on loan','bank charges'],
+  depreciation:['depreciation','amortisation','amortization','d&a','dep & amort'],
+  other_exp:['other expense','selling expense','admin expense','general expense','overheads','operating expense'],
+  current_tax:['current tax','income tax','provision for tax','tax expense'],
+  deferred_tax:['deferred tax'],
+  oci:['other comprehensive','oci'],
+  eps_basic:['eps basic','earnings per share - basic','basic eps'],
+  eps_diluted:['eps diluted','diluted eps'],
+};
+const BS_FIELD_KEYWORDS={
+  share_capital:['share capital','paid up capital','equity share capital'],
+  reserves_surplus:['reserves','surplus','retained earnings','general reserve','capital reserve'],
+  lt_borrowings:['long-term borrow','long term debt','term loan','debentures','bonds payable'],
+  dtl:['deferred tax liab'],
+  other_ltl:['other long-term liab','long term liab'],
+  lt_provisions:['long-term provision'],
+  st_borrowings:['short-term borrow','working capital loan','cash credit','overdraft','short term debt'],
+  trade_pay_others:['trade payable','creditors','accounts payable','sundry creditor'],
+  other_cl:['other current liab','accruals','other payable'],
+  st_provisions:['short-term provision','provision for','current provision'],
+  tangible:['tangible','property plant','fixed assets','plant and machinery','furniture','equipment','land and building'],
+  intangible:['intangible','goodwill','patents','software','licenses'],
+  cwip:['capital work','cwip','construction in progress'],
+  nc_investments:['non-current invest','long term invest','investment in subsidiar'],
+  dta:['deferred tax asset'],
+  lt_loans:['long-term loan','long term advance','security deposit'],
+  other_nca:['other non-current'],
+  cur_investments:['current invest','short term invest','mutual fund'],
+  inventories:['inventor','stock','raw material stock','wip','finished goods'],
+  trade_rec:['trade receivable','debtors','accounts receivable','sundry debtor'],
+  cash:['cash','bank balance','cash equivalent','cash and bank'],
+  st_loans:['short-term loan','short term advance','advance to supplier'],
+  other_ca:['other current asset','prepaid','advance tax','tds receivable'],
+};
+const CF_FIELD_KEYWORDS={
+  cf_pbt:['profit before tax','pbt','net profit before tax'],
+  cf_dep:['depreciation','amortisation'],
+  cf_fin_cost:['finance cost','interest expense'],
+  cf_rec_chg:['trade receivable','debtor','accounts receivable'],
+  cf_inv_chg:['inventor','stock'],
+  cf_tp_chg:['trade payable','creditor','accounts payable'],
+  cf_tax_paid:['tax paid','income tax paid'],
+  cf_capex:['capital expenditure','capex','purchase of fixed','purchase of asset','purchase of ppe'],
+  cf_asset_sale:['sale of fixed','sale of asset','proceeds from asset'],
+  cf_inv_purch:['purchase of invest'],
+  cf_inv_sale:['sale of invest','proceeds from invest'],
+  cf_int_recv:['interest received','dividend received'],
+  cf_share_issue:['issue of share','share capital raised','proceeds from share'],
+  cf_lt_borrow:['proceeds from borrow','long term borrow raised'],
+  cf_lt_repay:['repayment of borrow','loan repaid','repayment of loan'],
+  cf_fin_paid:['interest paid','finance cost paid'],
+  cf_dividend:['dividend paid'],
+  cf_open_cash:['opening cash','opening balance'],
+};
+
+function detectSoftwareFromData(rawData){
+  const headerCandidates=rawData.slice(0,15).map(r=>(r||[]).map(c=>String(c||'').trim()));
+  for(const row of headerCandidates){
+    for(const [key,profile] of Object.entries(SOFTWARE_PROFILES)){
+      if(key!=='generic'&&profile.detect(row))return key;
+    }
+  }
+  return 'generic';
+}
+
+function toggleImportBar(stmtType){
+  const bar=document.getElementById('importBar-'+stmtType);
+  if(!bar)return;
+  if(!bar.classList.contains('hidden')){bar.classList.add('hidden');return;}
+  bar.classList.remove('hidden');
+  const inner=document.getElementById('importBarInner-'+stmtType);
+  inner.innerHTML=buildImportBarHTML(stmtType);
+}
+
+function buildImportBarHTML(stmtType){
+  const names={bs:'Balance Sheet',pl:'Profit & Loss',cf:'Cash Flow Statement',ratios:'Financial Data (for Ratios)'};
+  return `<div class="box sky" style="margin-bottom:12px">
+    <div class="box-title"><span class="icon">📂</span>Import ${names[stmtType]||stmtType}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:12px">
+      <div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Supported software exports:</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px">
+          ${Object.entries(SOFTWARE_PROFILES).filter(([k])=>k!=='generic').map(([k,p])=>`<span style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:2px 8px;font-size:10px;color:var(--muted)">${p.icon} ${p.name}</span>`).join('')}
+        </div>
+        <input type="file" id="stmtFile_${stmtType}" accept=".xlsx,.csv,.xls" style="display:none" onchange="handleStmtImport('${stmtType}',this.files[0])">
+        <button class="btn btn-teal" onclick="document.getElementById('stmtFile_${stmtType}').click()">📂 Choose File (.xlsx / .csv)</button>
+        <span style="font-size:11px;color:var(--muted);margin-left:8px">or drag onto any table cell</span>
+      </div>
+      <div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Paste from Excel / any app:</div>
+        <textarea id="stmtPaste_${stmtType}" style="width:100%;height:90px;background:rgba(8,13,26,.8);border:1px solid rgba(56,189,248,.2);color:var(--text);padding:8px;border-radius:8px;font-family:monospace;font-size:11px;resize:vertical" placeholder="Paste tab-separated rows here (Ctrl+V)…" onpaste="setTimeout(()=>handleStmtPaste('${stmtType}'),80)"></textarea>
+        <button class="btn btn-sky btn-sm mt8" onclick="downloadTemplate('${stmtType==='ratios'?'ratios':stmtType}')">⬇ Download Template</button>
+      </div>
+    </div>
+    <div id="stmtImportStatus_${stmtType}" style="font-size:12px;color:var(--muted)"></div>
+    <div id="stmtMappingPreview_${stmtType}" class="hidden" style="margin-top:12px"></div>
+  </div>`;
+}
+
+async function handleStmtImport(stmtType,file){
+  if(!file)return;
+  showLoading('Reading '+file.name+'…');
+  const reader=new FileReader();
+  reader.onload=e=>{
+    hideLoading();
+    try{
+      let raw;
+      if(file.name.endsWith('.csv')){raw=parseCSVToArray(e.target.result);}
+      else{const wb=XLSX.read(e.target.result,{type:'binary'});const ws=wb.Sheets[wb.SheetNames[0]];raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:false});}
+      processStmtImport(stmtType,raw,file.name);
+    }catch(err){setStmtStatus(stmtType,'❌ Error reading file: '+err.message,'var(--coral)');}
+  };
+  if(file.name.endsWith('.csv'))reader.readAsText(file);
+  else reader.readAsBinaryString(file);
+}
+
+function handleStmtPaste(stmtType){
+  const raw=parseCSVToArray(document.getElementById('stmtPaste_'+stmtType)?.value||'');
+  if(raw.length>1)processStmtImport(stmtType,raw,'pasted data');
+}
+
+function processStmtImport(stmtType,raw,sourceName){
+  // Detect software
+  const swKey=detectSoftwareFromData(raw);
+  const sw=SOFTWARE_PROFILES[swKey];
+
+  // Find header row
+  let hdrIdx=0;
+  for(let i=0;i<Math.min(12,raw.length);i++){
+    const r=raw[i]||[];
+    const nonNull=r.filter(c=>c!==null&&c!==undefined&&String(c).trim()!=='').length;
+    if(nonNull>=3){hdrIdx=i;break;}
+  }
+  const headers=(raw[hdrIdx]||[]).map(c=>String(c||'').trim().toLowerCase());
+
+  // Find label column
+  let labelCol=0;
+  for(let c=0;c<Math.min(6,headers.length);c++){
+    if(/particulars|account|description|financial row|name|ledger/i.test(headers[c])){labelCol=c;break;}
+    const textRows=raw.slice(hdrIdx+1,hdrIdx+20).filter(r=>r&&r[c]&&isNaN(parseFloat(String(r[c]).replace(/[,\s]/g,'')))).length;
+    if(textRows>5){labelCol=c;break;}
+  }
+
+  // Find numeric columns (period data)
+  const numCols=[];
+  headers.forEach((h,i)=>{
+    if(i===labelCol)return;
+    const hasNums=raw.slice(hdrIdx+1,hdrIdx+20).some(r=>r&&!isNaN(parseFloat(String(r[i]||'').replace(/[,₹$\s]/g,''))));
+    if(hasNums)numCols.push({col:i,label:headers[i]||'Col '+(i+1)});
+  });
+
+  setStmtStatus(stmtType,`✅ Detected: ${sw.icon} ${sw.name} · ${raw.length} rows · ${numCols.length} numeric columns`,'var(--teal)');
+
+  // Build period → column mappings
+  const periods=['period 0','period 1','period 2'];
+  const mappingHTML=buildMappingPreview(stmtType,raw,hdrIdx,labelCol,numCols,swKey,sw);
+  const previewEl=document.getElementById('stmtMappingPreview_'+stmtType);
+  if(previewEl){previewEl.classList.remove('hidden');previewEl.innerHTML=mappingHTML;}
+
+  // Store for confirm action
+  window._pendingImport={stmtType,raw,hdrIdx,labelCol,numCols,swKey};
+}
+
+function buildMappingPreview(stmtType,raw,hdrIdx,labelCol,numCols,swKey,sw){
+  const periodAssign=numCols.slice(0,3).map((nc,i)=>`
+    <div class="flex" style="margin-bottom:6px">
+      <span style="font-size:11px;color:var(--muted);width:140px;flex-shrink:0">"${nc.label}" →</span>
+      <select id="pmapCol_${i}" style="background:rgba(8,13,26,.8);border:1px solid rgba(240,192,64,.15);color:var(--text);padding:4px 8px;border-radius:6px;font-size:11px">
+        ${S.periods.map((p,pi)=>`<option value="${pi}" ${i===pi?'selected':''}>${p}</option>`).join('')}
+        <option value="-1">— Skip —</option>
+      </select>
+    </div>`).join('');
+
+  // Auto-detect field mappings: scan rows for keywords
+  let autoMapped=0;
+  const KMAP=stmtType==='bs'?BS_FIELD_KEYWORDS:stmtType==='pl'?PL_FIELD_KEYWORDS:CF_FIELD_KEYWORDS;
+  const mappedFields=[];
+  raw.slice(hdrIdx+1).forEach(row=>{
+    if(!row)return;
+    const label=String(row[labelCol]||'').toLowerCase().trim();
+    for(const [fieldId,kws] of Object.entries(KMAP)){
+      if(kws.some(kw=>label.includes(kw))){
+        mappedFields.push(fieldId);autoMapped++;return;
+      }
+    }
+  });
+
+  return `<div style="background:rgba(15,27,45,.9);border:1px solid rgba(240,192,64,.12);border-radius:10px;padding:16px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+      <span style="font-size:20px">${sw.icon}</span>
+      <div>
+        <div style="font-size:13px;font-weight:600;color:var(--text)">${sw.name} format detected</div>
+        <div style="font-size:11px;color:var(--muted)">${sw.desc}</div>
+      </div>
+      <span style="margin-left:auto;background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.2);color:var(--teal);font-size:11px;padding:3px 10px;border-radius:8px">${autoMapped} fields auto-mapped</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div>
+        <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Map Periods:</div>
+        ${periodAssign||'<div style="font-size:11px;color:var(--muted)">No numeric columns detected.</div>'}
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Preview (first 8 rows):</div>
+        <div style="font-size:11px;color:var(--muted);max-height:120px;overflow:auto">
+          ${raw.slice(hdrIdx+1,hdrIdx+9).map(r=>{
+            if(!r)return '';
+            const lbl=String(r[labelCol]||'').substring(0,35);
+            const val=numCols[0]?String(r[numCols[0].col]||''):'-';
+            return lbl?`<div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px solid rgba(255,255,255,.03)"><span>${lbl}</span><span style="color:var(--teal)">${val}</span></div>`:'';
+          }).join('')}
+        </div>
+      </div>
+    </div>
+    <div class="flex-end mt16">
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('stmtMappingPreview_${stmtType}').classList.add('hidden')">Cancel</button>
+      <button class="btn btn-gold" onclick="confirmStmtImport()">✅ Import & Map to ${stmtType.toUpperCase()} Fields</button>
+    </div>
+  </div>`;
+}
+
+function setStmtStatus(stmtType,msg,color){
+  const el=document.getElementById('stmtImportStatus_'+stmtType);
+  if(el){el.textContent=msg;el.style.color=color||'var(--muted)';}
+}
+
+function confirmStmtImport(){
+  const pi=window._pendingImport;
+  if(!pi)return;
+  const {stmtType,raw,hdrIdx,labelCol,numCols}=pi;
+  const KMAP=stmtType==='bs'?BS_FIELD_KEYWORDS:stmtType==='pl'?PL_FIELD_KEYWORDS:CF_FIELD_KEYWORDS;
+
+  // Build period mapping from selects
+  const periodMap={};
+  numCols.slice(0,3).forEach((nc,i)=>{
+    const sel=document.getElementById('pmapCol_'+i);
+    const p=sel?parseInt(sel.value):-1;
+    if(p>=0)periodMap[nc.col]=p;
+  });
+
+  let mapped=0;
+  raw.slice(hdrIdx+1).forEach(row=>{
+    if(!row)return;
+    const rawLabel=String(row[labelCol]||'').trim();
+    if(!rawLabel)return;
+    const label=rawLabel.toLowerCase();
+    for(const [fieldId,kws] of Object.entries(KMAP)){
+      if(!kws.some(kw=>label.includes(kw)))continue;
+      Object.entries(periodMap).forEach(([col,period])=>{
+        const v=parseFloat(String(row[col]||'').replace(/[,₹$\s]/g,''));
+        if(isNaN(v))return;
+        const prefix=stmtType==='bs'?'':stmtType==='pl'?'pl_':'cf_';
+        const id=prefix+fieldId+'_'+period;
+        const el=document.getElementById(id);
+        if(el&&el.tagName==='INPUT'){el.value=v;el.style.borderColor='rgba(0,212,170,.4)';mapped++;}
+      });
+      break;
+    }
+  });
+
+  if(stmtType==='bs')recalcBS();
+  else if(stmtType==='pl')recalcPL();
+  else if(stmtType==='cf')recalcCF();
+  else calcRatios();
+  updateDashboard();
+
+  const stmtType2=pi.stmtType;
+  setStmtStatus(stmtType2,`✅ Imported! ${mapped} fields populated. Totals auto-calculated.`,'var(--teal)');
+  document.getElementById('stmtMappingPreview_'+stmtType2)?.classList.add('hidden');
+  window._pendingImport=null;
+  alert(`✅ Import complete!\n${mapped} fields mapped and populated.\nTotals have been auto-recalculated.`);
+}
+
+// ─── GLOBAL ACCOUNTING STANDARDS ─────────────────────────────────────────────
+const STD_DATA={
+  overview:[
+    {name:'IFRS',fullName:'International Financial Reporting Standards',body:'IASB (International Accounting Standards Board)',adopt:'140+ countries incl. EU, India (Ind AS), Canada, Australia, GCC, Africa, South America',basis:'Principles-based',color:'var(--sky)',icon:'🌐',
+      keyStds:['IFRS 15 – Revenue from Contracts','IFRS 16 – Leases','IFRS 9 – Financial Instruments','IFRS 10 – Consolidated FS','IFRS 13 – Fair Value Measurement','IAS 2 – Inventories','IAS 12 – Income Taxes','IAS 36 – Impairment','IAS 37 – Provisions','IAS 38 – Intangibles'],
+      summary:'The most widely adopted global framework. Principles-based approach allows judgment. Converging with US GAAP since Norwalk Agreement (2002). Mandatory for listed companies in EU, UK, India (large companies).',
+      country:'Global'},
+    {name:'US GAAP',fullName:'Generally Accepted Accounting Principles (USA)',body:'FASB (Financial Accounting Standards Board)',adopt:'United States (mandatory for SEC registrants), many MNC subsidiaries globally',basis:'Rules-based',color:'var(--coral)',icon:'🇺🇸',
+      keyStds:['ASC 606 – Revenue Recognition','ASC 842 – Leases','ASC 321/323 – Investments','ASC 805 – Business Combinations','ASC 350 – Intangibles & Goodwill','ASC 360 – Property Plant & Equipment','ASC 740 – Income Taxes','ASC 460 – Guarantees','ASC 280 – Segment Reporting'],
+      summary:'Most detailed rules-based framework globally. Extensive guidance reduces ambiguity. SEC requires XBRL tagging. Over 800 ASC topics. Increasingly converging with IFRS but significant differences remain (LIFO, goodwill amortization).',
+      country:'USA'},
+    {name:'Ind AS',fullName:'Indian Accounting Standards (IFRS-converged)',body:'ICAI / Ministry of Corporate Affairs (MCA), India',adopt:'India — Mandatory for listed + large unlisted cos (net worth ≥ ₹250 Cr). Others follow AS.',basis:'Principles-based (IFRS-converged)',color:'var(--gold)',icon:'🇮🇳',
+      keyStds:['Ind AS 115 – Revenue','Ind AS 116 – Leases','Ind AS 109 – Financial Instruments','Ind AS 110 – Consolidated FS','Ind AS 12 – Income Taxes','Ind AS 2 – Inventories','Ind AS 36 – Impairment','Ind AS 38 – Intangibles','Ind AS 113 – Fair Value'],
+      summary:'Based on IFRS with carve-outs for Indian context. Companies not meeting threshold use AS (Accounting Standards). Schedule III of Companies Act 2013 governs FS presentation. SEBI mandates Ind AS for listed cos.',
+      country:'India'},
+    {name:'AS (Indian GAAP)',fullName:'Accounting Standards — Old Indian GAAP',body:'ICAI (Institute of Chartered Accountants of India)',adopt:'India — SMEs, unlisted companies below Ind AS threshold',basis:'Principles-based',color:'var(--amb)',icon:'🇮🇳',
+      keyStds:['AS 1 – Disclosure of Accounting Policies','AS 2 – Inventories','AS 9 – Revenue Recognition','AS 13 – Investments','AS 15 – Employee Benefits','AS 18 – Related Parties','AS 22 – Deferred Tax','AS 26 – Intangibles','AS 28 – Impairment','AS 29 – Provisions'],
+      summary:'Traditional Indian GAAP still applicable to smaller entities. Simpler than Ind AS. Based on historical cost. No comprehensive income concept. Goodwill amortized. Will co-exist with Ind AS for foreseeable future.',
+      country:'India'},
+    {name:'UK GAAP (FRS 102)',fullName:'Financial Reporting Standard 102 — The Financial Reporting Standard applicable in the UK and Republic of Ireland',body:'FRC (Financial Reporting Council), UK',adopt:'UK, Republic of Ireland — unlisted companies. Listed UK cos use UK-adopted IFRS.',basis:'Principles-based (simplified IFRS)',color:'var(--purple)',icon:'🇬🇧',
+      keyStds:['FRS 102 – Main standard (IFRS-light)','FRS 101 – Reduced Disclosure Framework','FRS 103 – Insurance Contracts','FRS 104 – Interim FS','FRS 105 – Micro-entities','SSAP 9 – Stocks & WIP'],
+      summary:'Post-Brexit, UK adopted its own version of IFRS. FRS 102 covers most UK entities. FRS 105 provides a simplified framework for micro-entities (turnover < £632K). ICAEW oversees UK auditing standards.',
+      country:'United Kingdom'},
+    {name:'China CAS',fullName:'China Accounting Standards (企业会计准则)',body:'MOF (Ministry of Finance), China',adopt:'China — listed companies must use CAS (based on IFRS). Smaller entities may use Small Business AS.',basis:'Principles-based (IFRS-converged)',color:'var(--coral)',icon:'🇨🇳',
+      keyStds:['CAS 14 – Revenue','CAS 21 – Leases','CAS 22 – Financial Instruments','CAS 6 – Intangible Assets','CAS 8 – Asset Impairment','CAS 9 – Employee Benefits','CAS 18 – Income Tax','CAS 33 – Consolidated FS','CAS 40 – Fair Value'],
+      summary:'China substantially converged with IFRS (MOF announced equivalence). Key differences remain in government grants, related party transactions, and certain financial instruments. Mandatory for A-share listed companies on SSE/SZSE.',
+      country:'China'},
+    {name:'Japan JGAAP',fullName:'Japanese GAAP (日本基準)',body:'ASBJ (Accounting Standards Board of Japan) / FSA',adopt:'Japan — mandatory for Japanese listed companies unless they opt for IFRS or US GAAP (allowed since 2010)',basis:'Rules-based (historically)',color:'var(--sky2)',icon:'🇯🇵',
+      keyStds:['JGAAP AS – Revenue Recognition (2021)','JGAAP – Leases','JGAAP – Financial Instruments','JGAAP – Business Combinations','JGAAP – Consolidated FS','JGAAP – Deferred Tax','JGAAP – Pension Accounting'],
+      summary:'Conservative, creditor-oriented framework. Goodwill amortized (unlike IFRS). JGAAP converging with IFRS — new revenue standard aligned with IFRS 15. IFRS adoption growing among major Japanese MNCs (Toyota, Sony etc.).',
+      country:'Japan'},
+    {name:'German HGB',fullName:'German Commercial Code (Handelsgesetzbuch)',body:'German government — BMJ (Federal Ministry of Justice)',adopt:'Germany — mandatory for all German companies. Listed cos additionally prepare IFRS consolidated statements.',basis:'Code-law / Rules-based',color:'var(--purple2)',icon:'🇩🇪',
+      keyStds:['HGB §238-315e – Accounting rules','HGB §316-324 – Audit requirements','GoB – Generally Accepted Accounting Principles','DRS – German Accounting Standards (for consolidated)'],
+      summary:'Highly creditor-protective and tax-driven. Prudence principle dominant — lower of cost or market for assets. Secret reserves permitted. Goodwill amortized over max 10 years. Separate financial statements for tax purposes.',
+      country:'Germany'},
+    {name:'Canadian GAAP',fullName:'Canadian Accounting Standards (ASPE / IFRS)',body:'AcSB (Accounting Standards Board), CPA Canada',adopt:'Canada — listed companies use IFRS (mandatory since 2011). Private enterprises use ASPE (Accounting Standards for Private Enterprises).',basis:'Principles-based',color:'var(--coral)',icon:'🇨🇦',
+      keyStds:['IFRS (for listed)','ASPE Sections 1000-3870 (for private)','ASNPO – Not-for-profit','PSAS – Public Sector'],
+      summary:'Dual-track system. Listed companies adopted IFRS in 2011. ASPE is a simplified GAAP for private companies — less complex, fewer disclosures. Strong convergence with IFRS for public entities.',
+      country:'Canada'},
+    {name:'Australian GAAP',fullName:'Australian Accounting Standards (AASB)',body:'AASB (Australian Accounting Standards Board)',adopt:'Australia — AASB adopted IFRS verbatim for listed entities (since 2005). Not-for-profits and public sector use modified AASB standards.',basis:'Principles-based (IFRS-equivalent)',color:'var(--sky)',icon:'🇦🇺',
+      keyStds:['AASB 15 = IFRS 15 – Revenue','AASB 16 = IFRS 16 – Leases','AASB 9 = IFRS 9 – Financial Instruments','AASB 136 – Impairment','AASB 1053 – Application of Tiers','AASB 1060 – General Purpose FS (Simplified)'],
+      summary:'Australia adopted IFRS word-for-word — AASB standards mirror IFRS with Aus-specific additions. Two-tier reporting: Tier 1 (IFRS) for listed/large; Tier 2 (simplified) for smaller entities. ASIC enforces compliance.',
+      country:'Australia'},
+    {name:'UAE/GCC GAAP',fullName:'UAE & Gulf Cooperation Council — IFRS-based',body:'Securities and Commodities Authority (UAE), Central Bank, respective country regulators',adopt:'UAE, Saudi Arabia, Kuwait, Qatar, Bahrain, Oman — IFRS mandatory for listed companies and banks',basis:'Principles-based (IFRS)',color:'var(--gold)',icon:'🇦🇪',
+      keyStds:['IFRS (full) for listed cos','SOCPA Standards (Saudi Arabia) for unlisted','AAOIFI Standards (Islamic Finance entities)','Central Bank guidelines for banks'],
+      summary:'GCC countries primarily use IFRS. Saudi Arabia (SOCPA) issued its own standards for unlisted companies. Islamic finance entities follow AAOIFI standards which differ on revenue recognition, financial instruments (riba-free). VAT adopted in UAE/KSA from 2018.',
+      country:'Middle East / GCC'},
+    {name:'IPSAS',fullName:'International Public Sector Accounting Standards',body:'IPSASB (International Public Sector Accounting Standards Board)',adopt:'Governments worldwide — adopted/adapting in 80+ countries for government financial reporting',basis:'Accrual-based (IFRS-adapted for public sector)',color:'var(--teal)',icon:'🏛️',
+      keyStds:['IPSAS 1 – Presentation of FS','IPSAS 9 – Revenue from Exchange Transactions','IPSAS 23 – Revenue from Non-Exchange','IPSAS 17 – Property Plant Equipment','IPSAS 29 – Financial Instruments','IPSAS 38 – Disclosure of Interests in Other Entities'],
+      summary:'Adapted from IFRS for government and public sector entities. Key difference: non-exchange revenue (taxes, grants). Many developing countries transitioning from cash to accrual basis using IPSAS. IMF and World Bank promote adoption.',
+      country:'Global (Government)'},
+  ],
+  comparison:[
+    {topic:'Revenue Recognition',rows:[
+      {std:'IFRS',rule:'IFRS 15 – 5-step model: identify contract, performance obligations, transaction price, allocate, recognize when/as obligation satisfied'},
+      {std:'US GAAP',rule:'ASC 606 – Identical 5-step model (joint standard with IFRS 15). Industry-specific guidance more detailed.'},
+      {std:'Ind AS',rule:'Ind AS 115 – mirrors IFRS 15 with minor carve-outs. Effective April 2018.'},
+      {std:'AS (Old India)',rule:'AS 9 – Revenue recognition on accrual basis. Simpler rules — transfer of risks & rewards. Less detailed.'},
+      {std:'UK GAAP',rule:'FRS 102 Section 23 – Similar to old IAS 18. Performance conditions, stage of completion. Simpler than IFRS 15.'},
+      {std:'China CAS',rule:'CAS 14 – Converged with IFRS 15 since 2017. Substantially consistent.'},
+      {std:'Japan JGAAP',rule:'New revenue standard (2021) substantially aligned with IFRS 15. Previously, revenue recognized on delivery.'},
+      {std:'German HGB',rule:'Realization principle — revenue only recognized when service/goods delivered and payment likely. Conservative.'},
+    ]},
+    {topic:'Lease Accounting',rows:[
+      {std:'IFRS',rule:'IFRS 16 – All leases (>12m, >low value) capitalized on balance sheet as ROU asset + lease liability. Single model.'},
+      {std:'US GAAP',rule:'ASC 842 – Similar to IFRS 16 but retains operating vs finance lease distinction (different P&L presentation). LIHTC differences.'},
+      {std:'Ind AS',rule:'Ind AS 116 – mirrors IFRS 16. Effective April 2019 for large companies.'},
+      {std:'AS (Old India)',rule:'AS 19 – Finance leases capitalized; operating leases expensed. No balance sheet recognition for operating leases.'},
+      {std:'UK GAAP',rule:'FRS 102 Section 20 – Finance leases on balance sheet; operating leases off balance sheet. Similar to old IAS 17.'},
+      {std:'China CAS',rule:'CAS 21 (revised 2019) – Converged with IFRS 16. All leases on balance sheet for lessees.'},
+      {std:'German HGB',rule:'Tax-driven lease classification. Operating leases kept off balance sheet. Finance leases capitalized based on economic substance.'},
+    ]},
+    {topic:'Inventory Valuation',rows:[
+      {std:'IFRS',rule:'IAS 2 – Lower of Cost or NRV. FIFO or weighted average. LIFO prohibited.'},
+      {std:'US GAAP',rule:'ASC 330 – Lower of Cost or NRV. FIFO, LIFO, or weighted average permitted. LIFO allowed (tax advantage).'},
+      {std:'Ind AS',rule:'Ind AS 2 – mirrors IAS 2. LIFO prohibited. FIFO or weighted average.'},
+      {std:'AS (Old India)',rule:'AS 2 – Lower of cost or NRV. FIFO, LIFO, or weighted average. LIFO technically permitted but rarely used.'},
+      {std:'China CAS',rule:'CAS 1 – FIFO or weighted average. LIFO prohibited. Similar to IFRS.'},
+      {std:'German HGB',rule:'FIFO, LIFO, or weighted average. Lower of cost or market. LIFO allowed for tax purposes.'},
+    ]},
+    {topic:'Goodwill & Intangibles',rows:[
+      {std:'IFRS',rule:'IFRS 3 + IAS 36 – Goodwill NOT amortized; annual impairment test required. Intangibles: useful life finite → amortize; indefinite → impairment test.'},
+      {std:'US GAAP',rule:'ASC 350 + ASC 805 – Goodwill NOT amortized (public cos); private cos may elect 10yr amortization (ASC 350-20). Annual impairment test.'},
+      {std:'Ind AS',rule:'Ind AS 103 + 36 – Same as IFRS. Goodwill not amortized; impairment only.'},
+      {std:'AS (Old India)',rule:'AS 26 – Goodwill amortized over useful life (max 10 years recommended). No indefinite life intangibles.'},
+      {std:'UK GAAP',rule:'FRS 102 – Goodwill amortized over useful life (max 10yr if cannot reliably estimate). Rebuttable presumption.'},
+      {std:'Japan JGAAP',rule:'Goodwill amortized over max 20 years (straight line). Annual impairment test also required.'},
+      {std:'German HGB',rule:'Goodwill capitalized and amortized over max 10 years. Acquired goodwill only (internally generated prohibited).'},
+    ]},
+    {topic:'Financial Instruments',rows:[
+      {std:'IFRS',rule:'IFRS 9 – 3 categories: Amortized Cost, FVOCI, FVTPL. ECL (Expected Credit Loss) model for impairment. Hedge accounting simplified.'},
+      {std:'US GAAP',rule:'ASC 321/326/815 – Equity investments at FV through P&L. CECL model (more forward-looking than ECL). Complex hedge accounting.'},
+      {std:'Ind AS',rule:'Ind AS 109 – mirrors IFRS 9 with carve-outs for certain equity instruments.'},
+      {std:'AS (Old India)',rule:'AS 13 – Historical cost with lower of cost or fair value for current investments. Incurred loss model for impairment.'},
+      {std:'China CAS',rule:'CAS 22 (revised) – Substantially converged with IFRS 9. ECL model adopted.'},
+    ]},
+    {topic:'Deferred Tax',rows:[
+      {std:'IFRS',rule:'IAS 12 – Balance sheet liability method. Deferred tax on all temporary differences. Recognized unless criteria not met.'},
+      {std:'US GAAP',rule:'ASC 740 – Similar to IAS 12. All deferred tax recognized. Valuation allowance if realization not likely. No discounting.'},
+      {std:'Ind AS',rule:'Ind AS 12 – mirrors IAS 12.'},
+      {std:'AS (Old India)',rule:'AS 22 – Timing difference method (not temporary difference). More limited in scope than IFRS.'},
+      {std:'German HGB',rule:'Deferred taxes at consolidated level only. Different timing differences concept. Tax-driven accounting.'},
+    ]},
+    {topic:'Going Concern',rows:[
+      {std:'IFRS',rule:'IAS 1 – Management assesses at least 12 months forward. Disclose material uncertainties. Auditor reports under ISA 570.'},
+      {std:'US GAAP',rule:'ASC 205-40 – 12-month assessment period. Same disclosure requirements. PCAOB/AICPA audit standards.'},
+      {std:'Ind AS',rule:'Ind AS 1 – Same as IAS 1. SA 570 (auditing standard) applies.'},
+      {std:'UK GAAP',rule:'FRS 102 – Going concern basis of preparation. 12-month forward-looking assessment.'},
+      {std:'All IPSAS',rule:'IPSAS 1 – Government entities normally presumed to be going concern but assessment still required.'},
+    ]},
+  ],
+  auditing:[
+    {region:'Global (International)',std:'ISA (International Standards on Auditing)',body:'IAASB (International Auditing and Assurance Standards Board)',adoption:'Used in 100+ countries; basis for most national standards',keyStds:['ISA 200 – Objectives','ISA 240 – Fraud','ISA 315 – Risk Assessment','ISA 330 – Responses to Risks','ISA 500 – Audit Evidence','ISA 520 – Analytical Procedures','ISA 540 – Accounting Estimates','ISA 570 – Going Concern','ISA 700 – Audit Report','ISA 720 – Other Information'],color:'var(--sky)'},
+    {region:'United States',std:'PCAOB / AICPA Standards',body:'PCAOB (Public Company Accounting Oversight Board) for listed; AICPA for private',adoption:'Mandatory for SEC registrants (PCAOB); private companies (AICPA SAS)',keyStds:['AS 1101 – Audit Risk','AS 2201 – Internal Controls (SOX 404)','AS 2301 – Audit Procedures','AS 2401 – Fraud','AS 2815 – Going Concern','AS 3101 – Audit Report','SAS 145 – Risk Assessment (AICPA)'],color:'var(--coral)'},
+    {region:'India',std:'SA (Standards on Auditing)',body:'ICAI (Institute of Chartered Accountants of India)',adoption:'Mandatory for all statutory audits in India; based on ISA with modifications',keyStds:['SA 200 – Objectives','SA 240 – Fraud','SA 315 – Risk Assessment','SA 570 – Going Concern','SA 700 – Audit Report','SA 706 – Emphasis of Matter','SA 720 – Other Information','CARO 2020 – Companies Auditor Report Order'],color:'var(--gold)'},
+    {region:'UK',std:'ISAs (UK) — UK-adopted ISAs',body:'FRC (Financial Reporting Council)',adoption:'Mandatory for UK statutory audits; ISAs with UK-specific modifications',keyStds:['ISA (UK) 700 – Audit Report','ISA (UK) 570 – Going Concern (enhanced requirements)','ISA (UK) 250 – Legal/Regulatory','Practice Notes by FRC'],color:'var(--purple)'},
+    {region:'China',std:'Chinese Auditing Standards (CAS)',body:'MoF / CICPA (Chinese Institute of CPAs)',adoption:'Mandatory for Chinese statutory audits; substantially converged with ISA',keyStds:['CAS 1101 – Objectives','CAS 1141 – Going Concern','CAS 1501 – Audit Report','CSRC requirements for listed companies'],color:'var(--coral)'},
+    {region:'Japan',std:'JICPA Standards',body:'JICPA (Japanese Institute of CPAs) / FSA',adoption:'Japan — converged with ISA. Listed companies also subject to FSA regulations.',keyStds:['Auditing Standards – by JICPA','Internal Control Audit (J-SOX) – similar to SOX','Financial Instruments and Exchange Act requirements'],color:'var(--sky2)'},
+    {region:'EU',std:'EU Audit Regulation + ISA',body:'European Commission + national bodies (e.g. IDW in Germany, CNCC in France)',adoption:'ISA adopted/endorsed by individual EU member states. EU Audit Directive applies to public interest entities.',keyStds:['EU Audit Regulation (537/2014)','EU Audit Directive (2006/43/EC as amended)','Country-specific national standards based on ISA','EAIG – European Audit Inspection Group'],color:'var(--purple2)'},
+  ],
+};
+
+let currentStdTab='overview';
+function stdTab(tab,el){
+  currentStdTab=tab;
+  document.querySelectorAll('#panel-standards .tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  renderStandardsContent(tab);
+}
+
+function filterStandards(){renderStandardsContent(currentStdTab);}
+
+function renderStandardsContent(tab){
+  const el=document.getElementById('stdContent');
+  if(!el)return;
+  const filter=document.getElementById('stdFilterSel')?.value||'all';
+
+  if(tab==='overview'){
+    const items=filter==='all'?STD_DATA.overview:STD_DATA.overview.filter(s=>s.name.toLowerCase().replace(/[\s\/]/g,'').includes(filter.replace(/[_]/g,'')));
+    el.innerHTML=items.map(s=>`
+      <div class="box" style="--box-accent:${s.color};margin-bottom:12px">
+        <div style="display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap">
+          <div style="font-size:36px">${s.icon}</div>
+          <div style="flex:1;min-width:240px">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap">
+              <span style="font-family:Playfair Display,serif;font-size:17px;font-weight:700;color:${s.color}">${s.name}</span>
+              <span style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:var(--muted);font-size:10px;padding:2px 8px;border-radius:6px">${s.basis}</span>
+              <span style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:var(--muted);font-size:10px;padding:2px 8px;border-radius:6px">${s.country}</span>
+            </div>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:4px"><strong style="color:var(--text)">${s.fullName}</strong></div>
+            <div style="font-size:11.5px;color:var(--muted);margin-bottom:8px">🏛️ ${s.body}</div>
+            <div style="font-size:11.5px;color:var(--muted);margin-bottom:10px">🌍 <strong style="color:var(--text)">Adopted in:</strong> ${s.adopt}</div>
+            <div style="font-size:12px;color:var(--text);line-height:1.7;margin-bottom:10px">${s.summary}</div>
+            <div style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Key Standards:</div>
+            <div style="display:flex;flex-wrap:wrap;gap:5px">${s.keyStds.map(k=>`<span style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);color:var(--text);font-size:10.5px;padding:2px 9px;border-radius:6px">${k}</span>`).join('')}</div>
+          </div>
+        </div>
+      </div>`).join('');
+    return;
+  }
+
+  if(tab==='comparison'||tab==='revenue'||tab==='leases'||tab==='inventory'||tab==='goodwill'||tab==='instruments'||tab==='tax'){
+    const topicMap={comparison:'all',revenue:'Revenue Recognition',leases:'Lease Accounting',inventory:'Inventory Valuation',goodwill:'Goodwill & Intangibles',instruments:'Financial Instruments',tax:'Deferred Tax'};
+    const topicFilter=topicMap[tab];
+    let groups=STD_DATA.comparison;
+    if(topicFilter!=='all')groups=groups.filter(g=>g.topic===topicFilter);
+    el.innerHTML=groups.map(g=>`
+      <div class="box" style="padding:0;overflow:hidden;margin-bottom:14px">
+        <div style="background:linear-gradient(90deg,rgba(240,192,64,.12),rgba(240,192,64,.04));padding:12px 18px;border-bottom:1px solid rgba(255,255,255,.05)">
+          <span style="font-size:14px;font-weight:700;color:var(--gold2)">${g.topic}</span>
+        </div>
+        <div class="fin-table-wrap" style="border:none;border-radius:0">
+          <table class="fin-table" style="min-width:auto">
+            <thead><tr><th style="width:16%;text-align:left">Standard</th><th style="text-align:left;width:84%">Treatment & Rules</th></tr></thead>
+            <tbody>${g.rows.map(r=>{
+              const s=STD_DATA.overview.find(x=>x.name===r.std)||{color:'var(--muted)',icon:'📄'};
+              return `<tr><td style="white-space:nowrap"><span style="font-size:13px;margin-right:4px">${s.icon||'📄'}</span><strong style="color:${s.color||'var(--text)'};">${r.std}</strong></td><td style="font-size:12px;color:var(--text);line-height:1.7">${r.rule}</td></tr>`;
+            }).join('')}</tbody>
+          </table>
+        </div>
+      </div>`).join('');
+    return;
+  }
+
+  if(tab==='presentation'){
+    el.innerHTML=`
+      <div class="box">
+        <div class="box-title">📄 Financial Statement Presentation Comparison</div>
+        <div class="fin-table-wrap"><table class="fin-table" style="min-width:auto">
+          <thead><tr><th style="text-align:left">Aspect</th><th>IFRS</th><th>US GAAP</th><th>Ind AS</th><th>UK GAAP</th><th>Germany HGB</th></tr></thead>
+          <tbody>
+            ${[
+              ['Balance Sheet Format','No prescribed format (classified or liquidity-based)','Classified (CA, NCA, CL, NCL) — no prescribed order','Schedule III format (MCA prescribed)','No prescribed format; must show minimum items','Prescribed format in HGB §266'],
+              ['Income Statement','Either Nature or Function of expenses','Function of expenses (mostly)','Either — Schedule III format required','Function or Nature','Prescribed format'],
+              ['OCI (Other Comprehensive Income)','Required — 2 statements or combined','Required — 2 statements or combined','Required — Ind AS 1','Required — FRS 102','Not a concept in HGB'],
+              ['Cash Flow Statement','Mandatory — IAS 7 (Direct or Indirect)','Mandatory — ASC 230 (Direct preferred but indirect common)','Mandatory — Ind AS 7','Mandatory — FRS 102 S7','Mandatory for consolidated; optional for standalone'],
+              ['Statement of Changes in Equity','Mandatory','Mandatory','Mandatory','Mandatory','Not required (statement of movements in equity)'],
+              ['Comparative Periods','1 prior year minimum (2 for BS if restatement)','1 prior year minimum','1 prior year minimum','1 prior year minimum','1 prior year'],
+              ['XBRL/Digital Filing','Voluntary (ESEF mandatory in EU)','Mandatory (SEC EDGAR)','Mandatory (MCA XBRL portal)','Mandatory (HMRC iXBRL)','Required for listed (ESAP/ESEF)'],
+              ['Interim Reporting','IAS 34 — condensed FS quarterly/half-yearly','ASC 270 — quarterly (mandatory for SEC)','Ind AS 34 — quarterly for listed (SEBI mandate)','Half-yearly for listed (FCA rules)','Quarterly/half-yearly under Stock Exchange rules'],
+            ].map(([aspect,...vals])=>`<tr><td style="font-weight:600;color:var(--gold2)">${aspect}</td>${vals.map(v=>`<td style="font-size:11.5px;color:var(--text)">${v}</td>`).join('')}</tr>`).join('')}
+          </tbody>
+        </table></div>
+      </div>`;
+    return;
+  }
+
+  if(tab==='auditing'){
+    el.innerHTML=STD_DATA.auditing.map(a=>`
+      <div class="box" style="--box-accent:${a.color};margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:12px">
+          <div>
+            <div style="font-size:15px;font-weight:700;color:${a.color};margin-bottom:3px">${a.region} — ${a.std}</div>
+            <div style="font-size:11.5px;color:var(--muted)">🏛️ ${a.body}</div>
+            <div style="font-size:11.5px;color:var(--muted);margin-top:2px">🌍 ${a.adoption}</div>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Key Standards / Pronouncements:</div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px">${a.keyStds.map(k=>`<span style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);color:var(--text);font-size:10.5px;padding:2px 9px;border-radius:6px">${k}</span>`).join('')}</div>
+      </div>`).join('');
+    return;
+  }
+  el.innerHTML='<div class="info-text">Select a tab above to view standards data.</div>';
+}
+
+function exportStandardsPDF(){
+  const{jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const W=210,mg=15;
+  doc.setFillColor(8,13,26);doc.rect(0,0,W,40,'F');
+  doc.setTextColor(240,192,64);doc.setFontSize(16);doc.setFont('helvetica','bold');
+  doc.text('Global Accounting Standards Reference',mg,16);
+  doc.setFontSize(10);doc.setFont('helvetica','normal');doc.setTextColor(106,140,170);
+  doc.text('FinAnalyser Pro — Comprehensive Standards Guide',mg,24);
+  doc.text('Generated: '+new Date().toLocaleDateString('en-IN'),mg,32);
+  let y=50;
+  STD_DATA.overview.forEach(s=>{
+    if(y>250){doc.addPage();y=20;}
+    doc.setFontSize(13);doc.setFont('helvetica','bold');doc.setTextColor(30,60,100);
+    doc.text(s.name+' — '+s.fullName.substring(0,50),mg,y);y+=7;
+    doc.setFontSize(9);doc.setFont('helvetica','normal');doc.setTextColor(60,80,100);
+    doc.text('Body: '+s.body,mg,y);y+=5;
+    doc.text('Adopted: '+s.adopt.substring(0,80),mg,y);y+=5;
+    const lines=doc.splitTextToSize(s.summary,W-mg*2);
+    doc.setTextColor(40,50,60);
+    lines.forEach(l=>{doc.text(l,mg,y);y+=5;if(y>265){doc.addPage();y=20;}});
+    y+=4;
+  });
+  doc.save('FinAnalyser_Global_Accounting_Standards_Reference.pdf');
+}
+
+// Init standards on nav
+function initStandards(){renderStandardsContent('overview');}
 
 // Hook nav for pbi and present panels
 const _baseNav=nav;
