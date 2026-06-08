@@ -3088,7 +3088,16 @@ async function handleStmtImport(stmtType,file){
     try{
       let raw;
       if(file.name.endsWith('.csv')){raw=parseCSVToArray(e.target.result);}
-      else{const wb=XLSX.read(e.target.result,{type:'binary',cellFormula:true,cellNF:false});const ws=wb.Sheets[wb.SheetNames[0]];raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});}
+      else{
+        const wb=XLSX.read(e.target.result,{type:'binary',cellFormula:true,cellNF:true,cellDates:false});
+        const ws=wb.Sheets[wb.SheetNames[0]];
+        // Two passes: rawLabels for column detection (formatted strings), rawVals for numeric data (cached formula results)
+        const rawLabels=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:false});
+        const rawVals=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
+        // Merge: use rawLabels for structure detection, rawVals for value cells
+        // We pass both; parseNetSuiteFile will use rawLabels[row] for header scanning and rawVals[row][col] for values
+        raw={labels:rawLabels,vals:rawVals};
+      }
       processStmtImport(stmtType,raw,file.name);
     }catch(err){setStmtStatus(stmtType,'❌ Error reading file: '+err.message,'var(--coral)');}
   };
@@ -3159,11 +3168,15 @@ function numVal(cell){
   return isNaN(v)?null:v;
 }
 
-function parseNetSuiteFile(raw){
-  // Step 1: find header row with period columns
+function parseNetSuiteFile(labels,vals){
+  // labels = raw:false rows (formatted strings — for header/column detection)
+  // vals   = raw:true rows  (cached formula results — for numeric data)
+  if(!vals)vals=labels; // single-pass fallback (CSV/paste)
+
+  // Step 1: find header row using formatted labels (period names like "Nov 2025")
   let hdrIdx=-1,periodCols=[];
-  for(let i=0;i<Math.min(12,raw.length);i++){
-    const r=raw[i]||[];
+  for(let i=0;i<Math.min(12,labels.length);i++){
+    const r=labels[i]||[];
     const pc=findPeriodColumns(r);
     if(pc.length>=1){
       hdrIdx=i;periodCols=[...pc];
@@ -3177,14 +3190,14 @@ function parseNetSuiteFile(raw){
   if(hdrIdx===-1)return null;
   let dataStart=hdrIdx+1;
   // Skip sub-header "Amount" row if present
-  const subHdr=raw[dataStart]||[];
+  const subHdr=labels[dataStart]||[];
   if(subHdr.filter(c=>/^amount$/i.test(String(c||'').trim())).length>=1)dataStart++;
 
   const meta={
-    company:String(raw[0]?.[0]||'').trim(),
-    subsidiary:String(raw[1]?.[0]||'').trim(),
-    stmtType:String(raw[2]?.[0]||'').trim(),
-    period:String(raw[3]?.[0]||'').trim(),
+    company:String(labels[0]?.[0]||'').trim(),
+    subsidiary:String(labels[1]?.[0]||'').trim(),
+    stmtType:String(labels[2]?.[0]||'').trim(),
+    period:String(labels[3]?.[0]||'').trim(),
   };
 
   const nonTP=periodCols.filter(pc=>!pc.isTotal);
@@ -3192,12 +3205,13 @@ function parseNetSuiteFile(raw){
   const order=[];
   let curCode=null;
 
-  // Step 2: Single pass — three types of rows
+  // Step 2: Single pass — use labels for row classification, vals for numeric data
   // (a) Account code header:  colA starts with "XXXXXXX-XX"
-  // (b) Total row:            colA starts with "Total - XXXXXXX-XX" → primary values via raw:true cached results
-  // (c) Transaction detail:   colA empty, colB has account name → aggregate as fallback
-  for(let i=dataStart;i<raw.length;i++){
-    const r=raw[i]||[];
+  // (b) Total row:            colA starts with "Total - XXXXXXX-XX" → cached values via vals[i]
+  // (c) Transaction detail:   colA empty, colB has name → aggregate as fallback
+  for(let i=dataStart;i<labels.length;i++){
+    const r=labels[i]||[];  // use labels for structure
+    const rv=vals[i]||[];   // use vals for numbers
     const colA=String(r[0]||'').trim();
     const colB=String(r[1]||'').trim();
     if(!colA&&!colB)continue;
@@ -3212,12 +3226,12 @@ function parseNetSuiteFile(raw){
         if(Object.keys(acct.tv||{}).length===0){
           if(!acct.tv)acct.tv={};
           periodCols.forEach(pc=>{
-            const v=numVal(r[pc.col]);
+            const v=numVal(rv[pc.col]); // rv = vals row → cached formula results
             if(v!==null)acct.tv[pc.label]=v;
           });
         }
       }
-      curCode=null; // reset so trailing lines don't add to wrong account
+      curCode=null;
       continue;
     }
 
@@ -3231,10 +3245,9 @@ function parseNetSuiteFile(raw){
         amap.set(code,{type:'a',label:name,code,depth:nsDepth(code),dv:{},tv:{}});
         order.push(code);
       }
-      // Some formats put values inline on the code row
       const acct=amap.get(code);
       nonTP.forEach(pc=>{
-        const v=numVal(r[pc.col]);
+        const v=numVal(rv[pc.col]);
         if(v!==null)acct.dv[pc.label]=(acct.dv[pc.label]||0)+v;
       });
     } else if(!colA&&colB){
@@ -3242,7 +3255,7 @@ function parseNetSuiteFile(raw){
       if(curCode&&amap.has(curCode)){
         const acct=amap.get(curCode);
         nonTP.forEach(pc=>{
-          const v=numVal(r[pc.col]);
+          const v=numVal(rv[pc.col]);
           if(v!==null)acct.dv[pc.label]=(acct.dv[pc.label]||0)+v;
         });
       }
@@ -3313,10 +3326,11 @@ function parseNetSuiteFile(raw){
   return{meta,periodCols,rows};
 }
 
-function parseGenericMultiPeriod(raw,swKey){
+function parseGenericMultiPeriod(labels,vals,swKey){
+  if(!vals)vals=labels;
   let hdrIdx=0,periodCols=[];
-  for(let i=0;i<Math.min(15,raw.length);i++){
-    const r=raw[i]||[];
+  for(let i=0;i<Math.min(15,labels.length);i++){
+    const r=labels[i]||[];
     const pc=findPeriodColumns(r);
     if(pc.length>=2){hdrIdx=i;periodCols=pc;break;}
     r.forEach((c,j)=>{
@@ -3327,28 +3341,29 @@ function parseGenericMultiPeriod(raw,swKey){
     if(periodCols.length>=1){hdrIdx=i;break;}
   }
   if(!periodCols.length){
-    const hRow=raw[hdrIdx]||[];
+    const hRow=labels[hdrIdx]||[];
     hRow.forEach((c,j)=>{
-      if(j>0&&raw.slice(hdrIdx+1,hdrIdx+8).some(r=>r&&!isNaN(parseFloat(String(r[j]||'').replace(/[,₹$\s]/g,'')))))
+      if(j>0&&vals.slice(hdrIdx+1,hdrIdx+8).some(r=>r&&numVal(r[j])!==null))
         periodCols.push({col:j,label:String(c||'Col '+(j+1)).trim()});
     });
   }
-  const hRow=raw[hdrIdx]||[];
+  const hRow=labels[hdrIdx]||[];
   let labelCol=0;
   for(let c=0;c<Math.min(6,hRow.length);c++){
     if(/particulars|account|description|financial row|name|ledger|item/i.test(String(hRow[c]||''))){labelCol=c;break;}
-    const textRows=raw.slice(hdrIdx+1,hdrIdx+20).filter(r=>r&&r[c]&&isNaN(parseFloat(String(r[c]).replace(/[,₹$\s]/g,'')))).length;
+    const textRows=labels.slice(hdrIdx+1,hdrIdx+20).filter(r=>r&&r[c]&&isNaN(parseFloat(String(r[c]).replace(/[,₹$\s]/g,'')))).length;
     if(textRows>5){labelCol=c;break;}
   }
   const rows=[];
-  raw.slice(hdrIdx+1).forEach(r=>{
+  labels.slice(hdrIdx+1).forEach((r,idx)=>{
     if(!r)return;
+    const rv=vals[hdrIdx+1+idx]||[];
     const label=String(r[labelCol]||'').trim();
     if(!label)return;
     const values={};let hasValues=false;
     periodCols.forEach(pc=>{
-      const v=parseFloat(String(r[pc.col]||'').replace(/[,₹$\s]/g,''));
-      if(!isNaN(v)){values[pc.label]=v;hasValues=true;}else values[pc.label]=null;
+      const v=numVal(rv[pc.col]);
+      if(v!==null){values[pc.label]=v;hasValues=true;}else values[pc.label]=null;
     });
     if(hasValues)rows.push({type:'data',label,depth:0,values,hasValues});
   });
@@ -3356,23 +3371,27 @@ function parseGenericMultiPeriod(raw,swKey){
 }
 
 function processStmtImport(stmtType,raw,sourceName){
-  const swKey=detectSoftwareFromData(raw);
+  // Normalize two-pass read (xlsx) vs single-pass (csv/paste)
+  let rL,rV; // rL = formatted labels (for detection), rV = raw values (for data)
+  if(raw&&raw.labels){rL=raw.labels;rV=raw.vals;}else{rL=raw;rV=raw;}
+
+  const swKey=detectSoftwareFromData(rL);
   const sw=SOFTWARE_PROFILES[swKey];
-  setStmtStatus(stmtType,`🔍 ${sw.icon} ${sw.name} detected · ${raw.length} rows · parsing…`,'var(--sky)');
+  setStmtStatus(stmtType,`🔍 ${sw.icon} ${sw.name} detected · ${rL.length} rows · parsing…`,'var(--sky)');
 
   let parsed=null;
-  const isNetSuite=swKey==='netsuite'||raw.slice(0,6).some(r=>(r||[]).some(c=>/financial row/i.test(String(c||''))));
-  if(isNetSuite) parsed=parseNetSuiteFile(raw);
-  if(!parsed){const gp=parseGenericMultiPeriod(raw,swKey);if(gp&&gp.rows.length>0)parsed=gp;}
+  const isNetSuite=swKey==='netsuite'||rL.slice(0,6).some(r=>(r||[]).some(c=>/financial row/i.test(String(c||''))));
+  if(isNetSuite) parsed=parseNetSuiteFile(rL,rV);
+  if(!parsed){const gp=parseGenericMultiPeriod(rL,rV,swKey);if(gp&&gp.rows.length>0)parsed=gp;}
 
   if(parsed&&parsed.periodCols.length>=1){
     const nonTotal=parsed.periodCols.filter(pc=>!pc.isTotal);
     setStmtStatus(stmtType,`✅ ${sw.icon} ${sw.name} · ${parsed.rows.length} rows · ${nonTotal.length} periods found → Opening viewer`,'var(--teal)');
     setTimeout(()=>showDynStmtViewer(parsed,sourceName,swKey),80);
-    legacyFieldMap(stmtType,raw,swKey);
+    legacyFieldMap(stmtType,rL,swKey);
     return;
   }
-  legacyFieldMap(stmtType,raw,swKey);
+  legacyFieldMap(stmtType,rL,swKey);
 }
 
 function legacyFieldMap(stmtType,raw,swKey){
@@ -3546,6 +3565,13 @@ function dynStmtTab(tab){
   if(tab==='dept')renderDynDept(window._dynParsed);
 }
 
+function formatIN(v){
+  if(v===null||v===undefined)return'—';
+  const abs=Math.abs(v),neg=v<0,sign=neg?'-':'';
+  if(abs>=10000000)return sign+'₹'+(abs/10000000).toFixed(2)+' Cr';
+  if(abs>=100000)return sign+'₹'+(abs/100000).toFixed(2)+' L';
+  return sign+'₹'+abs.toLocaleString('en-IN',{maximumFractionDigits:0});
+}
 function fmtV(v){
   if(v===null||v===undefined)return'<span style="color:rgba(148,163,184,.3)">—</span>';
   const abs=Math.abs(v),neg=v<0;
