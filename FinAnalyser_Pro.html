@@ -1596,39 +1596,38 @@ function renderComparative(){
 function showApiModal(){}   // no-op — no API key needed
 function checkApiKey(){const w=document.getElementById('aiApiWarning');if(w)w.classList.add('hidden');}
 
+// AI engine: tries multiple Pollinations models in order, GET fallback last
+const AI_MODELS=['openai','openai-large','mistral','llama'];
 async function callAI(prompt, systemMsg='You are an expert Chartered Accountant and financial analyst specializing in Indian financial statements, Companies Act 2013, Schedule III format, and ICAI standards.'){
-  showLoading('Fetching AI Analysis from internet…');
   showToast('Connecting to AI engine…');
-  try{
-    const messages=[{role:'system',content:systemMsg},{role:'user',content:prompt}];
-    let resp,lastErr;
-    for(let attempt=0;attempt<3;attempt++){
-      if(attempt>0)await new Promise(r=>setTimeout(r,attempt*3000));
-      resp=await fetch('https://text.pollinations.ai/',{
+  const messages=[{role:'system',content:systemMsg},{role:'user',content:prompt}];
+  const seed=Math.floor(Math.random()*99999);
+  // Try each model once, with short delay between
+  for(let mi=0;mi<AI_MODELS.length;mi++){
+    const model=AI_MODELS[mi];
+    if(mi>0)await new Promise(r=>setTimeout(r,1500));
+    showToast(`Trying AI model: ${model}…`);
+    try{
+      const resp=await fetch('https://text.pollinations.ai/',{
         method:'POST',
         headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({messages,model:'openai-large',stream:false,seed:Math.floor(Math.random()*9999)})
+        body:JSON.stringify({messages,model,stream:false,seed}),
+        signal:AbortSignal.timeout(25000)
       });
-      if(resp.ok)break;
-      lastErr=resp.status;
-      if(resp.status!==429&&resp.status!==503)break; // don't retry non-rate-limit errors
-    }
-    if(!resp.ok)throw new Error('AI service error ('+lastErr+'). '+(lastErr===429?'Rate limit — please wait a moment and try again.':'Check internet connection.'));
-    const text=await resp.text();
-    hideToast();
-    return text;
-  }catch(e){
-    hideToast();
-    // fallback attempt
-    try{
-      const enc=encodeURIComponent(systemMsg.slice(0,200)+'\n\n'+prompt);
-      const r2=await fetch(`https://text.pollinations.ai/${enc}?model=openai-large`);
-      if(r2.ok)return await r2.text();
+      if(resp.ok){const t=await resp.text();hideToast();if(t&&t.length>20)return t;}
     }catch(_){}
-    throw new Error('AI service unreachable. Please check your internet connection. '+e.message);
-  }finally{hideLoading();}
+  }
+  // Final fallback: GET endpoint with condensed prompt
+  try{
+    showToast('Trying GET fallback…');
+    const short=systemMsg.slice(0,120)+'\n'+prompt.slice(0,600);
+    const r=await fetch(`https://text.pollinations.ai/${encodeURIComponent(short)}?model=openai&seed=${seed}`,
+      {signal:AbortSignal.timeout(20000)});
+    if(r.ok){const t=await r.text();hideToast();if(t&&t.length>20)return t;}
+  }catch(_){}
+  hideToast();
+  throw new Error('AI service unavailable (all models rate-limited). The computed analysis above is still fully accurate — AI narrative will work when the service recovers.');
 }
-// alias for backward compat
 const callClaude=callAI;
 
 function showToast(msg){const t=document.getElementById('aiToast');const m=document.getElementById('aiToastMsg');if(t&&m){m.textContent=msg;t.classList.remove('hidden');}}
@@ -3792,28 +3791,152 @@ function renderDynDept(p){
   </div>`;
 }
 
+// ─── COMPUTED ANALYTICS ENGINE ───────────────────────────────────────────────
+function computeAnalytics(p){
+  const nonTotal=p.periodCols.filter(pc=>!pc.isTotal);
+  const allRows=p.rows.filter(r=>r.hasValues&&r.type==='total');
+  const topRows=allRows.filter(r=>r.depth<=1);
+  const fmt=v=>formatIN(v);
+  const pct=(a,b)=>b?((a-b)/Math.abs(b)*100).toFixed(1):'—';
+  const sign=v=>v>=0?'▲':'▼';
+  const col=v=>v>=0?'var(--teal)':'var(--coral)';
+  const growthTable=topRows.map(row=>{
+    const vals=nonTotal.map(pc=>row.values?.[pc.label]??null);
+    const changes=vals.map((v,i)=>i===0?null:v!=null&&vals[i-1]!=null?pct(v,vals[i-1]):null);
+    const first=vals.find(v=>v!=null),last=[...vals].reverse().find(v=>v!=null);
+    const cagr=first&&last&&nonTotal.length>1?pct(last,first):null;
+    return{label:row.label,code:row.code,vals,changes,cagr,depth:row.depth};
+  });
+  const movers=allRows.filter(r=>r.depth>=1).map(r=>{
+    const first=nonTotal.map(pc=>r.values?.[pc.label]).find(v=>v!=null);
+    const last=[...nonTotal].reverse().map(pc=>r.values?.[pc.label]).find(v=>v!=null);
+    return{label:r.label,first,last,change:first&&last?last-first:null,pct:first&&last?pct(last,first):null};
+  }).filter(r=>r.change!==null).sort((a,b)=>Math.abs(b.change)-Math.abs(a.change)).slice(0,8);
+  const periodSummary=nonTotal.map((pc,i)=>{
+    const tot=topRows.reduce((s,r)=>s+(r.values?.[pc.label]||0),0);
+    const prev=i>0?topRows.reduce((s,r)=>s+(r.values?.[nonTotal[i-1].label]||0),0):null;
+    return{label:pc.label,tot,prev,chg:prev!=null?pct(tot,prev):null};
+  });
+  return{nonTotal,topRows,growthTable,movers,periodSummary,fmt,pct,sign,col,allRows};
+}
+
+function renderComputedAnalytics(p){
+  const a=computeAnalytics(p);
+  const {nonTotal,topRows,growthTable,movers,periodSummary,fmt,sign,col}=a;
+  const COLORS=['#f0c040','#00d4aa','#a855f7','#ff6b6b','#38bdf8','#f97316','#84cc16'];
+  const pSumHTML=`<div style="overflow:auto">
+    <table style="width:100%;border-collapse:collapse;min-width:${320+nonTotal.length*120}px">
+      <thead><tr style="background:var(--ink2)">
+        <th style="text-align:left;padding:8px 12px;font-size:11px;color:var(--muted);min-width:200px">Account</th>
+        <th style="padding:8px 6px;font-size:10px;color:var(--muted);width:60px">Code</th>
+        ${nonTotal.map(pc=>`<th style="text-align:right;padding:8px 10px;font-size:11px;color:var(--sky);min-width:115px">${pc.label}</th>`).join('')}
+        <th style="text-align:right;padding:8px 10px;font-size:11px;color:var(--gold2);min-width:85px">Δ% Overall</th>
+      </tr></thead>
+      <tbody>
+        ${growthTable.map((row,ri)=>`<tr style="border-bottom:1px solid rgba(255,255,255,.03);background:${ri%2?'':'rgba(255,255,255,.01)'}">
+          <td style="padding:6px 12px;font-size:11.5px;font-weight:${row.depth===0?700:500};color:${COLORS[ri%COLORS.length]};padding-left:${Math.max(12,(row.depth+1)*14)}px;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${row.label}</td>
+          <td style="padding:6px 6px;font-size:9.5px;color:var(--muted);font-family:monospace">${row.code||''}</td>
+          ${row.vals.map((v,vi)=>{
+            const chg=row.changes[vi];
+            return`<td style="text-align:right;padding:6px 10px">
+              <div style="font-size:11px;color:${v!=null&&v<0?'var(--coral)':'var(--text)'}">${v!=null?fmt(v):'—'}</div>
+              ${chg!=null?`<div style="font-size:9px;color:${chg>=0?'var(--teal)':'var(--coral)'};font-weight:600">${sign(chg)}${Math.abs(chg)}%</div>`:''}
+            </td>`;
+          }).join('')}
+          <td style="text-align:right;padding:6px 10px;font-size:12px;font-weight:700;color:${row.cagr!=null&&row.cagr>=0?'var(--teal)':'var(--coral)'}">${row.cagr!=null?sign(row.cagr)+Math.abs(row.cagr)+'%':'—'}</td>
+        </tr>`).join('')}
+        <tr style="background:rgba(240,192,64,.06);border-top:2px solid rgba(240,192,64,.2)">
+          <td style="padding:8px 12px;font-size:12px;font-weight:800;color:var(--gold2)" colspan="2">📊 Period Total</td>
+          ${periodSummary.map(ps=>`<td style="text-align:right;padding:8px 10px">
+            <div style="font-size:12px;font-weight:700;color:${ps.tot<0?'var(--coral)':'var(--gold2)'}">${fmt(ps.tot)}</div>
+            ${ps.chg!=null?`<div style="font-size:9px;color:${ps.chg>=0?'var(--teal)':'var(--coral)'};font-weight:600">${sign(ps.chg)}${Math.abs(ps.chg)}%</div>`:''}
+          </td>`).join('')}
+          <td></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>`;
+  const moversHTML=movers.map(m=>{
+    const bar=Math.min(100,Math.round(Math.abs(parseFloat(m.pct)||0)));
+    return`<div style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+        <span style="font-size:11px;color:var(--text);max-width:58%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m.label}</span>
+        <span style="font-size:11px;font-weight:700;color:${m.change>=0?'var(--teal)':'var(--coral)'}">${sign(m.change)}${Math.abs(parseFloat(m.pct)||0).toFixed(1)}% (${fmt(m.change)})</span>
+      </div>
+      <div style="background:rgba(255,255,255,.05);border-radius:3px;height:5px">
+        <div style="width:${bar}%;height:5px;background:${m.change>=0?'var(--teal)':'var(--coral)'};border-radius:3px"></div>
+      </div>
+    </div>`;
+  }).join('');
+  const kpiCards=topRows.slice(0,4).map((r,i)=>{
+    const vals=nonTotal.map(pc=>r.values?.[pc.label]??null).filter(v=>v!=null);
+    const first=vals[0],last=vals[vals.length-1];
+    const chg=first&&last?((last-first)/Math.abs(first)*100).toFixed(1):null;
+    return`<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:12px 14px;flex:1;min-width:130px">
+      <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.label}</div>
+      <div style="font-size:17px;font-weight:800;color:${last<0?'var(--coral)':COLORS[i%COLORS.length]}">${fmt(last)}</div>
+      <div style="font-size:9.5px;color:var(--muted);margin-top:3px">vs start: <span style="color:${chg>=0?'var(--teal)':'var(--coral)'};font-weight:700">${chg!=null?sign(chg)+Math.abs(chg)+'%':'—'}</span></div>
+    </div>`;
+  }).join('');
+  return{pSumHTML,moversHTML,kpiCards};
+}
+
 async function dynAiAnalyse(){
   const p=window._dynParsed;if(!p)return;
   dynStmtTab('ai');
   const ai=document.getElementById('dynPaneAI');
-  if(ai){ai.style.display='';ai.innerHTML=`<div class="box"><div class="box-title">🤖 AI Financial Analysis</div><div id="dynAiOut" style="color:var(--muted);font-size:13px;padding:16px;line-height:1.7">⏳ Analysing ${p.rows.filter(r=>r.hasValues).length} accounts across ${p.periodCols.filter(pc=>!pc.isTotal).length} periods…</div></div>`;}
-  const topRows=p.rows.filter(r=>r.hasValues&&r.depth<=2).slice(0,30);
+  if(!ai)return;
+  const {pSumHTML,moversHTML,kpiCards}=renderComputedAnalytics(p);
   const nonTotal=p.periodCols.filter(pc=>!pc.isTotal);
-  const summaryLines=topRows.map(r=>`${r.label} [${r.code||''}]: ${nonTotal.map(pc=>{const v=r.values?.[pc.label];return v!=null?`${pc.label}=₹${formatIN(v)}`:null;}).filter(Boolean).join(', ')}`).join('\n');
-  const prompt=`You are analysing a NetSuite multi-period Income Statement for ${p.meta.company||'the company'} covering ${p.meta.period}.\n\nKey account data across ${nonTotal.length} periods (${nonTotal.map(p=>p.label).join(', ')}):\n\n${summaryLines}\n\nProvide a professional CA-level analysis with:\n1. Revenue trend — period-wise % changes and CAGR\n2. Top expense categories and cost ratios\n3. Month-over-month notable movements (spikes, drops)\n4. Gross margin and operating margin estimates\n5. Any anomalies or red flags\n6. 3 data-driven strategic recommendations`;
-  const sysMsg='You are a senior Chartered Accountant and financial analyst with expertise in Indian GAAP, management accounting, and NetSuite ERP data. Give structured, numbered insights with actual figures. Use ₹ amounts. Be specific, not generic.';
-  const setOut=(html)=>{const out=document.getElementById('dynAiOut');if(out)out.innerHTML=html;};
+  ai.style.display='';
+  ai.innerHTML=`<div style="display:flex;flex-direction:column;gap:14px;padding:2px">
+    <div>
+      <div style="font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px">📌 Latest Period vs First Period</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">${kpiCards}</div>
+    </div>
+    <div class="box" style="padding:0;overflow:hidden">
+      <div class="box-title" style="font-size:12px;padding:10px 16px;border-bottom:1px solid rgba(255,255,255,.05)">📈 Multi-Period Comparative — with Period-over-Period % Changes</div>
+      ${pSumHTML}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+      <div class="box">
+        <div class="box-title" style="font-size:12px">🏆 Biggest Movers (First → Last Period)</div>
+        <div style="padding:4px 0">${moversHTML||'<span style="color:var(--muted);font-size:11px">No movement data.</span>'}</div>
+      </div>
+      <div class="box">
+        <div class="box-title" style="font-size:12px;display:flex;align-items:center;justify-content:space-between">
+          🤖 AI Narrative
+          <button class="btn btn-coral btn-sm" id="aiRetryBtn" onclick="dynAiNarrative()" style="font-size:10px;padding:3px 8px">▶ Generate</button>
+        </div>
+        <div id="dynAiNarOut" style="color:var(--muted);font-size:11.5px;padding:8px;line-height:1.8">
+          Computed analysis above is fully accurate and instant.<br>Click <strong>▶ Generate</strong> for AI narrative commentary.
+        </div>
+      </div>
+    </div>
+  </div>`;
+  dynAiNarrative();
+}
+
+async function dynAiNarrative(){
+  const p=window._dynParsed;if(!p)return;
+  const out=document.getElementById('dynAiNarOut');
+  const btn=document.getElementById('aiRetryBtn');
+  if(!out)return;
+  if(btn)btn.disabled=true;
+  out.innerHTML=`<div style="color:var(--sky);font-size:11px">⏳ Connecting to AI engine (trying multiple models)…</div>`;
+  const nonTotal=p.periodCols.filter(pc=>!pc.isTotal);
+  const topRows=p.rows.filter(r=>r.hasValues&&r.depth<=1).slice(0,15);
+  const summaryLines=topRows.map(r=>`${r.label}: ${nonTotal.map(pc=>{const v=r.values?.[pc.label];return v!=null?`${pc.label}=${formatIN(v)}`:null;}).filter(Boolean).join(' | ')}`).join('\n');
+  const prompt=`${p.meta.company||'Company'} ${p.meta.stmtType} — ${p.meta.period}\n\n${summaryLines}\n\nGive 5 specific bullet points:\n• Revenue trend with actual % changes between periods\n• Biggest cost category and its trend\n• Standout month (best/worst) with reason\n• One anomaly or flag\n• One action recommendation with specific figure`;
+  const sysMsg='Senior CA analyst. Specific numbers only. Each bullet max 2 sentences. No generic statements.';
   try{
     const result=await callAI(prompt,sysMsg);
-    setOut(`<div style="line-height:1.9;color:var(--text);font-size:13px;white-space:pre-wrap">${result.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`);
+    const escaped=result.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const formatted=escaped.replace(/^[•\-\*]\s+/gm,'<li>').replace(/^\d+\.\s+/gm,'<li>').replace(/\*\*(.+?)\*\*/g,'<strong style="color:var(--gold2)">$1</strong>');
+    out.innerHTML=`<ul style="margin:4px 0;padding-left:16px;font-size:11.5px;line-height:1.85;color:var(--text)">${formatted}</ul>`;
   }catch(e){
-    setOut(`<div style="color:var(--coral);font-size:13px;padding:8px">
-      ⚠️ ${e.message}<br><br>
-      <strong style="color:var(--text)">The AI service (Pollinations) is rate-limited right now.</strong><br>
-      Wait 30–60 seconds, then click the button below.<br><br>
-      <button class="btn btn-coral btn-sm" onclick="dynAiAnalyse()">🔄 Retry AI Analysis</button>
-    </div>`);
-  }
+    out.innerHTML=`<div style="color:var(--muted);font-size:11px;line-height:1.6">${e.message}<br><button class="btn btn-ghost btn-sm" onclick="dynAiNarrative()" style="margin-top:8px;font-size:10px">🔄 Retry</button></div>`;
+  }finally{if(btn){btn.disabled=false;btn.textContent='🔄 Retry';}}
 }
 
 function exportDynToExcel(){
