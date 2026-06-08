@@ -3405,12 +3405,55 @@ function processStmtImport(stmtType,raw,sourceName){
 
   if(parsed&&parsed.periodCols.length>=1){
     const nonTotal=parsed.periodCols.filter(pc=>!pc.isTotal);
-    setStmtStatus(stmtType,`✅ ${sw.icon} ${sw.name} · ${parsed.rows.length} rows · ${nonTotal.length} periods found → Opening viewer`,'var(--teal)');
-    setTimeout(()=>showDynStmtViewer(parsed,sourceName,swKey),80);
+    // Store in persistent dataset registry (keyed by filename+type)
+    const dsKey=sourceName+'__'+stmtType;
+    window._datasets=window._datasets||{};
+    window._datasets[dsKey]={parsed,sourceName,swKey,stmtType,ts:Date.now()};
+    updateDatasetBar();
+    setStmtStatus(stmtType,`✅ ${sw.icon} ${sw.name} · ${parsed.rows.length} rows · ${nonTotal.length} periods · <button class="btn btn-teal btn-sm" style="margin-left:6px;font-size:11px" onclick="openDataset('${dsKey}')">▶ Open Analysis</button>`,'var(--teal)',true);
+    setTimeout(()=>openDataset(dsKey),80);
     legacyFieldMap(stmtType,rL,swKey);
     return;
   }
   legacyFieldMap(stmtType,rL,swKey);
+}
+
+function openDataset(dsKey){
+  const ds=window._datasets&&window._datasets[dsKey];
+  if(!ds)return;
+  showDynStmtViewer(ds.parsed,ds.sourceName,ds.swKey);
+}
+
+function updateDatasetBar(){
+  const datasets=Object.entries(window._datasets||{});
+  let bar=document.getElementById('datasetBar');
+  if(!bar){
+    bar=document.createElement('div');
+    bar.id='datasetBar';
+    bar.style.cssText='position:fixed;bottom:0;left:0;right:0;z-index:8900;background:rgba(8,13,26,.97);border-top:1px solid rgba(240,192,64,.15);padding:6px 14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-height:40px;transition:all .3s';
+    document.body.appendChild(bar);
+  }
+  if(!datasets.length){bar.style.display='none';return;}
+  bar.style.display='flex';
+  const sw=swKey=>SOFTWARE_PROFILES[swKey]||SOFTWARE_PROFILES.generic;
+  bar.innerHTML=`
+    <span style="font-size:10px;font-weight:700;color:var(--gold2);text-transform:uppercase;letter-spacing:.5px;white-space:nowrap">📂 Loaded Datasets:</span>
+    ${datasets.map(([k,ds])=>{
+      const nonT=ds.parsed.periodCols.filter(p=>!p.isTotal).length;
+      const isActive=window._dynParsed===ds.parsed;
+      return`<button onclick="openDataset('${k}')" style="background:${isActive?'rgba(0,212,170,.15)':'rgba(255,255,255,.04)'};border:1px solid ${isActive?'rgba(0,212,170,.3)':'rgba(255,255,255,.1)'};color:${isActive?'var(--teal)':'var(--text)'};padding:4px 10px;border-radius:8px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:5px;white-space:nowrap">
+        <span>${sw(ds.swKey).icon}</span>
+        <span style="max-width:160px;overflow:hidden;text-overflow:ellipsis">${ds.sourceName.replace(/\.[^.]+$/,'')}</span>
+        <span style="font-size:9px;color:var(--muted)">${nonT}p · ${ds.parsed.rows.filter(r=>r.hasValues).length}r</span>
+        <span onclick="event.stopPropagation();deleteDataset('${k}')" style="margin-left:2px;color:rgba(148,163,184,.4);font-size:12px;cursor:pointer" title="Remove">✕</span>
+      </button>`;
+    }).join('')}
+    <span style="margin-left:auto;font-size:9px;color:rgba(148,163,184,.3)">Datasets persist until page refresh</span>`;
+}
+
+function deleteDataset(dsKey){
+  if(window._datasets)delete window._datasets[dsKey];
+  updateDatasetBar();
 }
 
 function legacyFieldMap(stmtType,raw,swKey){
@@ -3486,7 +3529,7 @@ function buildMappingPreview(stmtType,raw,hdrIdx,labelCol,numCols,swKey,sw,autoM
   </div>`;
 }
 
-function setStmtStatus(stmtType,msg,color){
+function setStmtStatus(stmtType,msg,color,isHtml=false){
   const el=document.getElementById('stmtImportStatus_'+stmtType);
   if(el){el.textContent=msg;el.style.color=color||'var(--muted)';}
 }
@@ -3543,11 +3586,14 @@ function confirmStmtImport(){
 function showDynStmtViewer(parsedData,sourceName,swKey){
   if(!parsedData||!parsedData.rows)return;
   window._dynParsed=parsedData;window._dynSource=sourceName;window._dynSwKey=swKey;
+  updateDatasetBar(); // refresh active highlight
   let modal=document.getElementById('dynStmtModal');
-  if(modal)modal.remove();
-  modal=document.createElement('div');modal.id='dynStmtModal';
-  modal.style.cssText='position:fixed;inset:0;z-index:9000;background:rgba(4,8,16,.97);display:flex;flex-direction:column;overflow:hidden';
-  document.body.appendChild(modal);
+  if(!modal){
+    modal=document.createElement('div');modal.id='dynStmtModal';
+    modal.style.cssText='position:fixed;inset:0;z-index:9000;background:rgba(4,8,16,.97);display:flex;flex-direction:column;overflow:hidden';
+    document.body.appendChild(modal);
+  }
+  modal.style.display='flex';
   const p=parsedData,sw=SOFTWARE_PROFILES[swKey]||SOFTWARE_PROFILES.generic;
   const nonTotal=p.periodCols.filter(pc=>!pc.isTotal);
   modal.innerHTML=`
@@ -3563,7 +3609,7 @@ function showDynStmtViewer(parsedData,sourceName,swKey){
       <button class="btn btn-teal btn-sm" onclick="dynStmtTab('dept')" id="dynTabBtnDept">🔢 Data Grid</button>
       <button class="btn btn-coral btn-sm" onclick="dynAiAnalyse()">🤖 AI Analyse</button>
       <button class="btn btn-gold btn-sm" onclick="exportDynToExcel()">📥 Excel</button>
-      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('dynStmtModal').remove()">✕</button>
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('dynStmtModal').style.display='none';updateDatasetBar()">✕ Hide</button>
     </div>
   </div>
   <div id="dynStmtContent" style="flex:1;overflow:auto;padding:16px">
