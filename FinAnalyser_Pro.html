@@ -3405,12 +3405,14 @@ function processStmtImport(stmtType,raw,sourceName){
 
   if(parsed&&parsed.periodCols.length>=1){
     const nonTotal=parsed.periodCols.filter(pc=>!pc.isTotal);
-    // Store in persistent dataset registry (keyed by filename+type)
-    const dsKey=sourceName+'__'+stmtType;
+    // Store in persistent dataset registry
     window._datasets=window._datasets||{};
+    window._dsIdx=(window._dsIdx||0)+1;
+    const dsKey='ds'+window._dsIdx;
     window._datasets[dsKey]={parsed,sourceName,swKey,stmtType,ts:Date.now()};
     updateDatasetBar();
-    setStmtStatus(stmtType,`✅ ${sw.icon} ${sw.name} · ${parsed.rows.length} rows · ${nonTotal.length} periods · <button class="btn btn-teal btn-sm" style="margin-left:6px;font-size:11px" onclick="openDataset('${dsKey}')">▶ Open Analysis</button>`,'var(--teal)',true);
+    const openBtn=`<button class="btn btn-teal btn-sm" style="margin-left:8px;font-size:11px;vertical-align:middle" onclick="openDataset('${dsKey}')">▶ Open Analysis</button>`;
+    setStmtStatus(stmtType,`✅ ${sw.icon} ${sw.name} · ${parsed.rows.length} rows · ${nonTotal.length} periods ${openBtn}`,'var(--teal)',true);
     setTimeout(()=>openDataset(dsKey),80);
     legacyFieldMap(stmtType,rL,swKey);
     return;
@@ -3531,7 +3533,7 @@ function buildMappingPreview(stmtType,raw,hdrIdx,labelCol,numCols,swKey,sw,autoM
 
 function setStmtStatus(stmtType,msg,color,isHtml=false){
   const el=document.getElementById('stmtImportStatus_'+stmtType);
-  if(el){el.textContent=msg;el.style.color=color||'var(--muted)';}
+  if(el){el.style.color=color||'var(--muted)';if(isHtml)el.innerHTML=msg;else el.textContent=msg;}
 }
 
 function confirmStmtImport(){
