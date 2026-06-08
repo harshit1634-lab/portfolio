@@ -3173,18 +3173,38 @@ function parseNetSuiteFile(labels,vals){
   // vals   = raw:true rows  (cached formula results — for numeric data)
   if(!vals)vals=labels; // single-pass fallback (CSV/paste)
 
-  // Step 1: find header row using formatted labels (period names like "Nov 2025")
+  // Step 1: locate the real header row
+  // Strategy A: NetSuite puts "Financial Row" in col A of the header — use that as anchor
   let hdrIdx=-1,periodCols=[];
-  for(let i=0;i<Math.min(12,labels.length);i++){
+  for(let i=0;i<Math.min(20,labels.length);i++){
     const r=labels[i]||[];
-    const pc=findPeriodColumns(r);
-    if(pc.length>=1){
-      hdrIdx=i;periodCols=[...pc];
+    if(r.some(c=>/\bfinancial\s*row\b/i.test(String(c||'').trim()))){
+      hdrIdx=i;
+      // Collect period columns from cols >= 2 only (cols 0,1 are label/name cols)
       r.forEach((c,j)=>{
-        if(/^total$/i.test(String(c||'').trim())&&!pc.find(p=>p.col===j))
-          periodCols.push({col:j,label:'Total',isTotal:true});
+        if(j<2)return;
+        const s=String(c||'').trim();
+        if(!s)return;
+        if(/^total$/i.test(s)){periodCols.push({col:j,label:'Total',isTotal:true});return;}
+        if(findPeriodColumns([s]).length)periodCols.push({col:j,label:s});
       });
       break;
+    }
+  }
+  // Strategy B: fallback — scan for row with ≥2 period cols in positions ≥2
+  if(hdrIdx===-1||!periodCols.filter(p=>!p.isTotal).length){
+    hdrIdx=-1;periodCols=[];
+    for(let i=0;i<Math.min(20,labels.length);i++){
+      const r=labels[i]||[];
+      const pc=findPeriodColumns(r).filter(p=>p.col>=2);
+      if(pc.length>=2){
+        hdrIdx=i;periodCols=[...pc];
+        r.forEach((c,j)=>{
+          if(/^total$/i.test(String(c||'').trim())&&!pc.find(p=>p.col===j))
+            periodCols.push({col:j,label:'Total',isTotal:true});
+        });
+        break;
+      }
     }
   }
   if(hdrIdx===-1)return null;
@@ -3774,17 +3794,26 @@ function renderDynDept(p){
 
 async function dynAiAnalyse(){
   const p=window._dynParsed;if(!p)return;
-  const ai=document.getElementById('dynPaneAI');
-  if(ai){ai.style.display='';ai.innerHTML=`<div class="box"><div class="box-title">🤖 AI Financial Analysis</div><div id="dynAiOut" style="color:var(--muted);font-size:13px;padding:10px">Analysing ${p.rows.length} rows across ${p.periodCols.filter(pc=>!pc.isTotal).length} periods…</div></div>`;}
   dynStmtTab('ai');
-  const topRows=p.rows.filter(r=>r.hasValues&&r.depth<=2).slice(0,25);
+  const ai=document.getElementById('dynPaneAI');
+  if(ai){ai.style.display='';ai.innerHTML=`<div class="box"><div class="box-title">🤖 AI Financial Analysis</div><div id="dynAiOut" style="color:var(--muted);font-size:13px;padding:16px;line-height:1.7">⏳ Analysing ${p.rows.filter(r=>r.hasValues).length} accounts across ${p.periodCols.filter(pc=>!pc.isTotal).length} periods…</div></div>`;}
+  const topRows=p.rows.filter(r=>r.hasValues&&r.depth<=2).slice(0,30);
   const nonTotal=p.periodCols.filter(pc=>!pc.isTotal);
-  const summaryLines=topRows.map(r=>`${r.label}: ${nonTotal.map(pc=>`${pc.label}=₹${formatIN(r.values?.[pc.label]||0)}`).join(', ')}`).join('\n');
-  const prompt=`Analyze this multi-period financial statement for ${p.meta.company||'the company'} (${p.meta.stmtType}, ${p.meta.period}):\n\n${summaryLines}\n\nProvide:\n1. Revenue trend analysis with % changes\n2. Expense structure and cost efficiency\n3. Key month-over-month or period-over-period observations\n4. Gross and net margin estimates\n5. Red flags or anomalies\n6. 3 strategic recommendations\n7. Growth rate calculation across periods`;
+  const summaryLines=topRows.map(r=>`${r.label} [${r.code||''}]: ${nonTotal.map(pc=>{const v=r.values?.[pc.label];return v!=null?`${pc.label}=₹${formatIN(v)}`:null;}).filter(Boolean).join(', ')}`).join('\n');
+  const prompt=`You are analysing a NetSuite multi-period Income Statement for ${p.meta.company||'the company'} covering ${p.meta.period}.\n\nKey account data across ${nonTotal.length} periods (${nonTotal.map(p=>p.label).join(', ')}):\n\n${summaryLines}\n\nProvide a professional CA-level analysis with:\n1. Revenue trend — period-wise % changes and CAGR\n2. Top expense categories and cost ratios\n3. Month-over-month notable movements (spikes, drops)\n4. Gross margin and operating margin estimates\n5. Any anomalies or red flags\n6. 3 data-driven strategic recommendations`;
+  const sysMsg='You are a senior Chartered Accountant and financial analyst with expertise in Indian GAAP, management accounting, and NetSuite ERP data. Give structured, numbered insights with actual figures. Use ₹ amounts. Be specific, not generic.';
+  const setOut=(html)=>{const out=document.getElementById('dynAiOut');if(out)out.innerHTML=html;};
   try{
-    const result=await callAI(prompt,'You are a senior CA and financial analyst expert. Provide actionable insights in professional but clear language. Use bullet points and structure your answer with headings.');
-    if(ai){const out=document.getElementById('dynAiOut');if(out)out.innerHTML=`<div style="line-height:1.9;color:var(--text);font-size:13px;white-space:pre-wrap">${result}</div>`;}
-  }catch(e){if(ai){const out=document.getElementById('dynAiOut');if(out)out.textContent='AI analysis failed: '+e.message;}}
+    const result=await callAI(prompt,sysMsg);
+    setOut(`<div style="line-height:1.9;color:var(--text);font-size:13px;white-space:pre-wrap">${result.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`);
+  }catch(e){
+    setOut(`<div style="color:var(--coral);font-size:13px;padding:8px">
+      ⚠️ ${e.message}<br><br>
+      <strong style="color:var(--text)">The AI service (Pollinations) is rate-limited right now.</strong><br>
+      Wait 30–60 seconds, then click the button below.<br><br>
+      <button class="btn btn-coral btn-sm" onclick="dynAiAnalyse()">🔄 Retry AI Analysis</button>
+    </div>`);
+  }
 }
 
 function exportDynToExcel(){
