@@ -3279,11 +3279,26 @@ function parseNetSuiteFile(labels,vals){
         });
       }
     } else if(colA&&!cm){
-      // Section/group header
+      // Section/group header OR aggregate total row (TOTAL-OVERHEADS, OPERATING PROFIT, NET PROFIT/LOSS etc.)
       curCode=null;
       const key='sec_'+i;
       if(!amap.has(key)){
-        amap.set(key,{type:'s',label:colA,code:'',depth:-1,dv:{},tv:{}});
+        // Try reading period values from this row — section totals have cached formula values with raw:true
+        const secVals={};
+        periodCols.forEach(pc=>{
+          const v=numVal(rv[pc.col]);
+          if(v!==null)secVals[pc.label]=v;
+        });
+        const hasSecVals=Object.keys(secVals).length>0;
+        // Classify: rows with "total","profit","loss","income","expense" in label AND having values → treat as subtotal row
+        const isAggRow=hasSecVals&&/total|profit|loss|income|expense|ebitda|ebit|revenue|overhead|margin/i.test(colA);
+        amap.set(key,{
+          type: isAggRow?'total':'s',
+          label:colA,code:'',
+          depth: isAggRow?0:-1,
+          dv:{},tv:{},
+          fv: isAggRow?secVals:{}
+        });
         order.push(key);
       }
     }
