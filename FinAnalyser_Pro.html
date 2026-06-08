@@ -3112,7 +3112,24 @@ function findPeriodColumns(row){
   return cols;
 }
 
+// NetSuite account code helpers
+function nsSigPrefix(code7){return code7.replace(/0+$/,'');}
+function nsDepth(code){
+  const[p,s]=code.split('-');
+  const sig=nsSigPrefix(p);
+  return(sig.length-1)+(parseInt(s)!==0?1:0);
+}
+function nsIsChild(cCode,pCode){
+  if(cCode===pCode)return false;
+  const[cp,cs]=cCode.split('-');const[pp,ps]=pCode.split('-');
+  const csig=nsSigPrefix(cp),psig=nsSigPrefix(pp);
+  if(csig.startsWith(psig)&&csig.length>psig.length)return true;
+  if(csig===psig&&parseInt(ps)===0&&parseInt(cs)!==0)return true;
+  return false;
+}
+
 function parseNetSuiteFile(raw){
+  // Step 1: find header row with month columns
   let hdrIdx=-1,periodCols=[];
   for(let i=0;i<Math.min(12,raw.length);i++){
     const r=raw[i]||[];
@@ -3127,44 +3144,91 @@ function parseNetSuiteFile(raw){
   let dataStart=hdrIdx+1;
   const nr=raw[dataStart]||[];
   if(nr.filter(c=>/^amount$/i.test(String(c||'').trim())).length>=2)dataStart++;
+
   const meta={
     company:String(raw[0]?.[0]||'').trim(),
     subsidiary:String(raw[1]?.[0]||'').trim(),
     stmtType:String(raw[2]?.[0]||'').trim(),
     period:String(raw[3]?.[0]||'').trim(),
   };
-  const rows=[];
+
+  const nonTP=periodCols.filter(pc=>!pc.isTotal);
+  const amap=new Map(); // code/key → account node
+  const order=[];       // display order
+  let curCode=null;
+
+  // Step 2: Single pass — collect account headers and sum transaction rows
   for(let i=dataStart;i<raw.length;i++){
     const r=raw[i]||[];
     const colA=String(r[0]||'').trim();
-    if(!colA)continue;
-    const isTotalRow=/^total\s*[-–]/i.test(colA);
-    const codeMatch=colA.match(/(\d{7}-\d{2})/);
-    const isAccountCode=!!codeMatch&&!isTotalRow;
-    const isSectionHeader=!isTotalRow&&!isAccountCode;
-    const values={};let hasValues=false;
-    periodCols.forEach(pc=>{
-      const rv=String(r[pc.col]||'');
-      if(rv.startsWith('=')){values[pc.label]=null;return;}
-      const v=parseFloat(rv.replace(/[,₹$\s]/g,''));
-      if(!isNaN(v)){values[pc.label]=v;hasValues=true;}else values[pc.label]=null;
-    });
-    if(isTotalRow){
-      const code=codeMatch?codeMatch[1]:'';
-      const cleanLabel=colA.replace(/^total\s*[-–]\s*/i,'').replace(/^\d{7}-\d{2}\s*[-–]\s*/,'').trim();
-      const numPart=code?code.replace('-',''):'';
-      const depth=code?(9-(numPart.replace(/0+$/,'').length)):0;
-      rows.push({type:'total',label:cleanLabel,code,depth,values,hasValues});
-    }else if(isAccountCode){
-      const code=codeMatch[1];
-      const name=colA.replace(/^\d{7}-\d{2}\s*[-–]\s*/,'').trim()||colA;
-      const numPart=code.replace('-','');
-      const depth=9-(numPart.replace(/0+$/,'').length);
-      rows.push({type:'account',label:name,code,depth,values,hasValues:false});
-    }else{
-      rows.push({type:'section',label:colA,depth:-1,values,hasValues});
+    const colB=String(r[1]||'').trim();
+    if(!colA&&!colB)continue;
+
+    // Skip "Total - " rows — their values are =SUM() formulas in xlsx
+    if(/^total\s*[-–]/i.test(colA))continue;
+
+    const cm=colA.match(/^(\d{7}-\d{2})/);
+
+    if(cm){
+      // Account code header row
+      const code=cm[1];
+      const name=colA.slice(cm[0].length).replace(/^\s*[-–]\s*/,'').trim()||code;
+      curCode=code;
+      if(!amap.has(code)){amap.set(code,{type:'a',label:name,code,depth:nsDepth(code),dv:{}});order.push(code);}
+      // Some leaf accounts have inline values on the same row as the code
+      const acct=amap.get(code);
+      nonTP.forEach(pc=>{
+        const rv=String(r[pc.col]||'');if(rv.startsWith('=')||rv==='')return;
+        const v=parseFloat(rv.replace(/[,₹$\s]/g,''));
+        if(!isNaN(v))acct.dv[pc.label]=(acct.dv[pc.label]||0)+v;
+      });
+    } else if(!colA&&colB){
+      // Transaction detail row — has the REAL numeric values
+      if(curCode&&amap.has(curCode)){
+        const acct=amap.get(curCode);
+        nonTP.forEach(pc=>{
+          const rv=String(r[pc.col]||'');if(rv.startsWith('=')||rv==='')return;
+          const v=parseFloat(rv.replace(/[,₹$\s]/g,''));
+          if(!isNaN(v))acct.dv[pc.label]=(acct.dv[pc.label]||0)+v;
+        });
+      }
+    } else if(colA&&!cm){
+      // Section/group header (e.g. "Sales", "Purchases")
+      curCode=null;
+      const key='sec_'+i;
+      amap.set(key,{type:'s',label:colA,code:'',depth:-1,dv:{}});
+      order.push(key);
     }
   }
+
+  // Step 3: Bottom-up aggregation — compute parent totals from children's direct values
+  const accounts=[...amap.values()].filter(a=>a.type==='a');
+  // Process deepest accounts first so children are ready when parents are processed
+  [...accounts].sort((a,b)=>b.depth-a.depth).forEach(parent=>{
+    if(Object.keys(parent.dv).length>0)return; // already populated
+    const children=accounts.filter(c=>nsIsChild(c.code,parent.code));
+    if(!children.length)return;
+    nonTP.forEach(pc=>{
+      parent.dv[pc.label]=children.reduce((s,c)=>s+(c.dv[pc.label]||0),0);
+    });
+  });
+
+  // Step 4: Compute the Total column as sum across non-total periods
+  const totalPc=periodCols.find(pc=>pc.isTotal);
+  accounts.forEach(a=>{
+    if(totalPc&&Object.keys(a.dv).length)
+      a.dv[totalPc.label]=nonTP.reduce((s,pc)=>s+(a.dv[pc.label]||0),0);
+  });
+
+  // Step 5: Build display rows in original order
+  const rows=[];
+  order.forEach(key=>{
+    const a=amap.get(key);if(!a)return;
+    if(a.type==='s'){rows.push({type:'section',label:a.label,code:'',depth:-1,values:{},hasValues:false});return;}
+    const hasValues=Object.values(a.dv).some(v=>v!==0&&v!=null);
+    rows.push({type:'total',label:a.label,code:a.code,depth:a.depth,values:a.dv,hasValues});
+  });
+
   return{meta,periodCols,rows};
 }
 
@@ -3401,50 +3465,98 @@ function dynStmtTab(tab){
   if(tab==='dept')renderDynDept(window._dynParsed);
 }
 
+function fmtV(v){
+  if(v===null||v===undefined)return'<span style="color:rgba(148,163,184,.3)">—</span>';
+  const abs=Math.abs(v),neg=v<0;
+  let s;
+  if(abs>=10000000)s=(neg?'-':'')+'₹'+(abs/10000000).toFixed(2)+' Cr';
+  else if(abs>=100000)s=(neg?'-':'')+'₹'+(abs/100000).toFixed(2)+' L';
+  else s=(neg?'-':'')+'₹'+abs.toLocaleString('en-IN',{maximumFractionDigits:0});
+  return`<span style="color:${neg?'var(--coral)':'var(--text)'}">${s}</span>`;
+}
+function fmtVFull(v){
+  if(v===null||v===undefined)return'—';
+  return(v<0?'-':'')+'₹'+Math.abs(v).toLocaleString('en-IN',{minimumFractionDigits:2});
+}
+
 function renderDynTable(p){
   const el=document.getElementById('dynPaneTable');
   if(!el)return;
   const periods=p.periodCols;
-  const summaryRows=p.rows.filter(r=>r.type==='total'||r.type==='section');
-  const allRows=p.rows;
+  const nonTP=periods.filter(pc=>!pc.isTotal);
+  // Summary = top-level rows (depth 0 and 1) + sections
+  const summaryRows=p.rows.filter(r=>r.type==='section'||(r.type==='total'&&r.depth<=1));
+  const allRows=p.rows.filter(r=>r.type!=='account'||(r.type==='account'&&r.hasValues));
   window._dynSummaryRows=summaryRows;window._dynAllRows=allRows;
+
+  // Depth → visual style
+  const DEPTH_STYLES=[
+    {bg:'rgba(56,189,248,.07)',color:'var(--sky)',fw:'800',fs:'13px'},   // depth 0
+    {bg:'rgba(240,192,64,.05)',color:'var(--gold2)',fw:'700',fs:'12.5px'}, // depth 1
+    {bg:'rgba(168,85,247,.04)',color:'var(--purple2)',fw:'600',fs:'12px'}, // depth 2
+    {bg:'rgba(255,255,255,.02)',color:'rgba(188,213,234,.8)',fw:'500',fs:'11.5px'}, // depth 3
+    {bg:'',color:'rgba(148,163,184,.7)',fw:'400',fs:'11px'},               // depth 4+
+  ];
+
   const buildRows=(rows)=>rows.map(row=>{
     if(row.type==='section')
-      return`<tr style="background:rgba(240,192,64,.07)"><td colspan="${periods.length+2}" style="padding:9px 14px;font-weight:700;color:var(--gold2);font-size:12.5px;letter-spacing:.4px;text-transform:uppercase">${row.label}</td></tr>`;
+      return`<tr style="background:linear-gradient(90deg,rgba(240,192,64,.1),rgba(240,192,64,.03))"><td colspan="${periods.length+2}" style="padding:10px 16px;font-weight:800;color:var(--gold2);font-size:13px;letter-spacing:.5px;text-transform:uppercase;border-top:1px solid rgba(240,192,64,.15)">${row.label}</td></tr>`;
     if(!row.hasValues)
-      return`<tr><td style="padding:5px 14px;color:rgba(148,163,184,.5);font-size:11px;padding-left:${Math.max(14,(row.depth+1)*14)}px">${row.label}</td><td></td>${periods.map(()=>'<td></td>').join('')}</tr>`;
-    const pd=Math.max(14,(row.depth+1)*14);
-    const bold=row.depth<=1;
-    const bg=row.depth===0?'rgba(56,189,248,.05)':row.depth===1?'rgba(255,255,255,.018)':'';
-    const badge=row.type==='total'?`<span style="font-size:8.5px;color:var(--teal);background:rgba(0,212,170,.1);padding:1px 4px;border-radius:3px;margin-left:4px">TOTAL</span>`:'';
-    return`<tr style="background:${bg};border-bottom:1px solid rgba(255,255,255,.025)">
-      <td style="padding:5px 14px;font-size:11.5px;${bold?'font-weight:700;color:var(--text)':'color:rgba(188,213,234,.75)'};padding-left:${pd}px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${row.label}${badge}</td>
-      <td style="padding:4px 8px;font-size:9.5px;color:var(--muted);white-space:nowrap">${row.code||''}</td>
-      ${periods.map(pc=>{
-        const v=row.values?.[pc.label];
-        if(v===null||v===undefined)return`<td style="text-align:right;padding:4px 10px;color:rgba(148,163,184,.4);font-size:11px">—</td>`;
-        return`<td style="text-align:right;padding:4px 10px;font-size:11.5px;color:${v<0?'var(--coral)':'var(--text)'};${bold?'font-weight:600':''}${pc.isTotal?';background:rgba(240,192,64,.04)':''}">${formatIN(v)}</td>`;
-      }).join('')}
+      return`<tr><td colspan="${periods.length+2}" style="padding:4px 14px;color:rgba(148,163,184,.35);font-size:10.5px;padding-left:${Math.max(16,(row.depth+1)*18)}px;font-style:italic">${row.label}</td></tr>`;
+    const d=Math.min(row.depth,4);
+    const ds=DEPTH_STYLES[d];
+    const pd=Math.max(16,(row.depth+1)*18);
+    const isTopLevel=row.depth===0;
+    const valCells=periods.map(pc=>{
+      const v=row.values?.[pc.label];
+      if(v===null||v===undefined||v==='')
+        return`<td style="text-align:right;padding:5px 12px;color:rgba(148,163,184,.3);font-size:11px">—</td>`;
+      const numFmt=isTopLevel?fmtV(v):`<span style="color:${v<0?'var(--coral)':'var(--text)'}">${fmtVFull(v)}</span>`;
+      return`<td style="text-align:right;padding:5px 12px;font-size:${ds.fs};font-weight:${ds.fw};${pc.isTotal?'background:rgba(240,192,64,.05);border-left:1px solid rgba(240,192,64,.1)':''}">${numFmt}</td>`;
+    }).join('');
+    const depthBar=row.depth>0?`<span style="display:inline-block;width:${(row.depth)*10}px"></span>`:'';
+    return`<tr style="background:${ds.bg};border-bottom:1px solid rgba(255,255,255,.03)" class="drow">
+      <td style="padding:5px 14px;font-size:${ds.fs};font-weight:${ds.fw};color:${ds.color};padding-left:${pd}px;max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${depthBar}${row.label}</td>
+      <td style="padding:4px 8px;font-size:9px;color:var(--muted2);white-space:nowrap;font-family:monospace">${row.code||''}</td>
+      ${valCells}
     </tr>`;
   }).join('');
+
   window._dynBuildRows=buildRows;
+
+  // Compute quick KPI summary from top-level rows
+  const topRows=p.rows.filter(r=>r.type==='total'&&r.depth===0&&r.hasValues);
+  const lastPeriod=nonTP[nonTP.length-1];
+  const kpiHTML=topRows.length&&lastPeriod?`<div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+    ${topRows.map(r=>{
+      const v=r.values?.[lastPeriod.label];
+      const tot=r.values?.['Total'];
+      return`<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:10px 16px;min-width:160px">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;margin-bottom:4px">${r.label}</div>
+        <div style="font-size:16px;font-weight:800;color:${(v||0)<0?'var(--coral)':'var(--teal)'}">${fmtV(v||0)}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px">Total: ${fmtV(tot||0)}</div>
+      </div>`;
+    }).join('')}
+  </div>`:'';
+
   el.innerHTML=`
   <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
-    <div style="font-size:13px;font-weight:700;color:var(--text)">${p.meta.stmtType||'Statement'}</div>
+    <div style="font-size:13px;font-weight:700;color:var(--text)">${p.meta.stmtType||'Statement'} <span style="font-size:11px;color:var(--muted);font-weight:400">${p.meta.period}</span></div>
     <span style="font-size:11px;color:var(--muted)">${p.meta.subsidiary||''}</span>
     <label style="margin-left:auto;display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);cursor:pointer">
       <input type="checkbox" id="dynShowAll" onchange="document.getElementById('dynTbody').innerHTML=window._dynBuildRows(this.checked?window._dynAllRows:window._dynSummaryRows)">
-      Show all detail rows (${allRows.length})
+      Show full detail (${allRows.length} rows)
     </label>
     <button class="btn btn-ghost btn-sm" onclick="copyDynTable()">📋 Copy</button>
   </div>
-  <div style="overflow:auto;max-height:calc(100vh - 190px)">
-    <table id="dynTableEl" style="width:100%;border-collapse:collapse;min-width:${500+periods.length*130}px">
-      <thead style="position:sticky;top:0;z-index:5;background:var(--ink2)">
-        <tr style="border-bottom:2px solid rgba(240,192,64,.2)">
-          <th style="text-align:left;padding:9px 14px;font-size:12px;color:var(--gold2);min-width:260px">Account / Line Item</th>
-          <th style="text-align:left;padding:9px 8px;font-size:10px;color:var(--muted);width:80px">Code</th>
-          ${periods.map(pc=>`<th style="text-align:right;padding:9px 10px;font-size:11.5px;color:${pc.isTotal?'var(--gold2)':'var(--sky)'};min-width:120px;${pc.isTotal?'background:rgba(240,192,64,.04)':''}">${pc.label}</th>`).join('')}
+  ${kpiHTML}
+  <div style="overflow:auto;max-height:calc(100vh - ${topRows.length?260:190}px);border:1px solid rgba(255,255,255,.06);border-radius:10px">
+    <table id="dynTableEl" style="width:100%;border-collapse:collapse;min-width:${480+periods.length*130}px">
+      <thead style="position:sticky;top:0;z-index:5">
+        <tr style="background:var(--ink2);border-bottom:2px solid rgba(56,189,248,.2)">
+          <th style="text-align:left;padding:10px 16px;font-size:12px;color:var(--gold2);min-width:280px">Account / Line Item</th>
+          <th style="text-align:left;padding:10px 8px;font-size:10px;color:var(--muted);width:80px">Code</th>
+          ${periods.map(pc=>`<th style="text-align:right;padding:10px 12px;font-size:12px;color:${pc.isTotal?'var(--gold2)':'var(--sky)'};min-width:${pc.isTotal?130:120}px;font-weight:700;${pc.isTotal?'background:rgba(240,192,64,.05);border-left:1px solid rgba(240,192,64,.1)':''}">${pc.label}</th>`).join('')}
         </tr>
       </thead>
       <tbody id="dynTbody">${buildRows(summaryRows)}</tbody>
@@ -3457,8 +3569,10 @@ function renderDynCharts(p){
   if(!el)return;
   const nonTotal=p.periodCols.filter(pc=>!pc.isTotal);
   if(!nonTotal.length){el.innerHTML='<div style="color:var(--muted);padding:20px">No period columns for charts.</div>';return;}
-  const topLevel=p.rows.filter(r=>r.type==='total'&&r.depth<=1&&r.hasValues).slice(0,5);
-  const allTotals=p.rows.filter(r=>r.type==='total'&&r.hasValues&&r.depth<=2);
+  // Prefer depth-0 (top level) for main charts; fall back to depth-1
+  const topLevel=p.rows.filter(r=>r.type==='total'&&r.depth===0&&r.hasValues).slice(0,5);
+  const useRows=topLevel.length?topLevel:p.rows.filter(r=>r.type==='total'&&r.depth<=1&&r.hasValues).slice(0,5);
+  const allTotals=p.rows.filter(r=>r.type==='total'&&r.hasValues&&r.depth<=1);
   const totalCol=p.periodCols.find(pc=>pc.isTotal)||nonTotal[nonTotal.length-1];
   el.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
     <div class="box"><div class="box-title" style="font-size:13px">📈 Multi-Period Trend</div><canvas id="dcTrend" height="220"></canvas></div>
@@ -3468,30 +3582,53 @@ function renderDynCharts(p){
   </div>`;
   const COLORS=['#f0c040','#00d4aa','#a855f7','#ff6b6b','#38bdf8','#f97316','#84cc16'];
   setTimeout(()=>{
-    // Trend line
+    const fmt=v=>(v>=0?'':'-')+'₹'+Math.abs(v/100000).toFixed(1)+'L';
+    // Trend line — top-level accounts over time
     const tCtx=document.getElementById('dcTrend')?.getContext('2d');
-    if(tCtx&&topLevel.length){
-      new Chart(tCtx,{type:'line',data:{labels:nonTotal.map(pc=>pc.label),datasets:topLevel.map((row,i)=>({label:row.label.substring(0,22),data:nonTotal.map(pc=>row.values?.[pc.label]||0),borderColor:COLORS[i],backgroundColor:COLORS[i]+'22',tension:.35,fill:true,pointRadius:3,borderWidth:2}))},options:{responsive:true,plugins:{legend:{labels:{color:'#8ab0c8',font:{size:10}}}},scales:{x:{ticks:{color:'#8ab0c8',font:{size:9}}},y:{ticks:{color:'#8ab0c8',font:{size:9},callback:v=>'₹'+formatIN(Math.abs(v))},grid:{color:'rgba(255,255,255,.04)'}}}}});
+    if(tCtx&&useRows.length){
+      new Chart(tCtx,{type:'line',data:{
+        labels:nonTotal.map(pc=>pc.label),
+        datasets:useRows.map((row,i)=>({
+          label:row.label.substring(0,24),
+          data:nonTotal.map(pc=>row.values?.[pc.label]||0),
+          borderColor:COLORS[i],backgroundColor:COLORS[i]+'18',
+          tension:.3,fill:true,pointRadius:4,pointHoverRadius:6,borderWidth:2.5
+        }))
+      },options:{responsive:true,interaction:{mode:'index',intersect:false},plugins:{legend:{labels:{color:'#8ab0c8',font:{size:10}}},tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ₹${Math.abs(ctx.raw).toLocaleString('en-IN',{maximumFractionDigits:0})}`}}},scales:{x:{ticks:{color:'#8ab0c8',font:{size:9}}},y:{ticks:{color:'#8ab0c8',font:{size:9},callback:fmt},grid:{color:'rgba(255,255,255,.04)'}}}}});
     }
-    // Doughnut
+    // Doughnut — category split
     const dCtx=document.getElementById('dcDoughnut')?.getContext('2d');
     if(dCtx&&allTotals.length&&totalCol){
       const vals=allTotals.map(r=>Math.abs(r.values?.[totalCol.label]||0));
-      new Chart(dCtx,{type:'doughnut',data:{labels:allTotals.map(r=>r.label.substring(0,22)),datasets:[{data:vals,backgroundColor:COLORS.slice(0,allTotals.length),borderWidth:0}]},options:{responsive:true,plugins:{legend:{labels:{color:'#8ab0c8',font:{size:10}}}}}});
+      const total=vals.reduce((s,v)=>s+v,0);
+      new Chart(dCtx,{type:'doughnut',data:{
+        labels:allTotals.map(r=>r.label.substring(0,22)),
+        datasets:[{data:vals,backgroundColor:COLORS.slice(0,allTotals.length),borderWidth:0,hoverOffset:8}]
+      },options:{responsive:true,plugins:{legend:{labels:{color:'#8ab0c8',font:{size:10}}},tooltip:{callbacks:{label:ctx=>`${ctx.label}: ₹${ctx.raw.toLocaleString('en-IN',{maximumFractionDigits:0})} (${total?(ctx.raw/total*100).toFixed(1):'0'}%)`}}}}});
     }
-    // Bar grouped
+    // Grouped bar
     const bCtx=document.getElementById('dcBar')?.getContext('2d');
-    if(bCtx&&topLevel.length){
-      new Chart(bCtx,{type:'bar',data:{labels:nonTotal.map(pc=>pc.label),datasets:topLevel.map((row,i)=>({label:row.label.substring(0,18),data:nonTotal.map(pc=>row.values?.[pc.label]||0),backgroundColor:COLORS[i]+'bb',borderRadius:3}))},options:{responsive:true,plugins:{legend:{labels:{color:'#8ab0c8',font:{size:9}}}},scales:{x:{ticks:{color:'#8ab0c8',font:{size:9}}},y:{ticks:{color:'#8ab0c8',font:{size:9}},grid:{color:'rgba(255,255,255,.04)'}}}}});
+    if(bCtx&&useRows.length){
+      new Chart(bCtx,{type:'bar',data:{
+        labels:nonTotal.map(pc=>pc.label),
+        datasets:useRows.map((row,i)=>({label:row.label.substring(0,20),data:nonTotal.map(pc=>row.values?.[pc.label]||0),backgroundColor:COLORS[i]+'cc',borderRadius:3}))
+      },options:{responsive:true,plugins:{legend:{labels:{color:'#8ab0c8',font:{size:10}}}},scales:{x:{ticks:{color:'#8ab0c8',font:{size:9}}},y:{ticks:{color:'#8ab0c8',font:{size:9},callback:fmt},grid:{color:'rgba(255,255,255,.04)'}}}}});
     }
-    // Net position
+    // Net position waterfall
     const nCtx=document.getElementById('dcNet')?.getContext('2d');
-    if(nCtx&&topLevel.length>=2){
-      const rev=topLevel[0];const exps=topLevel.slice(1);
-      const net=nonTotal.map(pc=>(rev.values?.[pc.label]||0)-exps.reduce((s,r)=>s+(r.values?.[pc.label]||0),0));
-      new Chart(nCtx,{type:'bar',data:{labels:nonTotal.map(pc=>pc.label),datasets:[{label:'Net Position',data:net,backgroundColor:net.map(v=>v>=0?'rgba(0,212,170,.7)':'rgba(255,107,107,.7)'),borderColor:net.map(v=>v>=0?'#00d4aa':'#ff6b6b'),borderWidth:1,borderRadius:3}]},options:{responsive:true,plugins:{legend:{labels:{color:'#8ab0c8'}}},scales:{x:{ticks:{color:'#8ab0c8',font:{size:9}}},y:{ticks:{color:'#8ab0c8',font:{size:9},callback:v=>'₹'+formatIN(Math.abs(v))},grid:{color:'rgba(255,255,255,.04)'}}}}});
+    if(nCtx&&useRows.length>=2){
+      const inc=useRows[0];const exp=useRows.slice(1);
+      const net=nonTotal.map(pc=>(inc.values?.[pc.label]||0)-exp.reduce((s,r)=>s+Math.abs(r.values?.[pc.label]||0),0));
+      const prev=nonTotal.map((pc,i)=>i===0?null:(inc.values?.[pc.label]||0)-(inc.values?.[nonTotal[i-1].label]||0));
+      new Chart(nCtx,{type:'bar',data:{
+        labels:nonTotal.map(pc=>pc.label),
+        datasets:[
+          {label:'Net Position',data:net,backgroundColor:net.map(v=>v>=0?'rgba(0,212,170,.75)':'rgba(255,107,107,.75)'),borderColor:net.map(v=>v>=0?'#00d4aa':'#ff6b6b'),borderWidth:1.5,borderRadius:4,yAxisID:'y'},
+          {label:'Revenue MoM Δ',data:prev,type:'line',borderColor:'#f0c040',backgroundColor:'rgba(240,192,64,.1)',pointRadius:3,tension:.3,yAxisID:'y2'}
+        ]
+      },options:{responsive:true,interaction:{mode:'index',intersect:false},plugins:{legend:{labels:{color:'#8ab0c8',font:{size:10}}}},scales:{x:{ticks:{color:'#8ab0c8',font:{size:9}}},y:{ticks:{color:'#8ab0c8',font:{size:9},callback:fmt},grid:{color:'rgba(255,255,255,.04)'}},y2:{position:'right',ticks:{color:'#f0c040',font:{size:9},callback:fmt},grid:{display:false}}}}});
     }
-  },100);
+  },120);
 }
 
 function renderDynDept(p){
