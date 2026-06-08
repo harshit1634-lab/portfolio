@@ -3094,49 +3094,174 @@ function handleStmtPaste(stmtType){
   if(raw.length>1)processStmtImport(stmtType,raw,'pasted data');
 }
 
+// ─── ADVANCED MULTI-PERIOD PARSER ────────────────────────────────────────────
+
+function findPeriodColumns(row){
+  const cols=[];
+  row.forEach((cell,j)=>{
+    const s=String(cell||'').trim();
+    if(!s)return;
+    if(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[\s-]\d{4}/i.test(s)||
+       /\b(q[1-4]|quarter\s*[1-4])\s*(fy)?\d{2,4}/i.test(s)||
+       /\bfy[\s-]?\d{2,4}/i.test(s)||
+       /\b20\d{2}[-–]\d{2,4}\b/.test(s)||
+       (/\b20\d{2}\b/.test(s)&&s.length<=8)){
+      cols.push({col:j,label:s});
+    }
+  });
+  return cols;
+}
+
+function parseNetSuiteFile(raw){
+  let hdrIdx=-1,periodCols=[];
+  for(let i=0;i<Math.min(12,raw.length);i++){
+    const r=raw[i]||[];
+    const pc=findPeriodColumns(r);
+    if(pc.length>=2){
+      hdrIdx=i;periodCols=[...pc];
+      r.forEach((c,j)=>{if(/^total$/i.test(String(c||'').trim())&&!pc.find(p=>p.col===j))periodCols.push({col:j,label:'Total',isTotal:true});});
+      break;
+    }
+  }
+  if(hdrIdx===-1)return null;
+  let dataStart=hdrIdx+1;
+  const nr=raw[dataStart]||[];
+  if(nr.filter(c=>/^amount$/i.test(String(c||'').trim())).length>=2)dataStart++;
+  const meta={
+    company:String(raw[0]?.[0]||'').trim(),
+    subsidiary:String(raw[1]?.[0]||'').trim(),
+    stmtType:String(raw[2]?.[0]||'').trim(),
+    period:String(raw[3]?.[0]||'').trim(),
+  };
+  const rows=[];
+  for(let i=dataStart;i<raw.length;i++){
+    const r=raw[i]||[];
+    const colA=String(r[0]||'').trim();
+    if(!colA)continue;
+    const isTotalRow=/^total\s*[-–]/i.test(colA);
+    const codeMatch=colA.match(/(\d{7}-\d{2})/);
+    const isAccountCode=!!codeMatch&&!isTotalRow;
+    const isSectionHeader=!isTotalRow&&!isAccountCode;
+    const values={};let hasValues=false;
+    periodCols.forEach(pc=>{
+      const rv=String(r[pc.col]||'');
+      if(rv.startsWith('=')){values[pc.label]=null;return;}
+      const v=parseFloat(rv.replace(/[,₹$\s]/g,''));
+      if(!isNaN(v)){values[pc.label]=v;hasValues=true;}else values[pc.label]=null;
+    });
+    if(isTotalRow){
+      const code=codeMatch?codeMatch[1]:'';
+      const cleanLabel=colA.replace(/^total\s*[-–]\s*/i,'').replace(/^\d{7}-\d{2}\s*[-–]\s*/,'').trim();
+      const numPart=code?code.replace('-',''):'';
+      const depth=code?(9-(numPart.replace(/0+$/,'').length)):0;
+      rows.push({type:'total',label:cleanLabel,code,depth,values,hasValues});
+    }else if(isAccountCode){
+      const code=codeMatch[1];
+      const name=colA.replace(/^\d{7}-\d{2}\s*[-–]\s*/,'').trim()||colA;
+      const numPart=code.replace('-','');
+      const depth=9-(numPart.replace(/0+$/,'').length);
+      rows.push({type:'account',label:name,code,depth,values,hasValues:false});
+    }else{
+      rows.push({type:'section',label:colA,depth:-1,values,hasValues});
+    }
+  }
+  return{meta,periodCols,rows};
+}
+
+function parseGenericMultiPeriod(raw,swKey){
+  let hdrIdx=0,periodCols=[];
+  for(let i=0;i<Math.min(15,raw.length);i++){
+    const r=raw[i]||[];
+    const pc=findPeriodColumns(r);
+    if(pc.length>=2){hdrIdx=i;periodCols=pc;break;}
+    r.forEach((c,j)=>{
+      const s=String(c||'').trim();
+      if(/current year|previous year|current period|prior period|year \d|period \d|\bcy\b|\bpy\b/i.test(s))
+        periodCols.push({col:j,label:s});
+    });
+    if(periodCols.length>=1){hdrIdx=i;break;}
+  }
+  if(!periodCols.length){
+    const hRow=raw[hdrIdx]||[];
+    hRow.forEach((c,j)=>{
+      if(j>0&&raw.slice(hdrIdx+1,hdrIdx+8).some(r=>r&&!isNaN(parseFloat(String(r[j]||'').replace(/[,₹$\s]/g,'')))))
+        periodCols.push({col:j,label:String(c||'Col '+(j+1)).trim()});
+    });
+  }
+  const hRow=raw[hdrIdx]||[];
+  let labelCol=0;
+  for(let c=0;c<Math.min(6,hRow.length);c++){
+    if(/particulars|account|description|financial row|name|ledger|item/i.test(String(hRow[c]||''))){labelCol=c;break;}
+    const textRows=raw.slice(hdrIdx+1,hdrIdx+20).filter(r=>r&&r[c]&&isNaN(parseFloat(String(r[c]).replace(/[,₹$\s]/g,'')))).length;
+    if(textRows>5){labelCol=c;break;}
+  }
+  const rows=[];
+  raw.slice(hdrIdx+1).forEach(r=>{
+    if(!r)return;
+    const label=String(r[labelCol]||'').trim();
+    if(!label)return;
+    const values={};let hasValues=false;
+    periodCols.forEach(pc=>{
+      const v=parseFloat(String(r[pc.col]||'').replace(/[,₹$\s]/g,''));
+      if(!isNaN(v)){values[pc.label]=v;hasValues=true;}else values[pc.label]=null;
+    });
+    if(hasValues)rows.push({type:'data',label,depth:0,values,hasValues});
+  });
+  return{meta:{company:'',subsidiary:'',stmtType:'Statement',period:''},periodCols,rows};
+}
+
 function processStmtImport(stmtType,raw,sourceName){
-  // Detect software
   const swKey=detectSoftwareFromData(raw);
   const sw=SOFTWARE_PROFILES[swKey];
+  setStmtStatus(stmtType,`🔍 ${sw.icon} ${sw.name} detected · ${raw.length} rows · parsing…`,'var(--sky)');
 
-  // Find header row
+  let parsed=null;
+  const isNetSuite=swKey==='netsuite'||raw.slice(0,6).some(r=>(r||[]).some(c=>/financial row/i.test(String(c||''))));
+  if(isNetSuite) parsed=parseNetSuiteFile(raw);
+  if(!parsed){const gp=parseGenericMultiPeriod(raw,swKey);if(gp&&gp.rows.length>0)parsed=gp;}
+
+  if(parsed&&parsed.periodCols.length>=1){
+    const nonTotal=parsed.periodCols.filter(pc=>!pc.isTotal);
+    setStmtStatus(stmtType,`✅ ${sw.icon} ${sw.name} · ${parsed.rows.length} rows · ${nonTotal.length} periods found → Opening viewer`,'var(--teal)');
+    setTimeout(()=>showDynStmtViewer(parsed,sourceName,swKey),80);
+    legacyFieldMap(stmtType,raw,swKey);
+    return;
+  }
+  legacyFieldMap(stmtType,raw,swKey);
+}
+
+function legacyFieldMap(stmtType,raw,swKey){
+  const sw=SOFTWARE_PROFILES[swKey];
   let hdrIdx=0;
   for(let i=0;i<Math.min(12,raw.length);i++){
     const r=raw[i]||[];
-    const nonNull=r.filter(c=>c!==null&&c!==undefined&&String(c).trim()!=='').length;
-    if(nonNull>=3){hdrIdx=i;break;}
+    if(r.filter(c=>c!==null&&c!==undefined&&String(c).trim()!=='').length>=3){hdrIdx=i;break;}
   }
   const headers=(raw[hdrIdx]||[]).map(c=>String(c||'').trim().toLowerCase());
-
-  // Find label column
   let labelCol=0;
   for(let c=0;c<Math.min(6,headers.length);c++){
     if(/particulars|account|description|financial row|name|ledger/i.test(headers[c])){labelCol=c;break;}
-    const textRows=raw.slice(hdrIdx+1,hdrIdx+20).filter(r=>r&&r[c]&&isNaN(parseFloat(String(r[c]).replace(/[,\s]/g,'')))).length;
-    if(textRows>5){labelCol=c;break;}
+    if(raw.slice(hdrIdx+1,hdrIdx+20).filter(r=>r&&r[c]&&isNaN(parseFloat(String(r[c]).replace(/[,\s]/g,'')))).length>5){labelCol=c;break;}
   }
-
-  // Find numeric columns (period data)
   const numCols=[];
   headers.forEach((h,i)=>{
     if(i===labelCol)return;
-    const hasNums=raw.slice(hdrIdx+1,hdrIdx+20).some(r=>r&&!isNaN(parseFloat(String(r[i]||'').replace(/[,₹$\s]/g,''))));
-    if(hasNums)numCols.push({col:i,label:headers[i]||'Col '+(i+1)});
+    if(raw.slice(hdrIdx+1,hdrIdx+20).some(r=>r&&!isNaN(parseFloat(String(r[i]||'').replace(/[,₹$\s]/g,'')))))
+      numCols.push({col:i,label:headers[i]||'Col '+(i+1)});
   });
-
-  setStmtStatus(stmtType,`✅ Detected: ${sw.icon} ${sw.name} · ${raw.length} rows · ${numCols.length} numeric columns`,'var(--teal)');
-
-  // Build period → column mappings
-  const periods=['period 0','period 1','period 2'];
-  const mappingHTML=buildMappingPreview(stmtType,raw,hdrIdx,labelCol,numCols,swKey,sw);
+  const KMAP=stmtType==='bs'?BS_FIELD_KEYWORDS:stmtType==='pl'?PL_FIELD_KEYWORDS:CF_FIELD_KEYWORDS;
+  let autoMapped=0;
+  raw.slice(hdrIdx+1).forEach(row=>{
+    if(!row)return;
+    const label=String(row[labelCol]||'').toLowerCase().trim();
+    for(const [,kws] of Object.entries(KMAP)){if(kws.some(kw=>label.includes(kw))){autoMapped++;return;}}
+  });
   const previewEl=document.getElementById('stmtMappingPreview_'+stmtType);
-  if(previewEl){previewEl.classList.remove('hidden');previewEl.innerHTML=mappingHTML;}
-
-  // Store for confirm action
+  if(previewEl){previewEl.classList.remove('hidden');previewEl.innerHTML=buildMappingPreview(stmtType,raw,hdrIdx,labelCol,numCols,swKey,sw,autoMapped);}
   window._pendingImport={stmtType,raw,hdrIdx,labelCol,numCols,swKey};
 }
 
-function buildMappingPreview(stmtType,raw,hdrIdx,labelCol,numCols,swKey,sw){
+function buildMappingPreview(stmtType,raw,hdrIdx,labelCol,numCols,swKey,sw,autoMapped){
   const periodAssign=numCols.slice(0,3).map((nc,i)=>`
     <div class="flex" style="margin-bottom:6px">
       <span style="font-size:11px;color:var(--muted);width:140px;flex-shrink:0">"${nc.label}" →</span>
@@ -3145,21 +3270,6 @@ function buildMappingPreview(stmtType,raw,hdrIdx,labelCol,numCols,swKey,sw){
         <option value="-1">— Skip —</option>
       </select>
     </div>`).join('');
-
-  // Auto-detect field mappings: scan rows for keywords
-  let autoMapped=0;
-  const KMAP=stmtType==='bs'?BS_FIELD_KEYWORDS:stmtType==='pl'?PL_FIELD_KEYWORDS:CF_FIELD_KEYWORDS;
-  const mappedFields=[];
-  raw.slice(hdrIdx+1).forEach(row=>{
-    if(!row)return;
-    const label=String(row[labelCol]||'').toLowerCase().trim();
-    for(const [fieldId,kws] of Object.entries(KMAP)){
-      if(kws.some(kw=>label.includes(kw))){
-        mappedFields.push(fieldId);autoMapped++;return;
-      }
-    }
-  });
-
   return `<div style="background:rgba(15,27,45,.9);border:1px solid rgba(240,192,64,.12);border-radius:10px;padding:16px">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
       <span style="font-size:20px">${sw.icon}</span>
@@ -3167,11 +3277,11 @@ function buildMappingPreview(stmtType,raw,hdrIdx,labelCol,numCols,swKey,sw){
         <div style="font-size:13px;font-weight:600;color:var(--text)">${sw.name} format detected</div>
         <div style="font-size:11px;color:var(--muted)">${sw.desc}</div>
       </div>
-      <span style="margin-left:auto;background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.2);color:var(--teal);font-size:11px;padding:3px 10px;border-radius:8px">${autoMapped} fields auto-mapped</span>
+      <span style="margin-left:auto;background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.2);color:var(--teal);font-size:11px;padding:3px 10px;border-radius:8px">${autoMapped||0} fields auto-mapped</span>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
       <div>
-        <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Map Periods:</div>
+        <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Map Periods to Form:</div>
         ${periodAssign||'<div style="font-size:11px;color:var(--muted)">No numeric columns detected.</div>'}
       </div>
       <div>
@@ -3245,56 +3355,331 @@ function confirmStmtImport(){
   alert(`✅ Import complete!\n${mapped} fields mapped and populated.\nTotals have been auto-recalculated.`);
 }
 
+// ─── DYNAMIC STATEMENT VIEWER ────────────────────────────────────────────────
+
+function showDynStmtViewer(parsedData,sourceName,swKey){
+  if(!parsedData||!parsedData.rows)return;
+  window._dynParsed=parsedData;window._dynSource=sourceName;window._dynSwKey=swKey;
+  let modal=document.getElementById('dynStmtModal');
+  if(modal)modal.remove();
+  modal=document.createElement('div');modal.id='dynStmtModal';
+  modal.style.cssText='position:fixed;inset:0;z-index:9000;background:rgba(4,8,16,.97);display:flex;flex-direction:column;overflow:hidden';
+  document.body.appendChild(modal);
+  const p=parsedData,sw=SOFTWARE_PROFILES[swKey]||SOFTWARE_PROFILES.generic;
+  const nonTotal=p.periodCols.filter(pc=>!pc.isTotal);
+  modal.innerHTML=`
+  <div style="background:var(--ink2);border-bottom:1px solid rgba(255,255,255,.07);padding:13px 18px;display:flex;align-items:center;gap:12px;flex-shrink:0;flex-wrap:wrap">
+    <span style="font-size:22px">${sw.icon}</span>
+    <div style="flex:1;min-width:0">
+      <div style="font-family:'Playfair Display',serif;font-size:15px;font-weight:700;color:var(--gold2)">${p.meta.company||sourceName}</div>
+      <div style="font-size:10.5px;color:var(--muted)">${p.meta.stmtType} · ${p.meta.period} · ${sw.name} · ${p.rows.length} rows · <strong style="color:var(--sky)">${nonTotal.length} periods</strong></div>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button class="btn btn-sky btn-sm" onclick="dynStmtTab('table')" id="dynTabBtnTable">📋 Statement</button>
+      <button class="btn btn-purple btn-sm" onclick="dynStmtTab('charts')" id="dynTabBtnCharts">📊 Charts</button>
+      <button class="btn btn-teal btn-sm" onclick="dynStmtTab('dept')" id="dynTabBtnDept">🔢 Data Grid</button>
+      <button class="btn btn-coral btn-sm" onclick="dynAiAnalyse()">🤖 AI Analyse</button>
+      <button class="btn btn-gold btn-sm" onclick="exportDynToExcel()">📥 Excel</button>
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('dynStmtModal').remove()">✕</button>
+    </div>
+  </div>
+  <div id="dynStmtContent" style="flex:1;overflow:auto;padding:16px">
+    <div id="dynPaneTable"></div>
+    <div id="dynPaneCharts" style="display:none"></div>
+    <div id="dynPaneDept" style="display:none"></div>
+    <div id="dynPaneAI" style="display:none"></div>
+  </div>`;
+  renderDynTable(parsedData);
+}
+
+function dynStmtTab(tab){
+  ['Table','Charts','Dept','AI'].forEach(t=>{
+    const el=document.getElementById('dynPane'+t);
+    if(el)el.style.display=t.toLowerCase()===tab?'':'none';
+  });
+  if(tab==='charts')renderDynCharts(window._dynParsed);
+  if(tab==='dept')renderDynDept(window._dynParsed);
+}
+
+function renderDynTable(p){
+  const el=document.getElementById('dynPaneTable');
+  if(!el)return;
+  const periods=p.periodCols;
+  const summaryRows=p.rows.filter(r=>r.type==='total'||r.type==='section');
+  const allRows=p.rows;
+  window._dynSummaryRows=summaryRows;window._dynAllRows=allRows;
+  const buildRows=(rows)=>rows.map(row=>{
+    if(row.type==='section')
+      return`<tr style="background:rgba(240,192,64,.07)"><td colspan="${periods.length+2}" style="padding:9px 14px;font-weight:700;color:var(--gold2);font-size:12.5px;letter-spacing:.4px;text-transform:uppercase">${row.label}</td></tr>`;
+    if(!row.hasValues)
+      return`<tr><td style="padding:5px 14px;color:rgba(148,163,184,.5);font-size:11px;padding-left:${Math.max(14,(row.depth+1)*14)}px">${row.label}</td><td></td>${periods.map(()=>'<td></td>').join('')}</tr>`;
+    const pd=Math.max(14,(row.depth+1)*14);
+    const bold=row.depth<=1;
+    const bg=row.depth===0?'rgba(56,189,248,.05)':row.depth===1?'rgba(255,255,255,.018)':'';
+    const badge=row.type==='total'?`<span style="font-size:8.5px;color:var(--teal);background:rgba(0,212,170,.1);padding:1px 4px;border-radius:3px;margin-left:4px">TOTAL</span>`:'';
+    return`<tr style="background:${bg};border-bottom:1px solid rgba(255,255,255,.025)">
+      <td style="padding:5px 14px;font-size:11.5px;${bold?'font-weight:700;color:var(--text)':'color:rgba(188,213,234,.75)'};padding-left:${pd}px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${row.label}${badge}</td>
+      <td style="padding:4px 8px;font-size:9.5px;color:var(--muted);white-space:nowrap">${row.code||''}</td>
+      ${periods.map(pc=>{
+        const v=row.values?.[pc.label];
+        if(v===null||v===undefined)return`<td style="text-align:right;padding:4px 10px;color:rgba(148,163,184,.4);font-size:11px">—</td>`;
+        return`<td style="text-align:right;padding:4px 10px;font-size:11.5px;color:${v<0?'var(--coral)':'var(--text)'};${bold?'font-weight:600':''}${pc.isTotal?';background:rgba(240,192,64,.04)':''}">${formatIN(v)}</td>`;
+      }).join('')}
+    </tr>`;
+  }).join('');
+  window._dynBuildRows=buildRows;
+  el.innerHTML=`
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
+    <div style="font-size:13px;font-weight:700;color:var(--text)">${p.meta.stmtType||'Statement'}</div>
+    <span style="font-size:11px;color:var(--muted)">${p.meta.subsidiary||''}</span>
+    <label style="margin-left:auto;display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);cursor:pointer">
+      <input type="checkbox" id="dynShowAll" onchange="document.getElementById('dynTbody').innerHTML=window._dynBuildRows(this.checked?window._dynAllRows:window._dynSummaryRows)">
+      Show all detail rows (${allRows.length})
+    </label>
+    <button class="btn btn-ghost btn-sm" onclick="copyDynTable()">📋 Copy</button>
+  </div>
+  <div style="overflow:auto;max-height:calc(100vh - 190px)">
+    <table id="dynTableEl" style="width:100%;border-collapse:collapse;min-width:${500+periods.length*130}px">
+      <thead style="position:sticky;top:0;z-index:5;background:var(--ink2)">
+        <tr style="border-bottom:2px solid rgba(240,192,64,.2)">
+          <th style="text-align:left;padding:9px 14px;font-size:12px;color:var(--gold2);min-width:260px">Account / Line Item</th>
+          <th style="text-align:left;padding:9px 8px;font-size:10px;color:var(--muted);width:80px">Code</th>
+          ${periods.map(pc=>`<th style="text-align:right;padding:9px 10px;font-size:11.5px;color:${pc.isTotal?'var(--gold2)':'var(--sky)'};min-width:120px;${pc.isTotal?'background:rgba(240,192,64,.04)':''}">${pc.label}</th>`).join('')}
+        </tr>
+      </thead>
+      <tbody id="dynTbody">${buildRows(summaryRows)}</tbody>
+    </table>
+  </div>`;
+}
+
+function renderDynCharts(p){
+  const el=document.getElementById('dynPaneCharts');
+  if(!el)return;
+  const nonTotal=p.periodCols.filter(pc=>!pc.isTotal);
+  if(!nonTotal.length){el.innerHTML='<div style="color:var(--muted);padding:20px">No period columns for charts.</div>';return;}
+  const topLevel=p.rows.filter(r=>r.type==='total'&&r.depth<=1&&r.hasValues).slice(0,5);
+  const allTotals=p.rows.filter(r=>r.type==='total'&&r.hasValues&&r.depth<=2);
+  const totalCol=p.periodCols.find(pc=>pc.isTotal)||nonTotal[nonTotal.length-1];
+  el.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div class="box"><div class="box-title" style="font-size:13px">📈 Multi-Period Trend</div><canvas id="dcTrend" height="220"></canvas></div>
+    <div class="box"><div class="box-title" style="font-size:13px">🍩 Category Split (${totalCol?.label})</div><canvas id="dcDoughnut" height="220"></canvas></div>
+    <div class="box"><div class="box-title" style="font-size:13px">📊 Monthly Bar — Top Categories</div><canvas id="dcBar" height="160"></canvas></div>
+    <div class="box"><div class="box-title" style="font-size:13px">📉 Net Position by Period</div><canvas id="dcNet" height="160"></canvas></div>
+  </div>`;
+  const COLORS=['#f0c040','#00d4aa','#a855f7','#ff6b6b','#38bdf8','#f97316','#84cc16'];
+  setTimeout(()=>{
+    // Trend line
+    const tCtx=document.getElementById('dcTrend')?.getContext('2d');
+    if(tCtx&&topLevel.length){
+      new Chart(tCtx,{type:'line',data:{labels:nonTotal.map(pc=>pc.label),datasets:topLevel.map((row,i)=>({label:row.label.substring(0,22),data:nonTotal.map(pc=>row.values?.[pc.label]||0),borderColor:COLORS[i],backgroundColor:COLORS[i]+'22',tension:.35,fill:true,pointRadius:3,borderWidth:2}))},options:{responsive:true,plugins:{legend:{labels:{color:'#8ab0c8',font:{size:10}}}},scales:{x:{ticks:{color:'#8ab0c8',font:{size:9}}},y:{ticks:{color:'#8ab0c8',font:{size:9},callback:v=>'₹'+formatIN(Math.abs(v))},grid:{color:'rgba(255,255,255,.04)'}}}}});
+    }
+    // Doughnut
+    const dCtx=document.getElementById('dcDoughnut')?.getContext('2d');
+    if(dCtx&&allTotals.length&&totalCol){
+      const vals=allTotals.map(r=>Math.abs(r.values?.[totalCol.label]||0));
+      new Chart(dCtx,{type:'doughnut',data:{labels:allTotals.map(r=>r.label.substring(0,22)),datasets:[{data:vals,backgroundColor:COLORS.slice(0,allTotals.length),borderWidth:0}]},options:{responsive:true,plugins:{legend:{labels:{color:'#8ab0c8',font:{size:10}}}}}});
+    }
+    // Bar grouped
+    const bCtx=document.getElementById('dcBar')?.getContext('2d');
+    if(bCtx&&topLevel.length){
+      new Chart(bCtx,{type:'bar',data:{labels:nonTotal.map(pc=>pc.label),datasets:topLevel.map((row,i)=>({label:row.label.substring(0,18),data:nonTotal.map(pc=>row.values?.[pc.label]||0),backgroundColor:COLORS[i]+'bb',borderRadius:3}))},options:{responsive:true,plugins:{legend:{labels:{color:'#8ab0c8',font:{size:9}}}},scales:{x:{ticks:{color:'#8ab0c8',font:{size:9}}},y:{ticks:{color:'#8ab0c8',font:{size:9}},grid:{color:'rgba(255,255,255,.04)'}}}}});
+    }
+    // Net position
+    const nCtx=document.getElementById('dcNet')?.getContext('2d');
+    if(nCtx&&topLevel.length>=2){
+      const rev=topLevel[0];const exps=topLevel.slice(1);
+      const net=nonTotal.map(pc=>(rev.values?.[pc.label]||0)-exps.reduce((s,r)=>s+(r.values?.[pc.label]||0),0));
+      new Chart(nCtx,{type:'bar',data:{labels:nonTotal.map(pc=>pc.label),datasets:[{label:'Net Position',data:net,backgroundColor:net.map(v=>v>=0?'rgba(0,212,170,.7)':'rgba(255,107,107,.7)'),borderColor:net.map(v=>v>=0?'#00d4aa':'#ff6b6b'),borderWidth:1,borderRadius:3}]},options:{responsive:true,plugins:{legend:{labels:{color:'#8ab0c8'}}},scales:{x:{ticks:{color:'#8ab0c8',font:{size:9}}},y:{ticks:{color:'#8ab0c8',font:{size:9},callback:v=>'₹'+formatIN(Math.abs(v))},grid:{color:'rgba(255,255,255,.04)'}}}}});
+    }
+  },100);
+}
+
+function renderDynDept(p){
+  const el=document.getElementById('dynPaneDept');
+  if(!el)return;
+  const rows=p.rows.filter(r=>r.hasValues);
+  const periods=p.periodCols;
+  if(!rows.length){el.innerHTML='<div style="color:var(--muted);padding:20px">No data available.</div>';return;}
+  el.innerHTML=`<div class="box">
+    <div class="box-title" style="font-size:13px">🔢 Full Data Grid — All ${rows.length} rows × ${periods.length} periods</div>
+    <div class="fin-table-wrap" style="max-height:calc(100vh-220px);overflow:auto">
+      <table class="fin-table" style="min-width:${400+periods.length*120}px">
+        <thead><tr><th style="text-align:left;position:sticky;top:0;background:var(--ink2)">Account / Label</th><th style="position:sticky;top:0;background:var(--ink2)">Code</th>${periods.map(pc=>`<th style="position:sticky;top:0;background:var(--ink2);color:${pc.isTotal?'var(--gold2)':'var(--sky)'}">${pc.label}</th>`).join('')}<th style="position:sticky;top:0;background:var(--ink2)">Trend</th></tr></thead>
+        <tbody>${rows.map(row=>{
+          const vals=periods.map(pc=>row.values?.[pc.label]);
+          const max=Math.max(...vals.filter(v=>v!=null).map(Math.abs),1);
+          const spark=vals.map(v=>{
+            if(v==null)return'<span style="width:6px;display:inline-block"></span>';
+            const w=Math.round(Math.abs(v)/max*28);
+            return`<span style="display:inline-block;width:${w}px;height:8px;background:${v>=0?'var(--teal)':'var(--coral)'};border-radius:1px;vertical-align:middle;margin:0 1px"></span>`;
+          }).join('');
+          return`<tr style="border-bottom:1px solid rgba(255,255,255,.02)">
+            <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11.5px;padding-left:${Math.max(10,(row.depth+1)*10)}px">${row.label}</td>
+            <td style="font-size:10px;color:var(--muted)">${row.code||'—'}</td>
+            ${vals.map((v,i)=>`<td style="text-align:right;font-size:11px;color:${v!=null&&v<0?'var(--coral)':'var(--text)'}${periods[i].isTotal?';background:rgba(240,192,64,.03)':''}">${v!=null?formatIN(v):'—'}</td>`).join('')}
+            <td style="padding:4px 8px">${spark}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+async function dynAiAnalyse(){
+  const p=window._dynParsed;if(!p)return;
+  const ai=document.getElementById('dynPaneAI');
+  if(ai){ai.style.display='';ai.innerHTML=`<div class="box"><div class="box-title">🤖 AI Financial Analysis</div><div id="dynAiOut" style="color:var(--muted);font-size:13px;padding:10px">Analysing ${p.rows.length} rows across ${p.periodCols.filter(pc=>!pc.isTotal).length} periods…</div></div>`;}
+  dynStmtTab('ai');
+  const topRows=p.rows.filter(r=>r.hasValues&&r.depth<=2).slice(0,25);
+  const nonTotal=p.periodCols.filter(pc=>!pc.isTotal);
+  const summaryLines=topRows.map(r=>`${r.label}: ${nonTotal.map(pc=>`${pc.label}=₹${formatIN(r.values?.[pc.label]||0)}`).join(', ')}`).join('\n');
+  const prompt=`Analyze this multi-period financial statement for ${p.meta.company||'the company'} (${p.meta.stmtType}, ${p.meta.period}):\n\n${summaryLines}\n\nProvide:\n1. Revenue trend analysis with % changes\n2. Expense structure and cost efficiency\n3. Key month-over-month or period-over-period observations\n4. Gross and net margin estimates\n5. Red flags or anomalies\n6. 3 strategic recommendations\n7. Growth rate calculation across periods`;
+  try{
+    const result=await callAI(prompt,'You are a senior CA and financial analyst expert. Provide actionable insights in professional but clear language. Use bullet points and structure your answer with headings.');
+    if(ai){const out=document.getElementById('dynAiOut');if(out)out.innerHTML=`<div style="line-height:1.9;color:var(--text);font-size:13px;white-space:pre-wrap">${result}</div>`;}
+  }catch(e){if(ai){const out=document.getElementById('dynAiOut');if(out)out.textContent='AI analysis failed: '+e.message;}}
+}
+
+function exportDynToExcel(){
+  const p=window._dynParsed;
+  if(!p||!window.XLSX){alert('XLSX library not loaded');return;}
+  const periods=p.periodCols;
+  const data=[
+    [p.meta.company,'','Exported from FinAnalyser Pro','','Generated:',new Date().toLocaleDateString('en-IN')],
+    [p.meta.stmtType,'',p.meta.period],[''],
+    ['Account/Label','Code',...periods.map(pc=>pc.label)],
+    ...p.rows.filter(r=>r.hasValues||r.type==='section').map(r=>[
+      '  '.repeat(Math.max(0,r.depth))+r.label,r.code||'',...periods.map(pc=>r.values?.[pc.label]??'')
+    ])
+  ];
+  const ws=XLSX.utils.aoa_to_sheet(data);
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Statement');
+  XLSX.writeFile(wb,(p.meta.company||'Statement').replace(/[\/\\:*?"<>|]/g,'_')+'_MultiPeriod.xlsx');
+}
+
+function copyDynTable(){
+  const tbl=document.getElementById('dynTableEl');
+  if(!tbl)return;
+  const txt=[...tbl.querySelectorAll('tr')].map(tr=>[...tr.querySelectorAll('th,td')].map(td=>td.textContent.trim()).join('\t')).join('\n');
+  navigator.clipboard.writeText(txt).then(()=>alert('Table copied!')).catch(()=>alert('Copy failed — try selecting manually'));
+}
+
 // ─── GLOBAL ACCOUNTING STANDARDS ─────────────────────────────────────────────
 const STD_DATA={
   overview:[
-    {name:'IFRS',fullName:'International Financial Reporting Standards',body:'IASB (International Accounting Standards Board)',adopt:'140+ countries incl. EU, India (Ind AS), Canada, Australia, GCC, Africa, South America',basis:'Principles-based',color:'var(--sky)',icon:'🌐',
-      keyStds:['IFRS 15 – Revenue from Contracts','IFRS 16 – Leases','IFRS 9 – Financial Instruments','IFRS 10 – Consolidated FS','IFRS 13 – Fair Value Measurement','IAS 2 – Inventories','IAS 12 – Income Taxes','IAS 36 – Impairment','IAS 37 – Provisions','IAS 38 – Intangibles'],
-      summary:'The most widely adopted global framework. Principles-based approach allows judgment. Converging with US GAAP since Norwalk Agreement (2002). Mandatory for listed companies in EU, UK, India (large companies).',
+    {name:'IFRS',fullName:'International Financial Reporting Standards',body:'IASB (International Accounting Standards Board) — independent standard-setter based in London, UK',adopt:'140+ countries including entire European Union, UK (post-Brexit own version), India (Ind AS), Canada, Australia, South Korea, GCC, most of Africa and South America. ~120 countries require IFRS for listed companies.',basis:'Principles-based',color:'var(--sky)',icon:'🌐',
+      keyStds:['IFRS 1 – First-time Adoption','IFRS 3 – Business Combinations','IFRS 5 – Non-current Assets Held for Sale','IFRS 7 – Financial Instruments Disclosures','IFRS 8 – Operating Segments','IFRS 9 – Financial Instruments (recognition, classification, impairment)','IFRS 10 – Consolidated FS','IFRS 13 – Fair Value Measurement','IFRS 15 – Revenue from Contracts with Customers (5-step model)','IFRS 16 – Leases (ROU assets)','IFRS 17 – Insurance Contracts (2023)','IAS 1 – Presentation of FS','IAS 2 – Inventories (LIFO prohibited)','IAS 7 – Cash Flow Statements','IAS 8 – Accounting Policies','IAS 12 – Income Taxes (deferred tax – balance sheet method)','IAS 16 – Property Plant & Equipment','IAS 19 – Employee Benefits','IAS 21 – Foreign Exchange','IAS 36 – Impairment of Assets','IAS 37 – Provisions & Contingencies','IAS 38 – Intangible Assets','IAS 40 – Investment Property'],
+      summary:'Established in 1973 (IASC) and reformed in 2001 (IASB), IFRS is the world\'s most widely adopted financial reporting framework. Rooted in a conceptual framework that emphasises fair presentation, substance over form, and economic reality. IFRS is principles-based meaning preparers exercise significant professional judgment rather than following exhaustive rules. This allows flexibility but demands robust accounting policies. Key pillars include: relevance, faithful representation, comparability, verifiability, timeliness, and understandability. The Norwalk Agreement (2002) between IASB and FASB initiated convergence with US GAAP, producing joint standards like IFRS 15 (= ASC 606) and IFRS 9. IFRS 16 eliminated the operating lease off-balance-sheet treatment that characterized pre-2019 financial statements globally. IFRS 17 (effective 2023) is the most complex standard ever issued, fundamentally changing how insurance contracts are measured. Goodwill is not amortised under IFRS — instead, it is subject to annual impairment testing using cash-generating units (CGUs), a topic frequently tested in audits. Fair value measurement (IFRS 13) introduced a three-level hierarchy: Level 1 (quoted prices), Level 2 (observable inputs), Level 3 (unobservable). IASB is also working on IFRS 19 (subsidiary disclosures) and sustainability reporting (ISSB S1, S2).',
+      details:[
+        {section:'Historical Evolution',content:'1929 Wall Street Crash exposed lack of uniform standards. 1973: IASC formed in London by 9 accounting bodies from Australia, Canada, France, Germany, Japan, Mexico, Netherlands, UK/Ireland, and USA. 1998: G4+1 proposals for major reforms. 2001: IASC restructured into IASB. 2002: Norwalk Agreement for US GAAP convergence. 2005: EU mandated IFRS for all listed companies. 2007: SEC eliminated IFRS-to-US GAAP reconciliation for foreign private issuers. 2016: IFRS 9 finalized post-2008 financial crisis. 2018: IFRS 16 replaced IAS 17. 2023: IFRS 17 Insurance Contracts effective.'},
+        {section:'Conceptual Framework',content:'The Conceptual Framework (revised 2018) is the theoretical foundation. It defines: (a) Objective of financial reporting — to provide useful information to users making economic decisions; (b) Qualitative characteristics — Fundamental: Relevance (predictive + confirmatory value) and Faithful Representation (complete, neutral, free from error). Enhancing: Comparability, Verifiability, Timeliness, Understandability; (c) Elements — Assets (present economic resource), Liabilities (present obligation), Equity, Income, Expenses; (d) Recognition criteria — probable economic benefit + reliable measurement; (e) Measurement bases — Historical Cost, Fair Value, NRV, Value in Use, Current Cost; (f) Presentation and Disclosure — faithful representation, no excessive aggregation.'},
+        {section:'Revenue (IFRS 15)',content:'5-Step Model: Step 1 — Identify the contract(s) with customer (written, oral or implied; must have commercial substance). Step 2 — Identify performance obligations (promises to transfer distinct goods/services; assessment of whether items are distinct in contract and distinct within context of contract). Step 3 — Determine transaction price (variable consideration, significant financing component, non-cash consideration, consideration payable to customer). Step 4 — Allocate TP to POs using standalone selling price (SSP). Step 5 — Recognize revenue when/as PO satisfied: point-in-time (transfer of control criteria) vs. over-time (customer controls as created, entity creates no alternative use + right to payment, or customer receives benefit as performed). Key judgments: variable consideration constraint (highly probable not to reverse), agent vs principal, licences (right-to-use vs right-to-access), contract modifications. Effective from 2018.'},
+        {section:'Leases (IFRS 16)',content:'IFRS 16 (effective Jan 2019) requires lessees to recognize a Right-of-Use (ROU) asset and a lease liability for virtually all leases except short-term (≤12 months) and low-value (≤USD 5,000 per IASB guidance). The ROU asset = initial lease liability + initial direct costs + prepayments – lease incentives + restoration costs. The lease liability = present value of future lease payments discounted at the implicit rate (or lessee\'s IBR if implicit rate not determinable). P&L impact: depreciation of ROU asset + interest on lease liability replaces operating lease expense — front-loads expense. Lessors retain the IAS 17 distinction between finance leases (substantially all risks transferred → derecognize asset) and operating leases. Key judgments: identifying a lease (does the customer control use of identified asset?), determining lease term (optional extension + renewal options reasonably certain), selecting discount rate.'},
+        {section:'Financial Instruments (IFRS 9)',content:'IFRS 9 (2014/effective 2018) replaced IAS 39 post-GFC. Classification: (1) Amortised Cost — hold to collect contractual cash flows, SPPI test pass; (2) Fair Value through OCI (FVOCI) — hold to collect and sell, SPPI pass (debt); or irrevocable equity designation; (3) Fair Value through P&L (FVTPL) — all others. Impairment: Expected Credit Loss (ECL) model. Three stages: Stage 1 (12-month ECL, performing); Stage 2 (lifetime ECL, significant deterioration); Stage 3 (lifetime ECL, credit-impaired, interest on net amount). Hedge accounting: simplified, better aligned with risk management. Key challenge for corporates: measuring ECL requires forward-looking macroeconomic scenarios.'},
+        {section:'Carve-outs vs US GAAP',content:'Despite convergence efforts, major differences persist: (1) LIFO inventory: Permitted under US GAAP, prohibited under IFRS — can create significant balance sheet and tax differences in inflation environments; (2) Goodwill: No amortisation under IFRS (impairment only); US private companies may amortise over 10 years; (3) Development costs: IFRS capitalises development costs meeting 6 criteria (IAS 38); US GAAP expenses all R&D except software; (4) Revaluation: IFRS permits upward revaluation of PP&E and intangibles (revaluation model); US GAAP does not; (5) Investment property: IFRS permits fair value model (IAS 40); US GAAP uses cost model; (6) Biological assets: IFRS uses fair value less costs to sell (IAS 41); US GAAP generally historical cost; (7) Contingent liabilities: IFRS uses \'probable\' (>50%); US GAAP uses \'probable\' (higher threshold); (8) Extraordinary items: Prohibited under IFRS; also eliminated by US GAAP in 2015.'},
+      ],
       country:'Global'},
-    {name:'US GAAP',fullName:'Generally Accepted Accounting Principles (USA)',body:'FASB (Financial Accounting Standards Board)',adopt:'United States (mandatory for SEC registrants), many MNC subsidiaries globally',basis:'Rules-based',color:'var(--coral)',icon:'🇺🇸',
-      keyStds:['ASC 606 – Revenue Recognition','ASC 842 – Leases','ASC 321/323 – Investments','ASC 805 – Business Combinations','ASC 350 – Intangibles & Goodwill','ASC 360 – Property Plant & Equipment','ASC 740 – Income Taxes','ASC 460 – Guarantees','ASC 280 – Segment Reporting'],
-      summary:'Most detailed rules-based framework globally. Extensive guidance reduces ambiguity. SEC requires XBRL tagging. Over 800 ASC topics. Increasingly converging with IFRS but significant differences remain (LIFO, goodwill amortization).',
+
+    {name:'US GAAP',fullName:'Generally Accepted Accounting Principles — United States of America',body:'FASB (Financial Accounting Standards Board) for private/public companies; SEC for public companies; GASB for state/local governments; FAF oversees both FASB and GASB',adopt:'United States (mandatory for all SEC registrants — ~6,000 listed companies). Also followed voluntarily by many US private companies and subsidiaries of multinationals filing in the US. Widely referenced globally as the benchmark for rules-based accounting.',basis:'Rules-based (comprehensive prescriptive guidance)',color:'var(--coral)',icon:'🇺🇸',
+      keyStds:['ASC 105 – GAAP Hierarchy','ASC 205 – Presentation (Going Concern 205-40)','ASC 230 – Cash Flow Statement','ASC 260 – Earnings Per Share','ASC 270 – Interim Reporting','ASC 280 – Segment Reporting','ASC 310 – Receivables','ASC 320/321 – Investments','ASC 326 – Credit Losses (CECL)','ASC 330 – Inventory (LIFO permitted)','ASC 350 – Goodwill & Intangibles','ASC 360 – PP&E','ASC 420/718 – Compensation','ASC 450 – Contingencies','ASC 460 – Guarantees','ASC 606 – Revenue','ASC 740 – Income Taxes (ASC 740-10 uncertain tax positions)','ASC 805 – Business Combinations','ASC 820 – Fair Value','ASC 842 – Leases','ASC 944 – Insurance','ASC 985 – Software'],
+      summary:'US GAAP is the world\'s most voluminous and prescriptive accounting framework with over 800 codified topics in the FASB Accounting Standards Codification (ASC). Its rules-based nature stems from a legal and regulatory tradition that demands explicit guidance for every scenario, reducing subjective judgment but creating complexity. FASB was established in 1973, replacing the APB (Accounting Principles Board). The SEC has authority over US public company reporting but historically delegated standard-setting to FASB (via Regulation S-X). Key unique features: LIFO (Last-In First-Out) inventory is permitted (with LIFO reserve disclosure required for comparability), creating significant tax advantages but complicating cross-border comparison. CECL (Current Expected Credit Loss under ASC 326, effective 2020) is more forward-looking than IFRS 9 ECL, requiring lifetime expected losses on day one of origination. US GAAP retains operating vs. finance lease distinction under ASC 842, meaning operating leases do not show interest expense separately. Goodwill impairment testing uses a one-step test at the reporting unit level (ASC 350), with private companies able to elect amortisation over 10 years. Segment reporting under ASC 280 uses the management approach. US GAAP also has extensive industry-specific guidance (banking, insurance, real estate, oil & gas) that has no IFRS equivalent. SEC\'s Regulation S-K governs non-financial disclosures; Reg S-X governs FS form and content.',
+      details:[
+        {section:'FASB Codification Structure',content:'The ASC (Accounting Standards Codification) organises all US GAAP into a single authoritative source, structured as: Area → Topic → Subtopic → Section → Paragraph. Areas: 100-200 (General Principles), 200-299 (Presentation), 300-399 (Assets), 400-499 (Liabilities), 500-599 (Equity), 600-699 (Revenue), 700-799 (Expenses), 800-899 (Broad Transactions), 900-999 (Industry). Before codification (pre-2009), practitioners navigated multiple sets of pronouncements: SFAS, APB Opinions, EITF Issues, FIN, FSP, SOP, etc.'},
+        {section:'Revenue (ASC 606)',content:'ASC 606 (joint standard with IFRS 15, effective 2018 public/2019 private) uses the identical 5-step model. However, US GAAP provides more industry-specific sub-guidance. Key differences vs IFRS 15: (a) Licenses — US GAAP has more detailed guidance on IP licenses (functional vs symbolic); (b) Sales with returns — US GAAP ASC 606-10-55 gives more prescriptive examples; (c) Practical expedients — some differ in scope; (d) Contract assets/liabilities — US GAAP uses \'contract asset\' and \'contract liability\' but also allows \'unbilled receivable\' terminology. The standard eliminated the \'risk and reward\' model of old US GAAP (SAB 104, EITF 00-21) in favor of the \'control transfer\' model.'},
+        {section:'LIFO Inventory — Unique to US GAAP',content:'LIFO (Last-In, First-Out) is permitted under US GAAP (ASC 330) for inventory valuation. It is prohibited under IFRS and Ind AS. During inflation, LIFO results in: lower taxable income (higher COGS), lower balance sheet inventory value (LIFO reserve), and better matching of current costs with revenues. US companies using LIFO must disclose the LIFO reserve (difference between LIFO and FIFO/weighted-average cost). The LIFO reserve has balance sheet and ratio implications: adjusting for LIFO reserve provides IFRS-equivalent current ratio, debt/equity, and ROA. If IFRS is ever mandated in the US, LIFO elimination would have massive tax implications.'},
+        {section:'CECL vs ECL (ASC 326 vs IFRS 9)',content:'ASC 326 (Current Expected Credit Loss, effective 2020 for large banks) requires financial institutions to recognize lifetime expected losses on ALL financial assets from day one of origination (no staging concept). This is more conservative than IFRS 9 ECL which uses 12-month ECL for Stage 1 (performing). CECL requires: reasonable and supportable forecasts over contractual life, then reverts to historical information for periods beyond. Measurement methods include: PD/LGD, roll-rate, discounted cash flow, loss-rate, vintage analysis. CECL resulted in significant allowance increases (Day 1 CECL adoption hits) especially for banks with long-dated loans.'},
+        {section:'SOX 404 — Internal Controls',content:'Sarbanes-Oxley Act (2002) Section 404 requires management\'s annual assessment of internal control over financial reporting (ICFR) and external auditor attestation (for large accelerated filers). This is unique to US public companies with no direct IFRS equivalent. PCAOB AS 2201 governs the auditor\'s role. Key frameworks for ICFR assessment: COSO Internal Control — Integrated Framework (2013), 5 components: Control Environment, Risk Assessment, Control Activities, Information & Communication, Monitoring. ICFR failures (material weaknesses) must be publicly disclosed and can significantly impact stock price, credit ratings, and audit fees.'},
+      ],
       country:'USA'},
-    {name:'Ind AS',fullName:'Indian Accounting Standards (IFRS-converged)',body:'ICAI / Ministry of Corporate Affairs (MCA), India',adopt:'India — Mandatory for listed + large unlisted cos (net worth ≥ ₹250 Cr). Others follow AS.',basis:'Principles-based (IFRS-converged)',color:'var(--gold)',icon:'🇮🇳',
-      keyStds:['Ind AS 115 – Revenue','Ind AS 116 – Leases','Ind AS 109 – Financial Instruments','Ind AS 110 – Consolidated FS','Ind AS 12 – Income Taxes','Ind AS 2 – Inventories','Ind AS 36 – Impairment','Ind AS 38 – Intangibles','Ind AS 113 – Fair Value'],
-      summary:'Based on IFRS with carve-outs for Indian context. Companies not meeting threshold use AS (Accounting Standards). Schedule III of Companies Act 2013 governs FS presentation. SEBI mandates Ind AS for listed cos.',
+
+    {name:'Ind AS',fullName:'Indian Accounting Standards — IFRS Converged Framework under MCA',body:'Ministry of Corporate Affairs (MCA), Government of India — notifies standards; ICAI\'s Accounting Standards Board (ASB) formulates them; SEBI mandates for listed companies; RBI for banks/NBFCs; IRDAI for insurance',adopt:'Phase-wise: Phase 1 (FY 2016-17) — listed companies + companies with net worth ≥ ₹500 Cr. Phase 2 (FY 2017-18) — unlisted cos net worth ≥ ₹250 Cr, NBFCs net worth ≥ ₹500 Cr. Phase 3 (FY 2019-20) — NBFCs ≥ ₹250 Cr + listed NBFCs. Banks adopted from FY 2018-19 (deferred multiple times). Others continue with AS (Indian GAAP).',basis:'Principles-based (IFRS-converged with Indian carve-outs)',color:'var(--gold)',icon:'🇮🇳',
+      keyStds:['Ind AS 1 – Presentation of FS (Schedule III format)','Ind AS 2 – Inventories','Ind AS 7 – Cash Flow Statements','Ind AS 8 – Accounting Policies & Estimates','Ind AS 10 – Events after Reporting Period','Ind AS 12 – Income Taxes','Ind AS 16 – PP&E','Ind AS 19 – Employee Benefits (Gratuity, PF)','Ind AS 21 – Foreign Exchange (Indian Forex rules)','Ind AS 23 – Borrowing Costs','Ind AS 24 – Related Parties (AS per Companies Act)','Ind AS 32/107/109 – Financial Instruments','Ind AS 36 – Impairment','Ind AS 37 – Provisions','Ind AS 38 – Intangibles','Ind AS 40 – Investment Property','Ind AS 41 – Agriculture','Ind AS 101 – First-time Adoption','Ind AS 103 – Business Combinations','Ind AS 105 – Non-current Assets Held for Sale','Ind AS 108 – Operating Segments','Ind AS 110/111/112 – Consolidation & Interests in Entities','Ind AS 113 – Fair Value Measurement','Ind AS 115 – Revenue','Ind AS 116 – Leases'],
+      summary:'India adopted IFRS in a converged form (not direct adoption) because of certain regulatory, legal, and economic carve-outs. Ind AS is substantially aligned with IFRS with specific modifications. The MCA Companies (Indian Accounting Standards) Rules, 2015 notified the standards effective from FY 2015-16 (voluntary) and phase-wise mandatory adoption thereafter. Schedule III of the Companies Act 2013 prescribes the format for financial statements — this is a mandatory format for all Ind AS companies (unlike IFRS which allows flexibility). Schedule III was substantially revised in 2021 to add disclosure requirements around aging of receivables/payables, crypto assets, CSR unspent amounts, and MSME dues. Key Indian carve-outs from IFRS include: (1) Ind AS 101 — restatement of past business combinations allowed to be done prospectively; (2) Ind AS 109 — equity instruments at FVOCI can be classified at cost in specific circumstances; (3) Ind AS 7 — bank overdraft may or may not be part of cash and cash equivalents. Ind AS treatment of government grants (Ind AS 20) differs: grants related to assets can be presented as either deduction from asset or as deferred income (IFRS allows only deferred income method). Deferred tax on undistributed profits of subsidiaries — Ind AS provides an exception aligned with Indian tax structure.',
+      details:[
+        {section:'Indian Carve-outs from IFRS',content:'1. Ind AS 101 (First-time Adoption): Companies can use previous GAAP carrying amounts as deemed cost for PP&E and intangibles, avoiding costly retrospective adjustments. 2. Ind AS 109: Equity instruments classified at FVOCI — no recycling to P&L on disposal (same as IFRS 9). However, Indian cos dealing with equity-linked instruments in subsidiaries/associates get additional guidance. 3. Ind AS 7: Bank overdraft included in cash/cash equivalents if integral to cash management (Indian practice of CC accounts). 4. Ind AS 17 (old): Operating lease incentives — different treatment of lease equalization reserve. 5. Ind AS 20: Government grants — deferred income method only (IFRS allows both). 6. Ind AS 21: Functional currency — practical approach for companies with primarily Indian operations. 7. Insurance contracts deferred pending Ind AS 117 finalization.'},
+        {section:'Schedule III — Mandatory Format',content:'Unlike IFRS (which allows flexible presentation), Indian companies must follow Schedule III of the Companies Act 2013. Structure: Balance Sheet shows Equity & Liabilities (Shareholders\' Funds: Share Capital + Reserves; Non-current Liabilities; Current Liabilities) and Assets (Non-current Assets; Current Assets). P&L Statement follows the nature-of-expense format (Revenue from Operations, Other Income, then expenses by nature: Cost of Materials, Purchases of Stock-in-Trade, Change in Inventories, Employee Benefit Expenses, Finance Costs, D&A, Other Expenses). Profit before exceptional items, then exceptional items, PBT, Tax (current + deferred), PAT, OCI, Total Comprehensive Income. Key Schedule III 2021 amendments: Ageing schedule for receivables/payables (>6m classification); Disclosure of transactions with struck-off companies; Title deeds of immovable properties; Ratio analysis (8 key ratios with explanation of significant changes >25%); Crypto/Virtual Digital Assets disclosures.'},
+        {section:'Revenue — Ind AS 115',content:'Ind AS 115 mirrors IFRS 15 with the 5-step model effective April 2018. Indian-specific application issues: (1) Real Estate sector — revenue recognition under Ind AS 115 and ICAI guidance for flat bookings before Occupancy Certificate; (2) Infrastructure — long-term construction contracts; (3) Software IT companies (like TCS, Infosys) — complex multi-element arrangements, time-and-material vs fixed-price; (4) Government contracts — variable consideration (price revisions, escalation); (5) Telecom — bundled handset + service contracts. SEBI and ICAI have issued extensive guidance for sector-specific application through EAC (Expert Advisory Committee) opinions and Industry FAQs.'},
+        {section:'Key Differences: Ind AS vs AS (Old Indian GAAP)',content:'1. Leases: AS 19 (old) — operating leases off-balance sheet; Ind AS 116 — all leases capitalized (IFRS 16 approach). 2. Financial Instruments: AS 13 (cost/lower of cost or FV for current investments) vs Ind AS 109 (ECL model, fair value classification). 3. Employee Benefits: AS 15 (corridor approach for actuarial gains/losses) vs Ind AS 19 (full recognition in OCI immediately). 4. Deferred Tax: AS 22 (timing difference method) vs Ind AS 12 (temporary difference — balance sheet method, more comprehensive). 5. Revenue: AS 9 (risks and rewards transfer) vs Ind AS 115 (control transfer, 5-step). 6. Goodwill: AS 14 (amortise over economic life max 5-10 years) vs Ind AS 103 (no amortisation, annual impairment). 7. Consolidation: AS 21 (proportionate consolidation for JVs permitted) vs Ind AS 111 (equity method mandatory for JVs).'},
+      ],
       country:'India'},
-    {name:'AS (Indian GAAP)',fullName:'Accounting Standards — Old Indian GAAP',body:'ICAI (Institute of Chartered Accountants of India)',adopt:'India — SMEs, unlisted companies below Ind AS threshold',basis:'Principles-based',color:'var(--amb)',icon:'🇮🇳',
-      keyStds:['AS 1 – Disclosure of Accounting Policies','AS 2 – Inventories','AS 9 – Revenue Recognition','AS 13 – Investments','AS 15 – Employee Benefits','AS 18 – Related Parties','AS 22 – Deferred Tax','AS 26 – Intangibles','AS 28 – Impairment','AS 29 – Provisions'],
-      summary:'Traditional Indian GAAP still applicable to smaller entities. Simpler than Ind AS. Based on historical cost. No comprehensive income concept. Goodwill amortized. Will co-exist with Ind AS for foreseeable future.',
+
+    {name:'AS (Indian GAAP)',fullName:'Accounting Standards — Old Indian GAAP issued by ICAI',body:'ICAI (Institute of Chartered Accountants of India) — Accounting Standards Board (ASB). MCA notified under Section 129/133 of Companies Act 2013 for companies not using Ind AS.',adopt:'India — applicable to all companies NOT required to use Ind AS: (1) Unlisted companies with net worth < ₹250 Cr; (2) Companies in sectors exempted; (3) Smaller NBFCs. Also applicable to LLPs, partnerships, and sole proprietors as guidance. Companies following AS present FS per Schedule III (old format).',basis:'Principles-based (historical cost, simpler framework)',color:'var(--gold2)',icon:'🇮🇳',
+      keyStds:['AS 1 – Disclosure of Accounting Policies (going concern, accrual, consistency)','AS 2 – Valuation of Inventories (FIFO/weighted avg; LIFO discouraged)','AS 3 – Cash Flow Statements','AS 4 – Contingencies & Post-Balance Sheet Events','AS 5 – Net Profit/Loss, Prior Period Items, Changes in Accounting Policies','AS 6 – Depreciation Accounting (superseded by SCA 2013)','AS 7 – Construction Contracts','AS 9 – Revenue Recognition (risks/rewards transfer)','AS 10 – PP&E','AS 11 – Foreign Exchange (exchange differences P&L or capital reserve)','AS 12 – Government Grants','AS 13 – Accounting for Investments','AS 14 – Accounting for Amalgamations','AS 15 – Employee Benefits (corridor approach)','AS 17 – Segment Reporting','AS 18 – Related Party Disclosures','AS 20 – Earnings per Share','AS 21 – Consolidated FS','AS 22 – Accounting for Taxes on Income (timing differences)','AS 23 – Investments in Associates','AS 24 – Discontinuing Operations','AS 25 – Interim Reporting','AS 26 – Intangible Assets (amortise over useful life max 10yr)','AS 27 – Financial Reporting of Interests in Joint Ventures','AS 28 – Impairment of Assets','AS 29 – Provisions, Contingent Liabilities & Assets'],
+      summary:'Old Indian GAAP (AS framework) has been the backbone of Indian financial reporting since the 1970s. It is based predominantly on the historical cost convention with limited use of fair value. Key features: AS 9 uses the "risks and rewards" model for revenue recognition, simpler than Ind AS 115. AS 22 uses the "timing difference" method for deferred tax — this is narrower than the "temporary difference" method under Ind AS 12, meaning more items qualify for deferred tax under Ind AS. AS 15 (revised 2005) requires actuarial valuation of employee benefits (gratuity, leave encashment) but allows corridor approach for recognising actuarial gains/losses over employee service life, smoothing P&L volatility. AS 13 classifies investments as long-term (carried at cost unless permanently impaired) or current (lower of cost or fair value), a simpler model than Ind AS 109. Goodwill under AS 14 is amortized, unlike Ind AS 103. Amalgamation accounting under AS 14 provides for both Pooling of Interests (now banned under Ind AS 103) and Purchase Method. AS 28 requires impairment testing when indicators exist (not annual mandatory like Ind AS 36 for goodwill). A company transitioning from AS to Ind AS applies Ind AS 101 which provides transition reliefs.',
+      details:[
+        {section:'Key Features of AS Framework',content:'1. Historical Cost Convention: Assets measured at cost less depreciation; no revaluation except with disclosure. 2. Matching Concept: Expenses matched to revenues in the period earned. 3. Prudence/Conservatism: Losses recognized early; gains only when realized. 4. Substance over Form: Economic reality over legal form. 5. AS 1 mandates disclosure when any of going concern, accrual, or consistency fundamental accounting assumptions is not followed. 6. Materiality principle: aggregate all immaterial items; disclose material items separately.'},
+        {section:'Revenue Recognition — AS 9',content:'AS 9 (1985, revised 2001) uses risks and rewards transfer: For sale of goods — transfer of significant risks and rewards, seller retains no effective control, amount measurable reliably, no significant uncertainty in collection. For services — stage of completion method or completed contract. Interest: time proportion basis (effective interest rate). Dividends: when right to receive established. Royalties: accrual basis per agreement terms. Key limitation: no guidance on multi-element arrangements, variable consideration, or contract modifications — all addressed in Ind AS 115.'},
+        {section:'Deferred Tax — AS 22 vs Ind AS 12',content:'AS 22 uses the INCOME STATEMENT approach (timing differences): only differences between accounting income and taxable income that originate in one period and reverse in subsequent periods create deferred tax. Excluded: differences relating to permanent timing differences; goodwill not deductible for tax; initial recognition exemptions. Ind AS 12 uses the BALANCE SHEET approach (temporary differences): difference between tax base and carrying amount of ALL assets and liabilities. This captures more items including: revaluation of assets, employee benefits in OCI, business combinations, compound financial instruments. Result: DTA/DTL is typically larger under Ind AS 12 than AS 22.'},
+      ],
       country:'India'},
-    {name:'UK GAAP (FRS 102)',fullName:'Financial Reporting Standard 102 — The Financial Reporting Standard applicable in the UK and Republic of Ireland',body:'FRC (Financial Reporting Council), UK',adopt:'UK, Republic of Ireland — unlisted companies. Listed UK cos use UK-adopted IFRS.',basis:'Principles-based (simplified IFRS)',color:'var(--purple)',icon:'🇬🇧',
-      keyStds:['FRS 102 – Main standard (IFRS-light)','FRS 101 – Reduced Disclosure Framework','FRS 103 – Insurance Contracts','FRS 104 – Interim FS','FRS 105 – Micro-entities','SSAP 9 – Stocks & WIP'],
-      summary:'Post-Brexit, UK adopted its own version of IFRS. FRS 102 covers most UK entities. FRS 105 provides a simplified framework for micro-entities (turnover < £632K). ICAEW oversees UK auditing standards.',
+
+    {name:'UK GAAP',fullName:'FRS 102 — The Financial Reporting Standard applicable in the UK and Republic of Ireland (post-Brexit UK-adopted IFRS for listed)',body:'FRC (Financial Reporting Council) for UK standards; ICAEW, ICAS, ICAI (Ireland) for audit standards; FCA (Financial Conduct Authority) for listed companies',adopt:'UK: FRS 102 for medium/large unlisted entities; FRS 101 (IFRS with reduced disclosures) for qualifying entities in IFRS groups; FRS 105 for micro-entities (turnover ≤ £632K); UK-adopted IFRS for listed companies on UK regulated markets. Republic of Ireland: Same framework applicable under Irish Companies Act.',basis:'Principles-based (simplified IFRS-aligned)',color:'var(--purple)',icon:'🇬🇧',
+      keyStds:['FRS 100 – Application of Financial Reporting Requirements (scope/framework)','FRS 101 – Reduced Disclosure Framework (IFRS with reduced disclosures for group subsidiaries)','FRS 102 – Main standard: 35 Sections covering all key topics','FRS 103 – Insurance Contracts','FRS 104 – Interim FS','FRS 105 – Micro-entities (very simplified; no need for true & fair view supplement)','UK-adopted IFRS — applies to listed entities on UK regulated markets post-Brexit','SSAP 9 – Stocks and WIP (still relevant for some entities)','Practice Notes by FRC (PN 11, PN 12 for banks/insurance)','Revised FRS 102 (2025) — updated for UK lease accounting'],
+      summary:'Post-Brexit (Jan 2020), the UK endorsed its own versions of IFRS (UK-adopted IFRS) separate from EU-endorsed IFRS, though practically identical. FRS 102 was issued in 2013, replacing SSAP/FRS framework. Based on the IFRS for SMEs standard but significantly expanded. FRS 102 is a single document covering the equivalent of all IASB standards for entities that are not required to follow full IFRS. Key features: Section 11/12 covers basic and complex financial instruments (simplified relative to IFRS 9 for basic instruments); Section 20 covers leases using the old IAS 17 approach (operating vs finance) — FRC is updating FRS 102 (2025 revision) to align with IFRS 16 principle. Section 26 (Share-based payments) mirrors IFRS 2. FRS 101 allows subsidiaries within an IFRS group to apply IFRS recognition/measurement but with significantly reduced disclosures (leveraging group accounts). FRS 105 micro-entity regime removes the \'true and fair view\' supplementation — historical cost, no fair value for most instruments, simplified P&L. UK GAAP statutory accounts must comply with the Companies Act 2006 and SI 2008/410 (small companies), SI 2008/409 (large/medium). UK is a significant global financial centre — London\'s IFRS adoption for listed markets (since 2005) made it a test-bed for IFRS implementation.',
+      details:[
+        {section:'FRS 102 Structure — 35 Sections',content:'Section 1: Scope. Section 2: Concepts. Section 3: FS Presentation. Section 4: Balance Sheet. Section 5: Profit & Loss. Section 6: OCI. Section 7: Cash Flow. Section 8: Notes. Section 9: Consolidated FS. Section 10: Accounting Policies. Section 11/12: Financial Instruments. Section 13: Inventories. Section 14: Investments in Associates. Section 15: JVs. Section 16: Investment Property. Section 17: PP&E. Section 18: Intangibles (other than goodwill). Section 19: Goodwill (amortise; max 10yr if uncertain). Section 20: Leases. Section 21: Provisions. Section 22: Liabilities & Equity. Section 23: Revenue. Section 24: Government Grants. Section 25: Borrowing Costs. Section 26: Share-based Payments. Section 27: Impairment. Section 28: Employee Benefits. Section 29: Income Tax. Section 30: FX. Section 31: Hyperinflation. Section 32: Events After Period End. Section 33: Related Party Disclosures. Section 34: Specialised Activities. Section 35: Transition.'},
+        {section:'UK GAAP vs IFRS Key Differences',content:'1. Goodwill: FRS 102 amortises goodwill (max 10yr if life cannot be estimated reliably). IFRS — annual impairment only. 2. Leases: FRS 102 currently uses operating/finance distinction (like old IAS 17). IFRS 16 — single ROU model. FRS 102 update 2025 aligns closer to IFRS 16. 3. Financial Instruments: FRS 102 S11 provides simplified model for basic instruments (amortised cost); S12 for complex instruments at FV. IFRS 9 three-category model with ECL impairment. 4. Development Costs: FRS 102 capitalises meeting criteria (same as IAS 38). 5. Investment Property: FRS 102 S16 — fair value if reliably measurable, else cost model. 6. Revenue: FRS 102 S23 based on old IAS 18 (not 5-step model). FRS 102 revision 2025 aligns with IFRS 15. 7. Related Parties: FRS 102 has simplified disclosure exemptions (no inter-company disclosures in wholly-owned groups).'},
+      ],
       country:'United Kingdom'},
-    {name:'China CAS',fullName:'China Accounting Standards (企业会计准则)',body:'MOF (Ministry of Finance), China',adopt:'China — listed companies must use CAS (based on IFRS). Smaller entities may use Small Business AS.',basis:'Principles-based (IFRS-converged)',color:'var(--coral)',icon:'🇨🇳',
-      keyStds:['CAS 14 – Revenue','CAS 21 – Leases','CAS 22 – Financial Instruments','CAS 6 – Intangible Assets','CAS 8 – Asset Impairment','CAS 9 – Employee Benefits','CAS 18 – Income Tax','CAS 33 – Consolidated FS','CAS 40 – Fair Value'],
-      summary:'China substantially converged with IFRS (MOF announced equivalence). Key differences remain in government grants, related party transactions, and certain financial instruments. Mandatory for A-share listed companies on SSE/SZSE.',
+
+    {name:'China CAS',fullName:'China Accounting Standards (企业会计准则 — Qǐyè Kuàijì Zhǔnzé)',body:'Ministry of Finance (MOF) — Accounting Standards for Business Enterprises (ASBE) Department; CICPA (Chinese Institute of Certified Public Accountants) for audit; CSRC for listed companies; CBIRC for banking/insurance',adopt:'China — A-share listed companies on SSE (Shanghai) and SZSE (Shenzhen) must follow CAS. H-share companies listed in Hong Kong may use CAS or IFRS. Central SOEs and their subsidiaries. Small businesses use Small Business Accounting Standards (issued 2011). Non-profit entities use separate framework.',basis:'Principles-based (substantially IFRS-converged since 2006)',color:'var(--coral)',icon:'🇨🇳',
+      keyStds:['CAS 1 – Inventories (FIFO/weighted avg; LIFO prohibited)','CAS 2 – Long-term Equity Investments','CAS 3 – Investment Property','CAS 4 – Fixed Assets','CAS 5 – Biological Assets','CAS 6 – Intangible Assets','CAS 7 – Exchange of Non-monetary Assets','CAS 8 – Asset Impairment (NO reversal once recognized — unlike IFRS)','CAS 9 – Employee Benefits','CAS 10 – Enterprise Annuity','CAS 11 – Share-based Payments','CAS 12 – Debt Restructuring','CAS 13 – Contingencies','CAS 14 – Revenue (converged with IFRS 15, 2017)','CAS 15 – Construction Contracts','CAS 16 – Government Grants','CAS 17 – Borrowing Costs','CAS 18 – Income Tax','CAS 19 – Foreign Exchange','CAS 20 – Business Combinations','CAS 21 – Leases (converged with IFRS 16, 2019)','CAS 22 – Financial Instruments (converged with IFRS 9, 2017)','CAS 23 – Transfer of Financial Assets','CAS 24 – Hedging','CAS 25 – Direct Insurance Contracts','CAS 26 – Reinsurance','CAS 27 – Extraction of Petroleum and Gas','CAS 28 – Changes in Accounting Policies & Estimates','CAS 29 – Events Subsequent to Balance Sheet Date','CAS 30 – Presentation of FS','CAS 31 – Cash Flow Statements','CAS 32 – Interim Reporting','CAS 33 – Consolidated FS','CAS 34 – Earnings per Share','CAS 35 – Segment Reporting','CAS 36 – Related Party Disclosures','CAS 37 – Presentation of FS (Financial Instruments)','CAS 38 – First-time Adoption','CAS 39 – Fair Value Measurement','CAS 40 – Joint Arrangements','CAS 41 – Disclosure of Interests in Other Entities','CAS 42 – Non-current Assets for Sale (IFRS 5 equivalent)'],
+      summary:'China conducted a landmark accounting reform in 2006, issuing 38 accounting standards substantially aligned with IFRS. In 2017, CAS was further updated to align with IFRS 15 (Revenue) and IFRS 9 (Financial Instruments), and in 2019 with IFRS 16 (Leases). The MOF and IASB signed a memorandum of equivalence in 2005, with the MOF declaring "substantial convergence." However, notable differences persist: (1) CAS 8 — Impairment of Long-term Assets: Once an impairment loss is recognized for long-term non-financial assets (PP&E, goodwill, intangibles), it CANNOT be reversed — even if recoverable amount subsequently exceeds carrying amount. IFRS allows reversal except for goodwill. This makes Chinese companies more conservative in impairment recognition. (2) Government Grants: CAS 16 requires government grants to be measured at the amount received; IFRS can use non-monetary grants at fair value. (3) Related Party Transactions: CAS 36 has specific provisions for transactions between state-owned enterprises (SOEs) controlled by the same level of government (not considered related parties under certain conditions) — this is a uniquely Chinese exemption. (4) Certain Financial Instruments — particularly regarding equity instruments at fair value designated at inception. Chinese financial reporting is evolving rapidly as more Chinese companies list globally.',
+      details:[
+        {section:'Unique Chinese Features',content:'1. State-Owned Enterprise (SOE) transactions: CAS 36 contains a special exemption for transactions between entities under common state control at the same administrative level — these may not require related-party disclosure, unlike IFRS where they would. 2. Asset Impairment Reversal: CAS 8 explicitly prohibits reversal of impairment on long-term assets (PP&E, goodwill, intangibles). Under IAS 36, reversals are required when circumstances change (except goodwill). This creates a one-way ratchet for Chinese entities. 3. Government Grants (CAS 16): China-specific guidance on subsidies from government — particularly relevant given extensive state intervention in industry. Policy grants vs. specific asset grants treated differently. 4. New Audit Rules (2022): PCAOB gained first-time access to audit work papers of Chinese companies listed in US following HFCAA (Holding Foreign Companies Accountable Act) — aligning with international audit standards.'},
+        {section:'CAS vs IFRS — Major Differences',content:'Topic | CAS | IFRS\nAsset Impairment Reversal | Prohibited for long-term assets | Required when recoverable amount recovers (IAS 36)\nGoodwill | No amortisation, annual impairment test | Same — but IASB proposes reverting to amortisation\nGovernment Grants | Amount received; measurement at FV less common | Either nominal/fair value; strict criteria\nRelated Parties (SOE) | Government-controlled entities at same level exempt | All government-controlled entities are related parties\nRevaluation Model | Not permitted for PP&E/Intangibles | Permitted (IAS 16/38 revaluation model)\nBiological Assets | Fair value or historical cost | Fair value less costs to sell (IAS 41)\nHyperinflationary Economies | No specific standard | IAS 29 — restate FS'},
+      ],
       country:'China'},
-    {name:'Japan JGAAP',fullName:'Japanese GAAP (日本基準)',body:'ASBJ (Accounting Standards Board of Japan) / FSA',adopt:'Japan — mandatory for Japanese listed companies unless they opt for IFRS or US GAAP (allowed since 2010)',basis:'Rules-based (historically)',color:'var(--sky2)',icon:'🇯🇵',
-      keyStds:['JGAAP AS – Revenue Recognition (2021)','JGAAP – Leases','JGAAP – Financial Instruments','JGAAP – Business Combinations','JGAAP – Consolidated FS','JGAAP – Deferred Tax','JGAAP – Pension Accounting'],
-      summary:'Conservative, creditor-oriented framework. Goodwill amortized (unlike IFRS). JGAAP converging with IFRS — new revenue standard aligned with IFRS 15. IFRS adoption growing among major Japanese MNCs (Toyota, Sony etc.).',
+
+    {name:'Japan JGAAP',fullName:'Japanese Generally Accepted Accounting Principles (日本基準)',body:'ASBJ (Accounting Standards Board of Japan) — independent since 2001; FSA (Financial Services Agency) — regulatory oversight; JICPA (Japanese Institute of CPAs) — audit standards; Tokyo Stock Exchange — listing requirements',adopt:'Japan — JGAAP mandatory for Japanese domestic listed companies on TSE unless they voluntarily adopt IFRS or US GAAP (both permitted since 2010 for consolidated statements). Approximately 240+ companies listed on TSE had adopted IFRS as of 2024 (including Toyota from 2021, Sony, Hitachi, SoftBank). Domestic subsidiaries may use JGAAP for standalone.',basis:'Historically rules-based; now converging with IFRS principles',color:'var(--sky2)',icon:'🇯🇵',
+      keyStds:['JGAAP Revenue Standard (2021) – ASC 606/IFRS 15 aligned','JGAAP Leases – IAS 17 style; updating','JGAAP Financial Instruments – IFRS 9 aligned update in progress','JGAAP Business Combinations – goodwill amortised max 20yr','JGAAP Consolidated FS – equity method for associates/JVs','JGAAP Employee Benefits – corridor approach (like old IAS 19); updating','JGAAP Deferred Tax – IAS 12 approach','J-SOX – Internal Controls (FSA Act Art.24-4-4; similar to US SOX 404)','IFRS as allowed alternative for consolidated FS on TSE'],
+      summary:'JGAAP is a historically creditor-oriented, conservative framework developed to serve the interests of lenders and the government (for tax purposes) more than equity investors. Japan\'s "Big Bang" financial reforms (1996-2001) began the modernization process. The ASBJ has actively converged with IFRS since 2007 via the Tokyo Agreement. Key JGAAP features: Goodwill is amortised over a period not exceeding 20 years (straight-line), unlike IFRS where goodwill is not amortised. This creates systematic P&L charges for acquisitive companies but avoids the subjectivity of annual impairment testing. JGAAP still permits proportionate consolidation for certain JVs. The J-SOX framework (implemented 2008) requires management assessment of ICFR for TSE-listed companies — similar to US SOX but with more focus on process-level controls. Japan adopted IFRS 15-equivalent revenue standard in 2021 — a major shift from the previous delivery-based model. JGAAP pension accounting uses the corridor approach for smoothing actuarial gains/losses, unlike Ind AS 19/IAS 19 (post-2011) which requires immediate OCI recognition. Japanese companies are major global M&A players — understanding JGAAP treatment of goodwill and business combinations is essential for cross-border analysis.',
+      details:[
+        {section:'JGAAP vs IFRS Key Differences',content:'1. Goodwill: JGAAP amortises over max 20 years; IFRS impairment only. This impacts EPS comparability significantly for acquisitive groups. 2. Proportionate Consolidation: JGAAP still permits for some JV structures; Ind AS 111/IFRS 11 mandates equity method. 3. Actuarial Gains/Losses: JGAAP spreads via corridor; IFRS 19 (post-2011) recognizes in OCI immediately. 4. Reserves: JGAAP allows more flexibility in appropriating retained earnings to reserves — common practice in Japanese companies. 5. Revenue: New 2021 standard aligned with IFRS 15, but some practical differences in contract modification, material rights. 6. Research & Development: JGAAP expenses all R&D (similar to US GAAP); IFRS capitalises development costs meeting IAS 38 criteria. 7. Revaluation of PP&E: Not permitted under JGAAP; IFRS allows revaluation model.'},
+        {section:'J-SOX — Japanese Internal Control',content:'Japan introduced J-SOX (Financial Instruments and Exchange Act, effective 2008) following accounting scandals at Kanebo and Livedoor. Similar to US SOX 404 but differences: (1) J-SOX focuses on process-level controls organized by business processes (sales, purchasing, production, IT) rather than account-level; (2) Uses COSO 1992 framework (Japan was slow to adopt COSO 2013); (3) External auditor provides an opinion on management\'s assessment (not independent assessment). J-SOX applies to listed companies on Japanese exchanges with consolidated assets ≥ ¥10 billion. Deficiency classification: significant deficiency → disclosed in annual report; material weakness → negative opinion.'},
+      ],
       country:'Japan'},
-    {name:'German HGB',fullName:'German Commercial Code (Handelsgesetzbuch)',body:'German government — BMJ (Federal Ministry of Justice)',adopt:'Germany — mandatory for all German companies. Listed cos additionally prepare IFRS consolidated statements.',basis:'Code-law / Rules-based',color:'var(--purple2)',icon:'🇩🇪',
-      keyStds:['HGB §238-315e – Accounting rules','HGB §316-324 – Audit requirements','GoB – Generally Accepted Accounting Principles','DRS – German Accounting Standards (for consolidated)'],
-      summary:'Highly creditor-protective and tax-driven. Prudence principle dominant — lower of cost or market for assets. Secret reserves permitted. Goodwill amortized over max 10 years. Separate financial statements for tax purposes.',
+
+    {name:'German HGB',fullName:'Handelsgesetzbuch — German Commercial Code (Accounting Provisions: §§238-342)',body:'BMJ (Federal Ministry of Justice) and BMF (Ministry of Finance) — HGB is statute law, not a standard-setter. IDW (Institut der Wirtschaftsprüfer) issues auditing standards (PS series) and implementation guidance (RS series). DRSC (German Accounting Standards Committee, Deutsches Rechnungslegungs Standards Committee) issues DRS (German Accounting Standards) for consolidated statements.',adopt:'Germany — ALL German commercial entities (GmbH, AG, OHG, KG) must prepare individual financial statements under HGB. Listed German companies ADDITIONALLY prepare consolidated statements under EU-endorsed IFRS (mandatory since 2005 under EU IAS Regulation). Non-listed groups may choose HGB or IFRS for consolidated statements. HGB individual statements also serve as the basis for tax assessment in Germany (principle of authoritative financial statements — Maßgeblichkeitsprinzip).',basis:'Code-law based; Rules-based; Tax-driven; Creditor-protective',color:'var(--purple2)',icon:'🇩🇪',
+      keyStds:['HGB §238-241 – Bookkeeping obligations (all traders must maintain records)','HGB §242-245 – Opening balance sheet & annual accounts','HGB §246-256a – Recognition and measurement (going concern, prudence, matching, consistency)','HGB §257-261 – Retention periods (10 years for books/records, 6 years for correspondence)','HGB §264-289f – Specific rules for Kapitalgesellschaften (AG, GmbH) including notes and management report','HGB §290-315e – Group accounting (small groups exempt if parent publishes IFRS consolidated)','HGB §316-324 – Audit requirements (mandatory for medium/large companies)','GoB – Grundsätze ordnungsmäßiger Buchführung (Generally Accepted Accounting Principles — customary law, not codified)','DRS 2 – Cash Flow Statements (for consolidated)','DRS 4 – Discontinued Operations','DRS 17 – Reporting on Risks to Future Development','IDW PS 200/210/220 – Audit standards'],
+      summary:'The HGB represents the continental European tradition of accounting closely tied to commercial law, creditor protection, and tax compliance. Under the Maßgeblichkeitsprinzip (principle of authoritative connection), the commercial (HGB) balance sheet determines the tax balance sheet, with some exceptions. Key principles: Prudence (Vorsichtsprinzip) — lower of cost or market for assets; asymmetric treatment of gains/losses. Realization Principle — income only recognized when realized in exchange transaction. Imparity Principle — unrealized losses recognized; unrealized gains not. Imparitätsprinzip — different treatment of gains and losses (conservative). Continuity Principle — consistency in measurement methods. Under HGB, "secret reserves" (stille Reserven) are not only permitted but traditionally expected as a buffer against hard times — assets may be written down below their fair value to build hidden reserves. This contrasts sharply with IFRS\'s emphasis on providing decision-useful information at fair value. German auditing (Wirtschaftsprüfer — WP) focuses heavily on compliance with HGB rules and tax law rather than the professional judgment-heavy IFRS audit. E-Bilanz (electronic balance sheet) — since 2013, German tax balance sheets must be filed electronically with the tax authorities in XBRL format using a defined taxonomy.',
+      details:[
+        {section:'Prudence and Creditor Focus',content:'German HGB reflects the Rhine capitalism model where banks (rather than capital markets) are the primary source of corporate finance. Key manifestations: (1) Mandatory minimum reserves — Pflichtreserve for AGs (5% of net income until legal reserve = 10% of share capital). (2) Lower of cost or market (Niederstwertprinzip) for current assets — strict application. (3) Upward revaluation of fixed assets: in principle not permitted (cost as ceiling). Exception: §253(5) HGB allows write-ups if impairment reasons no longer exist. (4) Provisions for pensions: German GAAP uses very conservative actuarial assumptions, often resulting in much larger pension liabilities than under IAS 19/US GAAP. (5) Off-balance sheet treatment: before IFRS 16, operating leases were common — HGB has no equivalent of IFRS 16, so operating leases remain off-balance sheet in individual HGB statements.'},
+        {section:'HGB Accounting vs IFRS',content:'Topic | HGB | IFRS\nRevaluation of PP&E | Not permitted | Revaluation model permitted\nGoodwill | Amortise max 10yr | No amortisation (impairment only)\nDevelopment Costs | Option: capitalise or expense | Must capitalise if 6 criteria met\nPension Provisions | Pauschaliertes Teilwertverfahren; IBR 6% | IAS 19 using current market yields\nLeases (lessee) | Operating leases off-B/S | IFRS 16: all on B/S (ROU)\nInventory | FIFO, LIFO, weighted avg | FIFO or weighted avg (LIFO banned)\nFinancial Instruments | Mostly amortised cost; limited FV | IFRS 9: three categories + ECL\nTax Relationship | Tax-driven (Maßgeblichkeit) | No link to tax (deferred tax separately)'},
+      ],
       country:'Germany'},
-    {name:'Canadian GAAP',fullName:'Canadian Accounting Standards (ASPE / IFRS)',body:'AcSB (Accounting Standards Board), CPA Canada',adopt:'Canada — listed companies use IFRS (mandatory since 2011). Private enterprises use ASPE (Accounting Standards for Private Enterprises).',basis:'Principles-based',color:'var(--coral)',icon:'🇨🇦',
-      keyStds:['IFRS (for listed)','ASPE Sections 1000-3870 (for private)','ASNPO – Not-for-profit','PSAS – Public Sector'],
-      summary:'Dual-track system. Listed companies adopted IFRS in 2011. ASPE is a simplified GAAP for private companies — less complex, fewer disclosures. Strong convergence with IFRS for public entities.',
+
+    {name:'Canadian GAAP',fullName:'Canadian Accounting Standards — IFRS for public companies; ASPE for private enterprises',body:'AcSB (Accounting Standards Board) — part of CPA Canada; OSFI (Office of the Superintendent of Financial Institutions) for banks/insurance; OSC/CSA for securities regulation',adopt:'Canada — Phase adoption: Listed companies: IFRS mandatory since January 1, 2011 (aligned with EU/Australia). Private enterprises: ASPE (Accounting Standards for Private Enterprises) — Sections 1000-3870 of Part II of CPA Canada Handbook. NFP (Not-for-profit): Part III — ASNPO. Public Sector: PSAS (Public Sector Accounting Standards) — Part IV.',basis:'Principles-based (dual framework: IFRS for public + ASPE for private)',color:'var(--coral)',icon:'🇨🇦',
+      keyStds:['IFRS (full suite) — for listed entities and certain financial institutions','ASPE Section 1000 – Financial Statement Concepts','ASPE Section 1100 – Generally Accepted Accounting Principles','ASPE Section 1400 – General Standards of FS Presentation','ASPE Section 1510 – Current Assets & Current Liabilities','ASPE Section 1520 – Income Statement','ASPE Section 1540 – Cash Flow Statement','ASPE Section 1582 – Business Combinations (goodwill amortise 10yr)','ASPE Section 1591 – Subsidiaries','ASPE Section 1601/1602 – Consolidated FS','ASPE Section 3031 – Inventories','ASPE Section 3051 – Investments','ASPE Section 3056 – Interests in JVs','ASPE Section 3061 – PP&E','ASPE Section 3064 – Goodwill & Intangibles','ASPE Section 3065 – Leases (old-style operating/finance)','ASPE Section 3400 – Revenue','ASPE Section 3462 – Employee Future Benefits','ASPE Section 3465 – Income Taxes','ASPE Section 3856 – Financial Instruments','ASNPO – Not-for-profit organizations','PSAS 1201 – Financial Statement Presentation'],
+      summary:'Canada operates a sophisticated dual-track accounting system: IFRS for public entities and ASPE for private enterprises. The transition to IFRS in 2011 was among the smoothest globally, leveraging the similarities between old Canadian GAAP and IFRS. ASPE was developed specifically for private companies to provide a cost-benefit appropriate framework without the complexity and disclosure requirements of IFRS. Key ASPE features: Goodwill amortised over useful life (max 10 years) — similar to US GAAP private company alternative; ASPE Section 3065 retains the old operating/finance lease distinction (no IFRS 16 equivalent); ASPE Section 3856 provides simplified financial instrument guidance; ASPE Section 3400 retains revenue recognition based on risks/rewards transfer (not full 5-step model). ASPE allows certain accounting policy choices not available under IFRS (e.g., cost method for investments in subsidiaries). PSAS covers federal, provincial, and municipal governments with specific standards for government transfers, liability for contaminated sites, and infrastructure assets. Canada also has extensive not-for-profit sector (ASNPO) guidance covering fund accounting and deferral methods for contribution revenue.',
+      details:[
+        {section:'ASPE vs IFRS — Major Differences',content:'1. Goodwill: ASPE amortises over max 10 years; IFRS impairment only. 2. Leases: ASPE S3065 uses operating/finance distinction (old IAS 17 approach). IFRS 16 — single ROU model. 3. Revenue: ASPE S3400 — old risks/rewards model. IFRS 15 — 5-step model. 4. Financial Instruments: ASPE S3856 simplified (amortised cost or FV for equities); IFRS 9 three-category ECL model. 5. Employee Benefits: ASPE S3462 — deferral and amortisation permitted for actuarial gains/losses; IAS 19 revised — OCI immediately. 6. Consolidation: ASPE allows cost method for subsidiaries in some situations; IFRS 10 requires full consolidation. 7. Business Combinations: ASPE S1582 — purchase price allocation; goodwill amortised. IFRS 3 — acquisition method; no goodwill amortisation. 8. Disclosure: ASPE significantly less disclosure than IFRS — designed for private company users.'},
+      ],
       country:'Canada'},
-    {name:'Australian GAAP',fullName:'Australian Accounting Standards (AASB)',body:'AASB (Australian Accounting Standards Board)',adopt:'Australia — AASB adopted IFRS verbatim for listed entities (since 2005). Not-for-profits and public sector use modified AASB standards.',basis:'Principles-based (IFRS-equivalent)',color:'var(--sky)',icon:'🇦🇺',
-      keyStds:['AASB 15 = IFRS 15 – Revenue','AASB 16 = IFRS 16 – Leases','AASB 9 = IFRS 9 – Financial Instruments','AASB 136 – Impairment','AASB 1053 – Application of Tiers','AASB 1060 – General Purpose FS (Simplified)'],
-      summary:'Australia adopted IFRS word-for-word — AASB standards mirror IFRS with Aus-specific additions. Two-tier reporting: Tier 1 (IFRS) for listed/large; Tier 2 (simplified) for smaller entities. ASIC enforces compliance.',
+
+    {name:'Australian GAAP',fullName:'Australian Accounting Standards (AASB) — Word-for-word IFRS adoption for Tier 1',body:'AASB (Australian Accounting Standards Board) — independent standard-setter under ASIC (Australian Securities & Investments Commission); FRC (Financial Reporting Council — Australia, separate from UK FRC) oversees AASB; ASX Listing Rules for listed companies; APRA for banking/insurance',adopt:'Australia: AASB adopted IFRS verbatim for all for-profit entities from 1 January 2005. AASB standards for Tier 1 = IFRS + Aus-specific application paragraphs (Aus. paragraphs). Tier 2 (Reduced Disclosure) — AASB 1060 since 2022. Not-for-profits and public sector: modified AASB standards with different revenue and income recognition principles.',basis:'Principles-based (effectively IFRS-equivalent for Tier 1 for-profit)',color:'var(--sky)',icon:'🇦🇺',
+      keyStds:['AASB 9 = IFRS 9 – Financial Instruments','AASB 10 = IFRS 10 – Consolidated FS','AASB 15 = IFRS 15 – Revenue','AASB 16 = IFRS 16 – Leases','AASB 17 = IFRS 17 – Insurance (2023)','AASB 101 = IAS 1 – Presentation','AASB 102 = IAS 2 – Inventories','AASB 107 = IAS 7 – Cash Flows','AASB 112 = IAS 12 – Income Taxes','AASB 116 = IAS 16 – PP&E','AASB 119 = IAS 19 – Employee Benefits','AASB 136 = IAS 36 – Impairment','AASB 137 = IAS 37 – Provisions','AASB 138 = IAS 38 – Intangibles','AASB 1053 – Application of Tiers (Tier 1 vs Tier 2)','AASB 1060 – General Purpose FS: Simplified Disclosures (Tier 2, replacing AASB 1053 from 2022)','AASB 1048 – Interpretation of Standards','AASB 1054 – Australian Additional Disclosures (Aus. paragraphs on top of IFRS)','AASB 120 – Government Grants (same as IAS 20 but with Aus. paragraphs for Commonwealth grants)'],
+      summary:'Australia was among the first major economies to adopt IFRS wholesale, making it a global reference point for clean IFRS adoption. AASB standards carry prefix numbers that correspond to their IFRS equivalents (e.g., AASB 15 = IFRS 15). The Australian system adds \'Aus. paragraphs\' which are additional requirements specific to the Australian context but do not contradict IFRS. This means Australian Tier 1 statements are fully IFRS-compliant plus additional local requirements. The two-tier reporting system was rationalized in 2022: Tier 1 = full IFRS standards (publicly accountable + large for-profits); Tier 2 = AASB 1060 Simplified Disclosures — same recognition/measurement as IFRS but significantly reduced disclosures. Not-for-profit and public sector entities follow modified AASB standards with different income recognition rules (AASB 1058 — Income of Not-for-Profit Entities, which handles grants, donations, bequests differently from IFRS 15). Australian companies face specific issues: Resources sector (mining, oil & gas) accounting for exploration/evaluation (AASB 6); agricultural companies (AASB 141 = IAS 41); rural land valuation. ASIC actively enforces financial reporting standards — issues regulatory guides and imposes infringement notices for non-compliance.',
+      details:[
+        {section:'Aus-specific Topics',content:'1. AASB 1054 — Additional Aus. Disclosures: dividend franking (imputation tax credits unique to Australia), superannuation (Aus. pension system) additional disclosures, audit fees breakdown. 2. AASB 1058 — Not-for-Profit: governments, universities, charities. Distinguishes assets received for \'no consideration\' (recognize as income immediately unless transfer obligations apply) vs contract assets (AASB 15 applies). Significant impact: universities changed revenue recognition for research grants and student fees. 3. AASB 6 — Exploration for/Evaluation of Mineral Resources (= IFRS 6). Permits choice between expensing or capitalising E&E expenditure within a defined policy — practical relief for mining explorers. 4. Superannuation: Australia has one of the world\'s largest pension fund sectors (A$3+ trillion). APRA regulates superannuation funds under AASB standards specific to RSEs (Registrable Superannuation Entities).'},
+      ],
       country:'Australia'},
-    {name:'UAE/GCC GAAP',fullName:'UAE & Gulf Cooperation Council — IFRS-based',body:'Securities and Commodities Authority (UAE), Central Bank, respective country regulators',adopt:'UAE, Saudi Arabia, Kuwait, Qatar, Bahrain, Oman — IFRS mandatory for listed companies and banks',basis:'Principles-based (IFRS)',color:'var(--gold)',icon:'🇦🇪',
-      keyStds:['IFRS (full) for listed cos','SOCPA Standards (Saudi Arabia) for unlisted','AAOIFI Standards (Islamic Finance entities)','Central Bank guidelines for banks'],
-      summary:'GCC countries primarily use IFRS. Saudi Arabia (SOCPA) issued its own standards for unlisted companies. Islamic finance entities follow AAOIFI standards which differ on revenue recognition, financial instruments (riba-free). VAT adopted in UAE/KSA from 2018.',
+
+    {name:'UAE/GCC GAAP',fullName:'United Arab Emirates & Gulf Cooperation Council — IFRS with Islamic Finance overlay',body:'UAE: SCA (Securities and Commodities Authority) for listed companies; CBUAE (Central Bank UAE) for banks; ESCA for financial institutions; ADGM and DIFC (free zones with English law); Saudi Arabia: SOCPA (Saudi Organisation for Certified Public Accountants); Bahrain: CBB (Central Bank); Qatar: QFC Regulatory Authority; AAOIFI for Islamic Finance globally',adopt:'GCC Countries — UAE, Saudi Arabia, Qatar, Kuwait, Bahrain, Oman. IFRS mandatory for: all UAE and Saudi listed companies; banks and financial institutions across GCC; companies in ADGM/DIFC free zones; Aramco (listed 2019, uses IFRS). Non-listed Saudi companies use SOCPA Standards. Islamic finance entities (Islamic banks, sukuk issuers, takaful companies): use AAOIFI standards + IFRS.',basis:'Principles-based (IFRS) with Islamic Finance overlay (AAOIFI)',color:'var(--gold)',icon:'🇦🇪',
+      keyStds:['IFRS (full suite) — listed companies, banks, large entities','SOCPA Standards — Saudi Arabia unlisted companies (35+ standards)','AAOIFI FAS (Financial Accounting Standards) 1-40 — for Islamic finance:','AAOIFI FAS 1 – General Presentation','AAOIFI FAS 2 – Murabaha & Murabaha to Purchase Orderer','AAOIFI FAS 4 – Musharaka Financing','AAOIFI FAS 7 – Salam & Parallel Salam','AAOIFI FAS 8 – Ijarah & Ijarah Muntahia Bittamleek (leases)','AAOIFI FAS 10 – Istisna & Parallel Istisna','AAOIFI FAS 17 – Investments','AAOIFI FAS 25 – Investment in Sukuk','AAOIFI FAS 30 – Impairment in Financial Assets','AAOIFI FAS 32 – Ijarah (updated, IFRS 16 inspired)','AAOIFI FAS 34 – Financial Reporting for Sukuk-holders','VAT (5%) — UAE since Jan 2018, KSA since 2018 (increased to 15% in 2020)','Corporate Tax (UAE, 9% from June 2023) — first time UAE has CT for most businesses'],
+      summary:'The GCC region represents a unique financial reporting landscape where Western IFRS coexists with Islamic finance principles (Sharia-compliant accounting). The UAE introduced Corporate Tax (9%) in June 2023 — a landmark change as the UAE had zero corporate tax for most businesses previously. This creates new deferred tax accounting requirements under IFRS. Saudi Arabia (SOCPA) issued its own standards aligned with IFRS for unlisted companies, with Arabic-language requirements. Islamic Finance accounting (AAOIFI standards) addresses unique products: Murabaha (cost-plus financing — not a loan, ownership of goods transfers), Ijara (lease — similar to conventional leasing but Sharia-compliant: no excessive uncertainty/gharar, no riba/interest), Mudaraba (profit-sharing investment), Musharaka (partnership), Sukuk (Islamic bonds — fractional ownership of assets, not debt). Key accounting challenge: under AAOIFI FAS, Murabaha transactions cannot be accounted for as loans (unlike IFRS 9 which would treat them as financial assets at amortised cost). Sukuk accounting differs: AAOIFI treats sukuk as investment in assets (equity-like features); IFRS treats them based on substance (usually financial liability for issuer). The UAE\'s Vision 2030 and Saudi Vision 2030 are driving increased transparency requirements and IFRS adoption.',
+      details:[
+        {section:'Islamic Finance Accounting Challenges',content:'1. Murabaha (deferred payment sale): AAOIFI records as trade receivable (commercial); IFRS 9 would classify as financial instrument at amortised cost — different measurement basis. 2. Ijarah (lease): AAOIFI FAS 32 (updated 2018) aligns closer to IFRS 16 for Ijarah Muntahia Bittamleek (lease ending in ownership transfer). Basic Ijarah treated like operating lease (asset stays on lessor\'s books). 3. Sukuk: Issuer perspective — IFRS may require liability recognition (if investors have right to cash flows); AAOIFI treats as undivided ownership interests. This creates different leverage ratios and financial analysis. 4. Zakat: Some GCC companies report and pay Zakat (2.5% of zakatable wealth) — disclosed in FS as part of taxation note. 5. No Riba (interest): Islamic entities may present profit-sharing returns instead of interest income/expense, affecting interest coverage calculations.'},
+      ],
       country:'Middle East / GCC'},
-    {name:'IPSAS',fullName:'International Public Sector Accounting Standards',body:'IPSASB (International Public Sector Accounting Standards Board)',adopt:'Governments worldwide — adopted/adapting in 80+ countries for government financial reporting',basis:'Accrual-based (IFRS-adapted for public sector)',color:'var(--teal)',icon:'🏛️',
-      keyStds:['IPSAS 1 – Presentation of FS','IPSAS 9 – Revenue from Exchange Transactions','IPSAS 23 – Revenue from Non-Exchange','IPSAS 17 – Property Plant Equipment','IPSAS 29 – Financial Instruments','IPSAS 38 – Disclosure of Interests in Other Entities'],
-      summary:'Adapted from IFRS for government and public sector entities. Key difference: non-exchange revenue (taxes, grants). Many developing countries transitioning from cash to accrual basis using IPSAS. IMF and World Bank promote adoption.',
+
+    {name:'IPSAS',fullName:'International Public Sector Accounting Standards',body:'IPSASB (International Public Sector Accounting Standards Board) — independent standard-setter under IFAC (International Federation of Accountants); World Bank and IMF actively promote IPSAS adoption; UN System uses IPSAS',adopt:'80+ countries in various stages of adoption: (1) Full adoption: New Zealand (pioneer, since 2002), Australia (federal + state govt), Canada (PSAS, similar to IPSAS), UK central government (adapted), most EU member states (progressing); (2) Partial adoption: India (CAG recommendations, partial accrual), many African/Asian nations transitioning from cash accounting; (3) Reference only: US federal government uses US GAAP-based federal accounting standards (FASAB). UN, WHO, UNDP, World Food Programme, IMF all adopted IPSAS.',basis:'Accrual-based (IFRS-adapted for public sector specifics)',color:'var(--teal)',icon:'🏛️',
+      keyStds:['IPSAS 1 – Presentation of FS','IPSAS 2 – Cash Flow Statements','IPSAS 3 – Accounting Policies','IPSAS 4 – Effects of Changes in Foreign Exchange Rates','IPSAS 5 – Borrowing Costs','IPSAS 6 – Consolidated & Separate FS','IPSAS 9 – Revenue from Exchange Transactions (like IAS 18)','IPSAS 12 – Inventories','IPSAS 17 – PP&E (infrastructure assets guidance)','IPSAS 19 – Provisions, Contingent Liabilities & Assets','IPSAS 22 – Disclosure of Info about the General Government Sector','IPSAS 23 – Revenue from Non-Exchange Transactions (UNIQUE — taxes, grants, transfers)','IPSAS 25 – Employee Benefits','IPSAS 26 – Impairment of Cash-generating Assets','IPSAS 27 – Agriculture','IPSAS 29/30 – Financial Instruments (aligned with IAS 39 → moving to IFRS 9)','IPSAS 31 – Intangible Assets','IPSAS 32 – Service Concession Arrangements (PPP — government perspective)','IPSAS 33 – First-time Adoption','IPSAS 35 – Consolidated FS (aligned IFRS 10)','IPSAS 36/37 – Investments in Associates/JVs','IPSAS 38 – Disclosure of Interests in Other Entities','IPSAS 39 – Employee Benefits (IAS 19 aligned)','IPSAS 40 – Public Sector Combinations','IPSAS 41 – Financial Instruments (IFRS 9 aligned, 2022)','IPSAS 42 – Social Benefits (pensions, healthcare, welfare — unique to public sector)','IPSAS 43 – Leases (IFRS 16 aligned, 2023)'],
+      summary:'IPSAS represents the most comprehensive framework for public sector financial reporting globally. The key philosophical difference from IFRS is the purpose of government: governments do not aim to generate profit but to provide services and implement public policy. This creates fundamentally different accounting challenges: (1) Non-exchange revenue (IPSAS 23) — taxation, fines, confiscations, unconditional grants do not arise from exchange transactions; a government does not give goods/services equivalent to tax received. Recognition: resources received/receivable when the entity has a legal right to collect and the amount is measurable; (2) Social benefits (IPSAS 42) — pension promises, healthcare entitlements, unemployment benefits; these are obligations of a fundamentally different nature from private sector employee benefits; (3) Heritage assets — historical monuments, national parks, museum collections — IPSAS does not require fair value measurement; recognition at cost or nominal value; (4) Infrastructure assets — roads, bridges, water systems; useful life, componentisation, renewal vs. maintenance; (5) Service Concession Arrangements (IPSAS 32) — PPP accounting from the grantor perspective. Countries transitioning from cash to accrual face significant challenges: asset recognition (especially heritage, infrastructure, military), pension obligation measurement, and opening balance sheet construction. The IMF\'s fiscal transparency code promotes IPSAS adoption to improve cross-country comparability of government finances.',
+      details:[
+        {section:'IPSAS 23 — Non-Exchange Revenue (Unique)',content:'The most uniquely public-sector standard. Non-exchange transactions arise when an entity receives value (or gives value) without direct exchange. Examples: taxes collected from individuals/companies (no direct equivalent service per taxpayer); grants and transfers from other governments or international bodies; fines and penalties; confiscations; gifts/donations. Recognition principles: An asset is recognized when it meets asset definition and is measurable reliably. The key difference from IFRS 15 (exchange): under IPSAS 23, once the government has a legal claim to taxes, it recognizes revenue — there is no performance obligation to satisfy. Conditions attached to grants/transfers create liabilities (deferred income) until conditions met. This creates fundamentally different P&L dynamics: tax revenue recognized when assessment occurs, not when cash collected (moving from cash basis); grant income released when conditions met.'},
+        {section:'Cash vs Accrual — The Transition Challenge',content:'Most developing and many developed country governments historically use cash-basis accounting (record transactions only when cash received/paid). Benefits of cash: simple, manipulation-resistant, intuitive. Disadvantages: ignores assets (road network, buildings, equipment); ignores liabilities (pension promises, debt); provides no information on service delivery cost or fiscal sustainability. Transition to accrual (IPSAS) requires: (1) Asset identification and valuation — cost data for heritage, infrastructure often unavailable; use deemed cost (current replacement cost less depreciation for infrastructure); (2) Liability recognition — pension actuarial valuation, contingent liabilities; (3) Opening balance sheet — significant effort, typically takes 3-5 years for full implementation. IPSAS 33 provides first-time adoption reliefs similar to IFRS 1. New Zealand was pioneer — took ~7 years for full implementation. India: CAG (Comptroller & Auditor General) recommends accrual but most state governments still use modified cash.'},
+      ],
       country:'Global (Government)'},
   ],
   comparison:[
@@ -3384,25 +3769,35 @@ function renderStandardsContent(tab){
 
   if(tab==='overview'){
     const items=filter==='all'?STD_DATA.overview:STD_DATA.overview.filter(s=>s.name.toLowerCase().replace(/[\s\/]/g,'').includes(filter.replace(/[_]/g,'')));
-    el.innerHTML=items.map(s=>`
-      <div class="box" style="--box-accent:${s.color};margin-bottom:12px">
+    el.innerHTML=items.map(s=>{
+      const detailsHTML=(s.details||[]).map((d,i)=>`
+        <div style="border:1px solid rgba(255,255,255,.06);border-radius:8px;margin-top:8px;overflow:hidden">
+          <button onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none';this.querySelector('.dtArrow').textContent=this.nextElementSibling.style.display===''?'▲':'▼'"
+            style="width:100%;text-align:left;background:rgba(255,255,255,.025);border:none;color:${s.color};font-size:11.5px;font-weight:700;padding:8px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center">
+            <span>${d.section}</span><span class="dtArrow">▼</span>
+          </button>
+          <div style="display:none;padding:12px 16px;font-size:12px;color:var(--text);line-height:1.85;white-space:pre-wrap;background:rgba(0,0,0,.2)">${d.content}</div>
+        </div>`).join('');
+      return`<div class="box" style="--box-accent:${s.color};margin-bottom:14px">
         <div style="display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap">
-          <div style="font-size:36px">${s.icon}</div>
+          <div style="font-size:38px;flex-shrink:0">${s.icon}</div>
           <div style="flex:1;min-width:240px">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap">
-              <span style="font-family:Playfair Display,serif;font-size:17px;font-weight:700;color:${s.color}">${s.name}</span>
+              <span style="font-family:'Playfair Display',serif;font-size:18px;font-weight:700;color:${s.color}">${s.name}</span>
               <span style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:var(--muted);font-size:10px;padding:2px 8px;border-radius:6px">${s.basis}</span>
-              <span style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:var(--muted);font-size:10px;padding:2px 8px;border-radius:6px">${s.country}</span>
+              <span style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:var(--muted);font-size:10px;padding:2px 8px;border-radius:6px">📍 ${s.country}</span>
             </div>
-            <div style="font-size:12px;color:var(--muted);margin-bottom:4px"><strong style="color:var(--text)">${s.fullName}</strong></div>
-            <div style="font-size:11.5px;color:var(--muted);margin-bottom:8px">🏛️ ${s.body}</div>
-            <div style="font-size:11.5px;color:var(--muted);margin-bottom:10px">🌍 <strong style="color:var(--text)">Adopted in:</strong> ${s.adopt}</div>
-            <div style="font-size:12px;color:var(--text);line-height:1.7;margin-bottom:10px">${s.summary}</div>
-            <div style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Key Standards:</div>
-            <div style="display:flex;flex-wrap:wrap;gap:5px">${s.keyStds.map(k=>`<span style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);color:var(--text);font-size:10.5px;padding:2px 9px;border-radius:6px">${k}</span>`).join('')}</div>
+            <div style="font-size:12.5px;color:var(--text);font-weight:600;margin-bottom:5px">${s.fullName}</div>
+            <div style="font-size:11.5px;color:var(--muted);margin-bottom:6px">🏛️ <em>${s.body}</em></div>
+            <div style="font-size:11.5px;color:var(--muted);margin-bottom:12px;padding:8px 12px;background:rgba(255,255,255,.025);border-radius:6px;border-left:3px solid ${s.color}">🌍 <strong style="color:var(--text)">Adopted in:</strong> ${s.adopt}</div>
+            <div style="font-size:12.5px;color:var(--text);line-height:1.85;margin-bottom:14px">${s.summary}</div>
+            <div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px">📚 Key Standards / Pronouncements:</div>
+            <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:14px">${s.keyStds.map(k=>`<span style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);color:var(--text);font-size:10.5px;padding:3px 9px;border-radius:5px">${k}</span>`).join('')}</div>
+            ${detailsHTML?`<div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">📖 Deep-Dive Sections (click to expand):</div>${detailsHTML}`:''}
           </div>
         </div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
     return;
   }
 
