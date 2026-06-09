@@ -670,7 +670,7 @@ html,body{height:100%;font-family:'DM Sans',system-ui,sans-serif;background:var(
           <button class="btn btn-ghost" onclick="runGoingConcern()">⚠️ Going Concern</button>
           <button class="btn btn-ghost" onclick="runFraudIndicators()">🚨 Fraud Indicators</button>
           <button class="btn btn-ghost" onclick="runGrowthAnalysis()">📊 Growth Factors</button>
-          <button class="btn btn-ghost btn-sm" onclick="loadSampleData('analysis');runComputedAnalysis()">▶ Load Sample & Analyse</button>
+          <button class="btn btn-ghost btn-sm" onclick="loadSampleAndAnalyse()">▶ Load Sample & Analyse</button>
         </div>
         <div id="aiResult" class="ai-result hidden"></div>
       </div>
@@ -826,7 +826,7 @@ html,body{height:100%;font-family:'DM Sans',system-ui,sans-serif;background:var(
             <button class="btn btn-ghost btn-sm" onclick="downloadTemplate('bs')">⬇ BS Template</button>
             <button class="btn btn-ghost btn-sm" onclick="downloadTemplate('cf')">⬇ CF Template</button>
             <button class="btn btn-gold btn-sm" onclick="downloadUniversalTemplate('pl')">⬇ Universal Template</button>
-            <button class="btn btn-teal btn-sm" onclick="loadSampleData('analysis')">▶ Load Sample Data</button>
+            <button class="btn btn-teal btn-sm" onclick="loadSampleData('all')">▶ Load Sample Data</button>
           </div>
         </div>
         <!-- UPLOAD ZONE -->
@@ -966,8 +966,7 @@ html,body{height:100%;font-family:'DM Sans',system-ui,sans-serif;background:var(
           <div class="box sky" style="padding:12px 16px;margin-bottom:12px">
             <div style="font-size:12px;color:var(--muted)">Reads <strong style="color:var(--sky2)">window._dynParsed</strong> — load any NetSuite/Excel file via Smart Data Viewer or Import, then return here. Auto-maps to Schedule III format.</div>
             <button class="btn btn-sky btn-sm mt8" onclick="renderSched3FromData()">↻ Render Schedule III from Loaded Data</button>
-            <button class="btn btn-teal btn-sm mt8" onclick="loadSampleData('pl')">▶ Load Sample P&L</button>
-            <button class="btn btn-ghost btn-sm mt8" onclick="loadSampleData('bs')">▶ Load Sample Balance Sheet</button>
+            <button class="btn btn-teal btn-sm mt8" onclick="loadSampleData('all')">▶ Load Complete Sample</button>
             <button class="btn btn-ghost btn-sm mt8" onclick="downloadUniversalTemplate('pl')">⬇ Template</button>
           </div>
           <div id="sched3LoadedOutput"></div>
@@ -2962,47 +2961,93 @@ window.SAMPLE={
   ]
 };
 
-function loadSampleData(which){
-  if(which==='tb'){
-    _tbData=[];
-    SAMPLE.tb.forEach(function(r){
-      var dr=r[2]||0,cr=r[3]||0;
-      _tbData.push({ledger:r[0],dr:dr,cr:cr,net:dr-cr,cls:autoClassifyLedger(r[0])});
-    });
-    if(typeof renderTBMapping==='function')renderTBMapping();
-    if(typeof showToast==='function')showToast('Sample trial balance loaded');else alert('Sample trial balance loaded');
-    return;
-  }
-  var useBs=(which==='bs');
-  var src=useBs?SAMPLE.bs.rows:SAMPLE.pl.rows;
-  var stmtType=useBs?'Balance Sheet':'P&L';
-  var rows=src.map(function(r){
+// ─── SAMPLE DATA LOADER — complete financials, routes through all pages ────────
+function _buildSampleRows(srcArray){
+  return srcArray.map(function(r){
     var label=r[0];
     var hasCode=r[1]!==undefined&&r[1]!=='';
     var hasNums=r[2]!==undefined&&r[2]!==null;
-    var isTotal=/^total\s*-/i.test(label);
+    var isTotal=/^total\s*[-–]/i.test(label)||/^(gross profit|operating profit|profit before tax|net profit|ebitda|ebit|total revenue|total expenses|total assets|total equity)/i.test(label);
     var isSection=!hasNums&&!hasCode;
     var type=isTotal?'total':(isSection?'section':'account');
-    return {
-      type:type,
-      label:label,
-      code:hasCode?String(r[1]):'',
-      depth:0,
-      values:hasNums?{'Current Year':r[2],'Previous Year':r[3]}:{},
-      hasValues:hasNums
-    };
+    return{type:type,label:label,code:hasCode?String(r[1]):'',depth:0,
+      values:hasNums?{'Current Year':r[2],'Previous Year':r[3]}:{},hasValues:!!hasNums};
   });
-  window._dynParsed={
-    meta:{company:'Sample Company Pvt Ltd',stmtType:stmtType},
-    periodCols:[{col:2,label:'Current Year'},{col:3,label:'Previous Year'}],
-    rows:rows
-  };
-  if(typeof renderSched3FromData==='function'){
-    var pane=document.getElementById('sched3LoadedOutput');
-    if(pane)renderSched3FromData();
+}
+
+function loadSampleData(which){
+  // ── TB path ─────────────────────────────────────────────────────────────────
+  if(which==='tb'){
+    if(typeof _tbData!=='undefined')_tbData=[];
+    else window._tbData=[];
+    SAMPLE.tb.forEach(function(r){
+      var dr=r[2]||0,cr=r[3]||0;
+      var entry={ledger:r[0],dr:dr,cr:cr,net:dr-cr,cls:autoClassifyLedger(r[0])};
+      if(typeof _tbData!=='undefined')_tbData.push(entry);else window._tbData.push(entry);
+    });
+    // show TB tab
+    var tbPane=document.getElementById('sched3Pane-tb');
+    if(tbPane){tbPane.style.display='';var ldPane=document.getElementById('sched3Pane-loaded');if(ldPane)ldPane.style.display='none';}
+    var mbx=document.getElementById('tbMappingBox');if(mbx)mbx.style.display='';
+    var gbr=document.getElementById('tbGenerateRow');if(gbr)gbr.style.display='';
+    if(typeof renderTBMapping==='function')renderTBMapping();
+    nav('sched3');
+    showToast('Sample Trial Balance loaded — review mapping below, then click Generate');
+    return;
   }
-  if(typeof refreshAllMPDash==='function')refreshAllMPDash();
-  if(typeof showToast==='function')showToast('Sample data loaded');else alert('Sample data loaded');
+
+  // ── Combined P&L + BS path ───────────────────────────────────────────────────
+  // Build a merged rows array: all P&L rows then all BS rows
+  var plRows=_buildSampleRows(SAMPLE.pl.rows);
+  var bsRows=_buildSampleRows(SAMPLE.bs.rows);
+  var allRows=plRows.concat(bsRows);
+
+  var pCols=[{col:2,label:'Current Year'},{col:3,label:'Previous Year'}];
+
+  var parsed={
+    meta:{company:'Sample Company Pvt Ltd',stmtType:'Combined P&L & Balance Sheet',period:'Current Year'},
+    periodCols:pCols,
+    rows:allRows
+  };
+  window._dynParsed=parsed;
+
+  // Register in dataset store so pushDatasetToPages works
+  if(!window._datasets)window._datasets={};
+  window._datasets['ds_sample']={name:'Sample Company Pvt Ltd',sourceName:'Sample Data',parsed:parsed,pushed:false};
+
+  // ── Pre-fill Company Profile fields ────────────────────────────────────────
+  function setField(id,val){var el=document.getElementById(id);if(el)el.value=val;}
+  setField('coName','Sample Company Pvt Ltd');
+  setField('coPan','AAAPL1234C');
+  setField('coCin','U74999MH2020PTC123456');
+  setField('coAuditor','M/s. Sharma & Associates');
+  setField('coAuditFirm','FRN: 012345N');
+  if(typeof updateCoName==='function')try{updateCoName();}catch(e){}
+
+  // ── Push to all manual input fields (BS / PL / CF cells) ──────────────────
+  if(typeof pushDatasetToPages==='function'){
+    try{pushDatasetToPages('ds_sample',true);}catch(e){}
+  }
+
+  // ── Recalculate everything ─────────────────────────────────────────────────
+  ['recalcBS','recalcPL','recalcCF','calcRatios','updateDashboard'].forEach(function(fn){
+    if(typeof window[fn]==='function')try{window[fn]();}catch(e){}
+  });
+  setTimeout(function(){
+    if(typeof refreshAllMPDash==='function')try{refreshAllMPDash();}catch(e){}
+    if(typeof renderSched3FromData==='function')try{renderSched3FromData();}catch(e){}
+    if(typeof updateDatasetBar==='function')try{updateDatasetBar();}catch(e){}
+  },150);
+
+  // ── Navigate to Company Profile first ────────────────────────────────────
+  nav('profile');
+  showToast('✅ Sample data loaded — Company Profile pre-filled. Navigate any page to see live data.');
+}
+
+// Convenience alias for the "Load Sample & Analyse" AI button
+function loadSampleAndAnalyse(){
+  loadSampleData('all');
+  setTimeout(function(){nav('ai');if(typeof runComputedAnalysis==='function')runComputedAnalysis();},300);
 }
 
 // ─── SAMPLE TEMPLATE GENERATOR ───────────────────────────────────────────────
