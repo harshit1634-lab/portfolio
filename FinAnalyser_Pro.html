@@ -362,6 +362,10 @@ html,body{height:100%;font-family:'DM Sans',system-ui,sans-serif;background:var(
     <div class="status-dot" title="AI Ready — No API Key Required"></div>
     <button class="btn btn-gold btn-sm" onclick="runAIAnalysis()">✨ AI Analyse</button>
     <button class="btn btn-gold btn-sm" onclick="nav('sched3')" style="background:linear-gradient(135deg,#1a6b3c,#2ea860)">📄 Financial Drafting</button>
+    <button class="btn btn-teal btn-sm" onclick="exportInteractiveReport()">📊 Interactive Report</button>
+    <button class="btn btn-ghost btn-sm" onclick="startTour()">🎬 Guided Demo</button>
+    <button class="btn btn-ghost btn-sm" onclick="exportBoardroomPDF()">📄 Boardroom PDF</button>
+    <button class="btn btn-ghost btn-sm" onclick="exportBoardroomExcel()">📑 Boardroom Excel</button>
     <button class="btn btn-ghost btn-sm" onclick="exportExcel()">⬇ Excel</button>
   </div>
 
@@ -3252,16 +3256,16 @@ const SOFTWARE_PROFILES={
 
 // P&L keyword mappings for field detection
 const PL_FIELD_KEYWORDS={
-  rev_gross:['revenue from operations','revenue from ops','sales','turnover','gross revenue','income from operations'],
+  rev_gross:['revenue from operations','revenue from ops','sales','turnover','gross revenue','income from operations','total - sales','total - income'],
   other_income:['other income','non-operating income','miscellaneous income','interest income'],
-  cost_materials:['cost of materials','raw material','cost of goods','cogs','cost of sales','direct cost','material cost'],
+  cost_materials:['cost of materials','raw material','cost of goods','cogs','cost of sales','direct cost','material cost','total - purchases','direct expenses'],
   purchases_stock:['purchases','stock-in-trade','purchase of stock','goods purchased'],
   chg_inventories:['change in inventor','(increase)/decrease in stock','change in stock','inventory change'],
-  emp_benefits:['employee benefit','salary','salaries','wages','staff cost','personnel cost','payroll','remuneration'],
+  emp_benefits:['employee benefit','salary','salaries','wages','staff cost','personnel cost','payroll','remuneration','salary & benefits'],
   finance_costs:['finance cost','interest expense','borrowing cost','interest on loan','bank charges'],
-  depreciation:['depreciation','amortisation','amortization','d&a','dep & amort'],
-  other_exp:['other expense','selling expense','admin expense','general expense','overheads','operating expense'],
-  current_tax:['current tax','income tax','provision for tax','tax expense'],
+  depreciation:['depreciation','amortisation','amortization','d&a','dep & amort','depreciation and amortization','depreciation & amortisation'],
+  other_exp:['other expense','selling expense','admin expense','general expense','overheads','operating expense','total - overheads','expenses - indirect'],
+  current_tax:['current tax','income tax','provision for tax','tax expense','tax expenses'],
   deferred_tax:['deferred tax'],
   oci:['other comprehensive','oci'],
   eps_basic:['eps basic','earnings per share - basic','basic eps'],
@@ -5702,6 +5706,255 @@ function exportSched3PDF(){
     doc.text('Render Schedule III first, then export.',20,y);
   }
   doc.save('ScheduleIII_Financials.pdf');
+}
+
+function exportInteractiveReport() {
+  var d = window._dynParsed;
+  if (!d || !d.rows || !d.rows.length) { showToast('No data loaded. Please load data first.'); return; }
+  var periodCols = d.periodCols || [];
+  var rows = d.rows || [];
+  var meta = d.meta || {};
+  var rev = 0, np = 0, ta = 0, ebitda = 0;
+  rows.forEach(function(r) {
+    var v = parseFloat(r.values && periodCols[0] ? r.values[periodCols[0]] : 0) || 0;
+    if (r.label && r.label.match(/revenue|net sales|total income/i)) rev = v;
+    if (r.label && r.label.match(/net profit|profit after tax/i)) np = v;
+    if (r.label && r.label.match(/total assets/i)) ta = v;
+    if (r.label && r.label.match(/ebitda/i)) ebitda = v;
+  });
+  var ebitdaMargin = rev ? ((ebitda / rev) * 100).toFixed(1) + '%' : 'N/A';
+  var fmt = function(n) { return n ? '₹ ' + Number(n).toLocaleString('en-IN') : '—'; };
+  var kpiHtml = '<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:24px;">';
+  var kpis = [['Revenue', fmt(rev)], ['Net Profit', fmt(np)], ['Total Assets', fmt(ta)], ['EBITDA Margin', ebitdaMargin]];
+  kpis.forEach(function(k) {
+    kpiHtml += '<div style="background:#1e293b;border-radius:10px;padding:20px 28px;min-width:160px;text-align:center;">' +
+      '<div style="color:#94a3b8;font-size:12px;margin-bottom:6px;">' + k[0] + '</div>' +
+      '<div style="color:#f1f5f9;font-size:22px;font-weight:700;">' + k[1] + '</div></div>';
+  });
+  kpiHtml += '</div>';
+  var plHeader = '<tr><th style="padding:8px 12px;text-align:left;border-bottom:1px solid #334155;">Particulars</th>';
+  periodCols.forEach(function(p) { plHeader += '<th style="padding:8px 12px;text-align:right;border-bottom:1px solid #334155;">' + p + '</th>'; });
+  plHeader += '</tr>';
+  var plRows = '';
+  rows.forEach(function(r) {
+    var bold = (r.type === 'section' || r.type === 'total') ? 'font-weight:700;' : '';
+    var bg = r.type === 'total' ? 'background:#1e3a5f;' : '';
+    plRows += '<tr style="' + bg + '"><td style="padding:6px 12px;' + bold + '">' + (r.label || '') + '</td>';
+    periodCols.forEach(function(p) {
+      plRows += '<td style="padding:6px 12px;text-align:right;' + bold + '">' + (r.values && r.values[p] != null ? Number(r.values[p]).toLocaleString('en-IN') : '') + '</td>';
+    });
+    plRows += '</tr>';
+  });
+  var bsFields = [['Equity Capital','bsEquityCapital'],['Reserves','bsReserves'],['LT Borrowings','bsLTBorrowings'],['ST Borrowings','bsSTBorrowings'],['Trade Payables','bsTradePayables'],['Fixed Assets','bsFixedAssets'],['Inventory','bsInventory'],['Trade Receivables','bsTradeReceivables'],['Cash','bsCash']];
+  var bsRows = '';
+  bsFields.forEach(function(f) {
+    var el = document.getElementById(f[1]);
+    var val = el ? (el.value || '—') : '—';
+    bsRows += '<tr><td style="padding:6px 12px;">' + f[0] + '</td><td style="padding:6px 12px;text-align:right;">₹ ' + val + '</td></tr>';
+  });
+  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Interactive Financial Report</title>' +
+    '<style>body{background:#0f172a;color:#f1f5f9;font-family:Inter,sans-serif;margin:0;padding:24px;}' +
+    'h1{color:#38bdf8;margin-bottom:4px;}h2{color:#7dd3fc;font-size:16px;margin:24px 0 12px;}' +
+    'table{width:100%;border-collapse:collapse;background:#0f172a;}' +
+    'tr:nth-child(even){background:#1e293b;}' +
+    '.print-btn{background:#0ea5e9;color:#fff;border:none;padding:10px 24px;border-radius:8px;cursor:pointer;font-size:14px;margin-bottom:20px;}' +
+    '</style></head><body>' +
+    '<button class="print-btn" onclick="window.print()">🖨 Print Report</button>' +
+    '<h1>Financial Report</h1>' +
+    '<p style="color:#94a3b8;margin-top:0;">' + (meta.company || document.getElementById('coName') && document.getElementById('coName').value || 'Company') + ' &mdash; Generated ' + new Date().toLocaleDateString('en-IN') + '</p>' +
+    '<h2>Key Performance Indicators</h2>' + kpiHtml +
+    '<h2>Profit &amp; Loss</h2>' +
+    '<table><thead>' + plHeader + '</thead><tbody>' + plRows + '</tbody></table>' +
+    '<h2>Balance Sheet Summary</h2>' +
+    '<table><thead><tr><th style="padding:8px 12px;text-align:left;border-bottom:1px solid #334155;">Item</th><th style="padding:8px 12px;text-align:right;border-bottom:1px solid #334155;">Value</th></tr></thead><tbody>' + bsRows + '</tbody></table>' +
+    '</body></html>';
+  var blob = new Blob([html], {type: 'text/html'});
+  var url = URL.createObjectURL(blob);
+  window.open(url, '_blank');
+}
+
+var _tourSteps = [
+  {page:'dashboard', title:'Dashboard', desc:'Live KPI cards and trend charts — updated automatically from your data.'},
+  {page:'profile', title:'Company Profile', desc:'Fill company name, PAN, CIN, auditor — flows into every report.'},
+  {page:'pl', title:'Profit & Loss', desc:'Multi-period P&L with auto-calculated subtotals and YoY charts.'},
+  {page:'bs', title:'Balance Sheet', desc:'Full balance sheet with Assets = Equity + Liabilities tally check.'},
+  {page:'ratios', title:'Financial Ratios', desc:'20+ ratios — liquidity, solvency, profitability — with benchmark flags.'},
+  {page:'comparative', title:'Comparative View', desc:'Side-by-side period comparison with % change arrows.'},
+  {page:'ai', title:'AI Deep Analysis', desc:'Instant computed analytics: health score, trend analysis, top expenses.'},
+  {page:'sched3', title:'Schedule III Drafting', desc:'Upload a Trial Balance and generate statutory Schedule III financials — export to Excel or PDF.'},
+  {page:'pbi', title:'Power BI Dashboard', desc:'Interactive charts: KPIs, waterfall, radar, gauges. Pick a period and view.'}
+];
+var _tourIdx = 0;
+
+function startTour() {
+  loadSampleData('all');
+  setTimeout(function() { _tourStep(0); }, 400);
+}
+
+function _tourStep(n) {
+  _tourIdx = n;
+  var existing = document.getElementById('tour-overlay');
+  if (existing) existing.parentNode.removeChild(existing);
+  var s = _tourSteps[n];
+  nav(s.page);
+  var ov = document.createElement('div');
+  ov.id = 'tour-overlay';
+  ov.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.65);z-index:99999;display:flex;align-items:center;justify-content:center;';
+  var prevDisabled = n === 0 ? 'disabled style="opacity:0.4"' : '';
+  var nextLabel = n === _tourSteps.length - 1 ? 'Finish' : 'Next ›';
+  var nextAction = n === _tourSteps.length - 1 ? 'tourEnd()' : 'tourNext()';
+  ov.innerHTML = '<div style="background:#1e293b;border-radius:14px;padding:36px 40px;max-width:440px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.6);text-align:center;">' +
+    '<div style="color:#94a3b8;font-size:13px;margin-bottom:8px;">Step ' + (n+1) + ' of ' + _tourSteps.length + '</div>' +
+    '<div style="color:#38bdf8;font-size:22px;font-weight:700;margin-bottom:14px;">' + s.title + '</div>' +
+    '<div style="color:#cbd5e1;font-size:15px;line-height:1.6;margin-bottom:28px;">' + s.desc + '</div>' +
+    '<div style="display:flex;gap:12px;justify-content:center;">' +
+    '<button ' + prevDisabled + ' onclick="tourPrev()" style="background:#334155;color:#f1f5f9;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:14px;">‹ Prev</button>' +
+    '<button onclick="tourEnd()" style="background:#475569;color:#f1f5f9;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:14px;">✕ End</button>' +
+    '<button onclick="' + nextAction + '" style="background:#0ea5e9;color:#fff;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:14px;">' + nextLabel + '</button>' +
+    '</div></div>';
+  document.body.appendChild(ov);
+}
+
+function tourNext() { if (_tourIdx < _tourSteps.length - 1) _tourStep(_tourIdx + 1); }
+function tourPrev() { if (_tourIdx > 0) _tourStep(_tourIdx - 1); }
+function tourEnd() { var el = document.getElementById('tour-overlay'); if (el) el.parentNode.removeChild(el); }
+
+function exportBoardroomPDF() {
+  var d = window._dynParsed;
+  if (!d || !d.rows || !d.rows.length) { showToast('No data loaded. Please load data first.'); return; }
+  var doc = new window.jspdf.jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  var coName = document.getElementById('coName') ? (document.getElementById('coName').value || 'Company') : 'Company';
+  var periodCols = d.periodCols || [];
+  var rows = d.rows || [];
+  doc.setFillColor(15, 23, 42);
+  doc.rect(0, 0, 210, 297, 'F');
+  doc.setTextColor(56, 189, 248);
+  doc.setFontSize(28);
+  doc.setFont('helvetica','bold');
+  doc.text(coName, 105, 100, {align:'center'});
+  doc.setTextColor(241, 245, 249);
+  doc.setFontSize(16);
+  doc.setFont('helvetica','normal');
+  doc.text('BOARDROOM FINANCIAL PACK', 105, 118, {align:'center'});
+  doc.setFontSize(12);
+  doc.setTextColor(148, 163, 184);
+  doc.text('Generated: ' + new Date().toLocaleDateString('en-IN'), 105, 132, {align:'center'});
+  doc.addPage();
+  doc.setFillColor(15, 23, 42);
+  doc.rect(0, 0, 210, 297, 'F');
+  doc.setTextColor(56, 189, 248);
+  doc.setFontSize(16);
+  doc.setFont('helvetica','bold');
+  doc.text('KEY PERFORMANCE INDICATORS', 20, 25);
+  doc.setTextColor(241, 245, 249);
+  doc.setFontSize(11);
+  doc.setFont('helvetica','normal');
+  var revEl = document.getElementById('plRevenue');
+  var npEl = document.getElementById('plNetProfit');
+  var taEl = document.getElementById('bsTotalAssets');
+  var crEl = document.getElementById('ratCurrentRatio');
+  var deEl = document.getElementById('ratDE');
+  var rev2 = revEl ? (revEl.value || revEl.innerText || revEl.textContent || '—') : '—';
+  var np2 = npEl ? (npEl.value || npEl.innerText || npEl.textContent || '—') : '—';
+  var ta2 = taEl ? (taEl.value || taEl.innerText || taEl.textContent || '—') : '—';
+  var cr2 = crEl ? (crEl.value || crEl.innerText || crEl.textContent || '—') : '—';
+  var de2 = deEl ? (deEl.value || deEl.innerText || deEl.textContent || '—') : '—';
+  var ebitdaMarginVal = '—';
+  var kpiData = [['Revenue', rev2], ['Net Profit', np2], ['Total Assets', ta2], ['Current Ratio', cr2], ['D/E Ratio', de2], ['EBITDA Margin', ebitdaMarginVal]];
+  var y = 40;
+  kpiData.forEach(function(k) {
+    doc.setTextColor(148, 163, 184);
+    doc.text(k[0], 30, y);
+    doc.setTextColor(241, 245, 249);
+    doc.setFont('helvetica','bold');
+    doc.text(String(k[1]), 120, y);
+    doc.setFont('helvetica','normal');
+    y += 12;
+  });
+  doc.addPage();
+  doc.setFillColor(15, 23, 42);
+  doc.rect(0, 0, 210, 297, 'F');
+  doc.setTextColor(56, 189, 248);
+  doc.setFontSize(14);
+  doc.setFont('helvetica','bold');
+  doc.text('PROFIT & LOSS', 20, 20);
+  doc.setFontSize(9);
+  doc.setFont('helvetica','normal');
+  var py = 32;
+  rows.forEach(function(r) {
+    if (py > 275) { doc.addPage(); doc.setFillColor(15,23,42); doc.rect(0,0,210,297,'F'); py = 20; }
+    if (r.type === 'section') { doc.setTextColor(56,189,248); doc.setFont('helvetica','bold'); }
+    else if (r.type === 'total') { doc.setTextColor(248,210,100); doc.setFont('helvetica','bold'); doc.setDrawColor(100,116,139); doc.line(20, py-3, 190, py-3); }
+    else { doc.setTextColor(203,213,225); doc.setFont('helvetica','normal'); }
+    var label = (r.label || '').substring(0, 50);
+    doc.text(label, 20, py);
+    var cx = 130;
+    periodCols.forEach(function(p) {
+      var v = r.values && r.values[p] != null ? String(r.values[p]) : '';
+      doc.text(v.substring(0,14), cx, py, {align:'right'});
+      cx += 30;
+    });
+    py += 7;
+  });
+  doc.addPage();
+  doc.setFillColor(15, 23, 42);
+  doc.rect(0, 0, 210, 297, 'F');
+  doc.setTextColor(56, 189, 248);
+  doc.setFontSize(14);
+  doc.setFont('helvetica','bold');
+  doc.text('BALANCE SHEET SUMMARY', 20, 20);
+  doc.setFontSize(10);
+  doc.setFont('helvetica','normal');
+  var bsFields2 = [['Equity Capital','bsEquityCapital'],['Reserves','bsReserves'],['LT Borrowings','bsLTBorrowings'],['ST Borrowings','bsSTBorrowings'],['Trade Payables','bsTradePayables'],['Fixed Assets','bsFixedAssets'],['Inventory','bsInventory'],['Trade Receivables','bsTradeReceivables'],['Cash','bsCash']];
+  var by = 35;
+  bsFields2.forEach(function(f) {
+    var el = document.getElementById(f[1]);
+    var val = el ? (el.value || '—') : '—';
+    doc.setTextColor(148,163,184);
+    doc.text(f[0], 30, by);
+    doc.setTextColor(241,245,249);
+    doc.text(String(val), 150, by, {align:'right'});
+    by += 10;
+  });
+  doc.save('Boardroom_Pack.pdf');
+}
+
+function exportBoardroomExcel() {
+  var d = window._dynParsed;
+  if (!d || !d.rows || !d.rows.length) { showToast('No data loaded. Please load data first.'); return; }
+  var periodCols = d.periodCols || [];
+  var rows = d.rows || [];
+  var wb = XLSX.utils.book_new();
+  var revEl = document.getElementById('plRevenue');
+  var npEl = document.getElementById('plNetProfit');
+  var taEl = document.getElementById('bsTotalAssets');
+  var crEl = document.getElementById('ratCurrentRatio');
+  var deEl = document.getElementById('ratDE');
+  var rev2 = revEl ? (revEl.value || revEl.innerText || revEl.textContent || '') : '';
+  var np2 = npEl ? (npEl.value || npEl.innerText || npEl.textContent || '') : '';
+  var ta2 = taEl ? (taEl.value || taEl.innerText || taEl.textContent || '') : '';
+  var cr2 = crEl ? (crEl.value || crEl.innerText || crEl.textContent || '') : '';
+  var de2 = deEl ? (deEl.value || deEl.innerText || deEl.textContent || '') : '';
+  var kpiSheet = [['Metric','Value'],['Revenue',rev2],['Net Profit',np2],['Total Assets',ta2],['Current Ratio',cr2],['D/E Ratio',de2],['EBITDA Margin','—']];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(kpiSheet), 'KPIs');
+  var plSheet = [['Particulars'].concat(periodCols)];
+  rows.forEach(function(r) {
+    var row = [r.label || ''];
+    periodCols.forEach(function(p) { row.push(r.values && r.values[p] != null ? r.values[p] : ''); });
+    plSheet.push(row);
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(plSheet), 'P&L');
+  var bsFields3 = [['Equity Capital','bsEquityCapital'],['Reserves','bsReserves'],['LT Borrowings','bsLTBorrowings'],['ST Borrowings','bsSTBorrowings'],['Trade Payables','bsTradePayables'],['Fixed Assets','bsFixedAssets'],['Inventory','bsInventory'],['Trade Receivables','bsTradeReceivables'],['Cash','bsCash']];
+  var bsSheet = [['Item','Value']];
+  bsFields3.forEach(function(f) {
+    var el = document.getElementById(f[1]);
+    bsSheet.push([f[0], el ? (el.value || '') : '']);
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(bsSheet), 'Balance Sheet');
+  var aiText = document.getElementById('ai-output') ? (document.getElementById('ai-output').innerText || 'Run AI Analysis first.') : 'Run AI Analysis first.';
+  var aiSheet = [['AI Commentary'],[aiText]];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aiSheet), 'AI Commentary');
+  XLSX.writeFile(wb, 'Boardroom_Pack.xlsx');
 }
 </script>
 </body>
