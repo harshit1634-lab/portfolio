@@ -558,6 +558,7 @@ html,body{height:100%;font-family:'DM Sans',system-ui,sans-serif;background:var(
           </div>
         </div>
         <div id="importBar-bs" class="hidden"><div id="importBarInner-bs"></div></div>
+        <div id="mpDash-bs"></div>
         <div class="box" style="padding:0;overflow:hidden">
           <div class="fin-table-wrap">
             <table class="fin-table" id="bsTable">
@@ -585,6 +586,7 @@ html,body{height:100%;font-family:'DM Sans',system-ui,sans-serif;background:var(
           </div>
         </div>
         <div id="importBar-pl" class="hidden"><div id="importBarInner-pl"></div></div>
+        <div id="mpDash-pl"></div>
         <div class="box" style="padding:0;overflow:hidden">
           <div class="fin-table-wrap">
             <table class="fin-table" id="plTable">
@@ -648,7 +650,7 @@ html,body{height:100%;font-family:'DM Sans',system-ui,sans-serif;background:var(
           <div class="page-title">↔️ Comparative Analysis</div>
           <div class="page-sub">Year-on-year comparison with growth indicators</div>
         </div>
-        <div id="comparativeContent"></div>
+        <div id="mpDash-comparative" style="margin-bottom:16px"></div><div id="comparativeContent"></div>
       </div>
 
       <!-- AI ANALYSIS PANEL -->
@@ -993,6 +995,8 @@ function nav(id){
   if(id==='comparative')renderComparative();
   if(id==='audit')renderAudit();
   if(id==='dashboard')updateDashboard();
+  // Refresh multi-period dashboard for data pages
+  if(['pl','bs','comparative','ratios'].includes(id)) setTimeout(()=>renderMPDash('mpDash-'+id),50);
 }
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
@@ -3535,6 +3539,7 @@ function pushDatasetToPages(dsKey, silent=false){
   try{recalcCF();}catch(e){}
   try{calcRatios();}catch(e){}
   try{updateDashboard();}catch(e){}
+  setTimeout(refreshAllMPDash,200);
 
   // Update periods labels if company name available
   const company=p.meta.company||ds.sourceName.replace(/\.[^.]+$/,'');
@@ -4492,4 +4497,182 @@ document.getElementById('pwInput').addEventListener('keydown',e=>{if(e.key==='En
 </script>
 </body>
 </html>
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MULTI-PERIOD DASHBOARD  — renders into any panel from window._dynParsed
+// ═══════════════════════════════════════════════════════════════════════════
+window._mpCharts={};   // container→[Chart instances]
+window._mpSel=null;    // Set of selected period labels
+
+function toggleMPPeriod(label,checked){
+  if(!window._mpSel)return;
+  if(checked)window._mpSel.add(label);else window._mpSel.delete(label);
+  // Re-render every visible mp dash
+  document.querySelectorAll('[id^="mpDash-"]').forEach(el=>{
+    if(el.innerHTML&&el.closest('.panel.active'))renderMPDash(el.id);
+  });
+}
+function selectAllMPPeriods(val){
+  const p=window._dynParsed;if(!p)return;
+  const all=p.periodCols.filter(pc=>!pc.isTotal).map(pc=>pc.label);
+  window._mpSel=val?new Set(all):new Set();
+  document.querySelectorAll('[id^="mpDash-"]').forEach(el=>{
+    if(el.innerHTML&&el.closest('.panel.active'))renderMPDash(el.id);
+  });
+}
+
+function renderMPDash(containerId){
+  const el=document.getElementById(containerId);
+  if(!el)return;
+  const p=window._dynParsed;
+  if(!p||!p.rows){el.innerHTML='';return;}
+
+  const nonTotal=p.periodCols.filter(pc=>!pc.isTotal);
+  if(!window._mpSel||window._mpSel.size===0)
+    window._mpSel=new Set(nonTotal.map(pc=>pc.label));
+  const selPeriods=nonTotal.filter(pc=>window._mpSel.has(pc.label));
+
+  // Identify key row categories for this panel
+  const allRows=p.rows.filter(r=>r.hasValues);
+  // Top-level revenue/expense/profit rows
+  const topRows=allRows.filter(r=>r.depth<=1).slice(0,6);
+  const COLORS=['#f0c040','#00d4aa','#a855f7','#ff6b6b','#38bdf8','#f97316','#84cc16','#ec4899'];
+  const cid=containerId.replace(/[^a-z0-9]/gi,''); // safe canvas id prefix
+
+  // Destroy old charts
+  (window._mpCharts[containerId]||[]).forEach(c=>{try{c.destroy();}catch(e){}});
+  window._mpCharts[containerId]=[];
+
+  // Period selector pills
+  const pillsHTML=nonTotal.map(pc=>{
+    const sel=window._mpSel.has(pc.label);
+    return`<label style="cursor:pointer;display:inline-flex;align-items:center;gap:3px;background:${sel?'rgba(0,212,170,.15)':'rgba(255,255,255,.04)'};border:1px solid ${sel?'rgba(0,212,170,.3)':'rgba(255,255,255,.1)'};border-radius:20px;padding:3px 10px;font-size:10.5px;color:${sel?'var(--teal)':'var(--muted)'};transition:all .15s">
+      <input type="checkbox" ${sel?'checked':''} onchange="toggleMPPeriod('${pc.label.replace(/'/g,"\\'")}',this.checked)" style="display:none">${pc.label}
+    </label>`;
+  }).join('');
+
+  // KPI: last selected period vs first selected for each top row
+  const kpiHTML=topRows.slice(0,4).map((row,i)=>{
+    const first=selPeriods.length?row.values?.[selPeriods[0].label]:null;
+    const last=selPeriods.length?row.values?.[selPeriods[selPeriods.length-1].label]:null;
+    const chg=first&&last&&first!==0?((last-first)/Math.abs(first)*100).toFixed(1):null;
+    return`<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:10px 14px;flex:1;min-width:120px">
+      <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${row.label}</div>
+      <div style="font-size:16px;font-weight:800;color:${(last||0)<0?'var(--coral)':COLORS[i]}">${formatIN(last)}</div>
+      ${chg!=null?`<div style="font-size:9.5px;margin-top:2px;color:${chg>=0?'var(--teal)':'var(--coral)'}">${chg>=0?'▲':'▼'}${Math.abs(chg)}% vs ${selPeriods[0]?.label}</div>`:''}
+    </div>`;
+  }).join('');
+
+  // Compact data table
+  const tableHTML=`<div style="overflow:auto;max-height:320px">
+    <table style="width:100%;border-collapse:collapse;min-width:${260+selPeriods.length*105}px;font-size:11px">
+      <thead style="position:sticky;top:0;z-index:2">
+        <tr style="background:var(--ink2);border-bottom:2px solid rgba(56,189,248,.15)">
+          <th style="text-align:left;padding:7px 12px;color:var(--muted);min-width:200px;font-weight:600">Account / Line Item</th>
+          ${selPeriods.map(pc=>`<th style="text-align:right;padding:7px 10px;color:var(--sky);min-width:100px;font-weight:600">${pc.label}</th>`).join('')}
+          ${selPeriods.length>1?`<th style="text-align:right;padding:7px 10px;color:var(--gold2);min-width:90px;font-weight:600">Δ% Overall</th>`:''}
+        </tr>
+      </thead>
+      <tbody>
+        ${topRows.map((row,ri)=>{
+          const vals=selPeriods.map(pc=>row.values?.[pc.label]??null);
+          const first=vals.find(v=>v!=null);
+          const last=[...vals].reverse().find(v=>v!=null);
+          const overallChg=first!=null&&last!=null&&first!==0?((last-first)/Math.abs(first)*100).toFixed(1):null;
+          return`<tr style="border-bottom:1px solid rgba(255,255,255,.03);background:${ri%2?'':'rgba(255,255,255,.01)'}">
+            <td style="padding:6px 12px;font-weight:${row.depth===0?700:500};color:${COLORS[ri%COLORS.length]};padding-left:${Math.max(12,(row.depth+1)*12)}px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${row.label}</td>
+            ${vals.map((v,vi)=>{
+              const prev=vi>0?vals[vi-1]:null;
+              const mom=v!=null&&prev!=null&&prev!==0?((v-prev)/Math.abs(prev)*100).toFixed(1):null;
+              return`<td style="text-align:right;padding:6px 10px;color:${v!=null&&v<0?'var(--coral)':'var(--text)'}">
+                <div>${v!=null?formatIN(v):'—'}</div>
+                ${mom!=null?`<div style="font-size:8.5px;color:${mom>=0?'var(--teal)':'var(--coral)'}">${mom>=0?'▲':'▼'}${Math.abs(mom)}%</div>`:''}
+              </td>`;
+            }).join('')}
+            ${selPeriods.length>1?`<td style="text-align:right;padding:6px 10px;font-weight:700;font-size:11.5px;color:${overallChg!=null&&overallChg>=0?'var(--teal)':'var(--coral)'}">${overallChg!=null?(overallChg>=0?'▲':'▼')+Math.abs(overallChg)+'%':'—'}</td>`:''}
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+  </div>`;
+
+  el.innerHTML=`<div style="background:rgba(8,13,26,.6);border:1px solid rgba(240,192,64,.1);border-radius:12px;padding:14px;margin-bottom:14px">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+      <div style="font-size:12px;font-weight:800;color:var(--gold2)">📊 Multi-Period Analysis — ${p.meta.company||p.meta.stmtType} <span style="font-size:10px;color:var(--muted);font-weight:400">${nonTotal.length} periods loaded</span></div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-ghost btn-sm" style="font-size:10px" onclick="selectAllMPPeriods(true)">All</button>
+        <button class="btn btn-ghost btn-sm" style="font-size:10px" onclick="selectAllMPPeriods(false)">None</button>
+        <button class="btn btn-ghost btn-sm" style="font-size:10px" onclick="const d=this.closest('.panel')?this.closest('.panel').querySelector('[id^=mpDash-]'):null;if(d)d.style.display='none'">− Collapse</button>
+      </div>
+    </div>
+    <!-- Period toggles -->
+    <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px">${pillsHTML}</div>
+    <!-- KPI row -->
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">${kpiHTML}</div>
+    <!-- Charts -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+      <div style="background:rgba(255,255,255,.02);border-radius:8px;padding:10px"><div style="font-size:10.5px;color:var(--muted);margin-bottom:6px;font-weight:600">📈 Trend — Key Accounts</div><canvas id="${cid}_line" height="180"></canvas></div>
+      <div style="background:rgba(255,255,255,.02);border-radius:8px;padding:10px"><div style="font-size:10.5px;color:var(--muted);margin-bottom:6px;font-weight:600">📊 Period Comparison</div><canvas id="${cid}_bar" height="180"></canvas></div>
+    </div>
+    <!-- Table -->
+    ${tableHTML}
+  </div>`;
+
+  // Render charts after DOM update
+  setTimeout(()=>{
+    const fmtK=v=>{const a=Math.abs(v);return(v<0?'-':'')+(a>=10000000?'₹'+(a/10000000).toFixed(1)+'Cr':a>=100000?'₹'+(a/100000).toFixed(1)+'L':'₹'+a.toLocaleString('en-IN',{maximumFractionDigits:0}));};
+    // Line chart
+    const lc=document.getElementById(cid+'_line');
+    if(lc&&selPeriods.length){
+      const lChart=new Chart(lc.getContext('2d'),{
+        type:'line',
+        data:{
+          labels:selPeriods.map(pc=>pc.label),
+          datasets:topRows.slice(0,5).map((row,i)=>({
+            label:row.label.substring(0,20),
+            data:selPeriods.map(pc=>row.values?.[pc.label]??null),
+            borderColor:COLORS[i],backgroundColor:COLORS[i]+'18',
+            tension:.3,fill:false,pointRadius:3,pointHoverRadius:6,borderWidth:2,spanGaps:true
+          }))
+        },
+        options:{responsive:true,interaction:{mode:'index',intersect:false},
+          plugins:{legend:{labels:{color:'#8ab0c8',font:{size:9},boxWidth:10}},
+            tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${fmtK(ctx.raw||0)}`}}},
+          scales:{x:{ticks:{color:'#8ab0c8',font:{size:8},maxRotation:45}},
+            y:{ticks:{color:'#8ab0c8',font:{size:8},callback:fmtK},grid:{color:'rgba(255,255,255,.04)'}}}}
+      });
+      window._mpCharts[containerId].push(lChart);
+    }
+    // Bar chart  
+    const bc=document.getElementById(cid+'_bar');
+    if(bc&&selPeriods.length&&topRows.length){
+      const bChart=new Chart(bc.getContext('2d'),{
+        type:'bar',
+        data:{
+          labels:selPeriods.map(pc=>pc.label),
+          datasets:topRows.slice(0,4).map((row,i)=>({
+            label:row.label.substring(0,18),
+            data:selPeriods.map(pc=>row.values?.[pc.label]??0),
+            backgroundColor:COLORS[i]+'bb',borderRadius:3
+          }))
+        },
+        options:{responsive:true,
+          plugins:{legend:{labels:{color:'#8ab0c8',font:{size:9},boxWidth:10}},
+            tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${fmtK(ctx.raw||0)}`}}},
+          scales:{x:{ticks:{color:'#8ab0c8',font:{size:8},maxRotation:45}},
+            y:{ticks:{color:'#8ab0c8',font:{size:8},callback:fmtK},grid:{color:'rgba(255,255,255,.04)'}}}}
+      });
+      window._mpCharts[containerId].push(bChart);
+    }
+  },60);
+}
+
+// Called after pushDatasetToPages — refresh all visible mp dashes
+function refreshAllMPDash(){
+  ['pl','bs','comparative','ratios'].forEach(page=>{
+    const el=document.getElementById('mpDash-'+page);
+    if(el)renderMPDash('mpDash-'+page);
+  });
+}
+
 </script>
