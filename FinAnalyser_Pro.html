@@ -1200,8 +1200,11 @@ const BS_ROWS=[
 
 function sum(period,ids){return ids.reduce((acc,id)=>{
   const el=document.getElementById(id+'_'+period);
-  if(el)return acc+(parseFloat(el.value)||0);
-  return acc;
+  if(!el)return acc;
+  if(el.tagName==='INPUT')return acc+(parseFloat(el.value)||0);
+  // computed subtotal cell (TD/SPAN) — read formatted text
+  const t=(el.textContent||'').replace(/[₹,\s—]/g,'');
+  return acc+(parseFloat(t)||0);
 },0);}
 
 function initBS(){
@@ -3790,26 +3793,84 @@ function pushDatasetToPages(dsKey, silent=false){
   ];
 
   let mapped=0, tried=0;
-  p.rows.filter(r=>r.hasValues).forEach(row=>{
+  // Phase 1: collect the BEST candidate row per target field.
+  // For hierarchical data (NetSuite/Tally) many rows match one keyword
+  // (e.g. "Total - Sales", "Revenue from Operations", "Sales - India >UK").
+  // We must pick the AGGREGATE, not a leaf — choose the shallowest depth
+  // (closest to the top-level total) to avoid double counting / last-write-wins.
+  const best={}; // key = prefix+fieldId -> {row, depth, idx}
+  p.rows.forEach((row,idx)=>{
+    if(!row.hasValues)return;
     const lbl=row.label.toLowerCase();
     for(const {kmap,prefix} of MAPS){
       for(const [fieldId,kws] of Object.entries(kmap)){
         if(!kws.some(kw=>lbl.includes(kw)))continue;
-        tried++;
-        pm.forEach(({parsedLabel,appPeriod})=>{
-          const v=row.values?.[parsedLabel];
-          if(v==null)return;
-          const el=document.getElementById(prefix+fieldId+'_'+appPeriod);
-          if(el&&el.tagName==='INPUT'){
-            el.value=Math.round(v*100)/100;
-            el.style.borderColor='rgba(0,212,170,.5)';
-            el.style.background='rgba(0,212,170,.06)';
-            mapped++;
-          }
-        });
+        const key=prefix+fieldId;
+        const depth=(row.depth!=null?row.depth:99);
+        const prev=best[key];
+        // Prefer shallower depth; tie-break: keep the FIRST (opening header,
+        // which spans its children — needed for descendant exclusion below).
+        if(!prev||depth<prev.depth){
+          best[key]={row,depth,idx};
+        }
         break;
       }
     }
+  });
+  // Phase 1b: hierarchical descendant exclusion.
+  // A chosen row that sits INSIDE another chosen row's sub-tree is already
+  // counted in that parent total (e.g. "Salary & Benefits" nested under
+  // "Direct Expenses"). Mapping both double-counts, so drop the descendant.
+  const chosen=Object.keys(best).map(key=>({key,...best[key]}));
+  const rd=i=>(p.rows[i].depth!=null?p.rows[i].depth:99);
+  // Compute the index range [start,end) of rows subsumed by a chosen total.
+  // Two patterns are handled:
+  //  (1) OPENING header — children follow it at greater depth (forward nesting).
+  //  (2) CLOSING total ("Total - X") — its matching opening header is an
+  //      earlier same-depth row with the (near-)equal aggregate value; the
+  //      block of children sits BETWEEN the opening and this closing total.
+  function spanRange(c){
+    // forward nesting
+    let fe=c.idx+1;
+    while(fe<p.rows.length&&rd(fe)>c.depth)fe++;
+    let start=c.idx, end=fe;
+    // backward opening pair (only meaningful for totals)
+    const cv=c.row.values&&c.row.values[(totalCol?totalCol.label:(nonTotal[0]&&nonTotal[0].label))];
+    if(cv!=null&&Math.abs(cv)>1){
+      for(let j=c.idx-1;j>=0;j--){
+        if(rd(j)<c.depth)break; // left the section
+        if(rd(j)===c.depth&&p.rows[j].hasValues){
+          const ov=p.rows[j].values&&p.rows[j].values[(totalCol?totalCol.label:(nonTotal[0]&&nonTotal[0].label))];
+          if(ov!=null&&Math.abs(ov-cv)<Math.max(1,Math.abs(cv)*0.0001)){start=j;break;}
+        }
+      }
+    }
+    return [start,end];
+  }
+  const dropped={};
+  chosen.forEach(c=>{
+    const [start,end]=spanRange(c);
+    chosen.forEach(o=>{
+      if(o.key===c.key||dropped[o.key])return;
+      // o sits strictly inside c's block and deeper → subsumed in c's total
+      if(o.idx>start&&o.idx<end&&o.depth>c.depth) dropped[o.key]=true;
+    });
+  });
+  // Phase 2: write the surviving chosen rows into the input fields
+  chosen.forEach(c=>{
+    if(dropped[c.key])return;
+    tried++;
+    pm.forEach(({parsedLabel,appPeriod})=>{
+      const v=c.row.values?.[parsedLabel];
+      if(v==null)return;
+      const el=document.getElementById(c.key+'_'+appPeriod);
+      if(el&&el.tagName==='INPUT'){
+        el.value=Math.round(v*100)/100;
+        el.style.borderColor='rgba(0,212,170,.5)';
+        el.style.background='rgba(0,212,170,.06)';
+        mapped++;
+      }
+    });
   });
 
   // Recalculate all pages
