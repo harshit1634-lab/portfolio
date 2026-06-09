@@ -240,6 +240,20 @@ html,body{height:100%;font-family:'DM Sans',system-ui,sans-serif;background:var(
 
 /* EXPORT CARDS */
 .export-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
+/* MULTI-CLIENT PROFILE */
+.profile-split{display:flex;gap:18px;align-items:flex-start}
+.client-directory{width:300px;flex-shrink:0;background:var(--card);border:1px solid var(--bdr);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px;max-height:calc(100vh - 160px);overflow:hidden}
+.client-dir-list{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:6px;min-height:200px}
+.client-card{background:rgba(8,13,26,.7);border:1px solid rgba(255,255,255,.06);border-left:3px solid transparent;border-radius:8px;padding:10px 12px;cursor:pointer;transition:all .15s}
+.client-card:hover{border-color:rgba(240,192,64,.3);background:var(--gold3)}
+.client-card.selected{border-left-color:var(--gold);background:rgba(240,192,64,.07)}
+.client-card-name{font-size:12px;font-weight:600;color:var(--text)}
+.client-card-meta{font-size:10px;color:var(--muted);margin-top:2px}
+.client-card-badge{display:inline-block;background:var(--ink4);color:var(--muted);font-size:9px;padding:1px 6px;border-radius:8px;margin-top:3px}
+.client-detail{flex:1;min-width:0}
+.client-no-sel{text-align:center;padding:48px 24px;color:var(--muted);font-size:13px}
+.client-search{width:100%;background:rgba(8,13,26,.8);border:1px solid rgba(240,192,64,.12);color:var(--text);padding:7px 10px;border-radius:7px;font-family:inherit;font-size:11px;outline:none}
+.client-search:focus{border-color:var(--gold)}
 .export-card{background:var(--card);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:20px;cursor:pointer;transition:all .2s;text-align:center}
 .export-card:hover{border-color:var(--gold);background:var(--gold3);transform:translateY(-2px);box-shadow:0 8px 24px rgba(240,192,64,.15)}
 .export-card .icon{font-size:30px;margin-bottom:10px}
@@ -397,7 +411,6 @@ html,body{height:100%;font-family:'DM Sans',system-ui,sans-serif;background:var(
       <div class="side-group">
         <div class="side-title">Data</div>
         <div class="side-item" onclick="nav('sched3')"><span class="side-icon">📄</span>Financial Drafting <span class="side-badge-new">NEW</span></div>
-        <div class="side-item" onclick="nav('smartviewer')"><span class="side-icon">🗂️</span>Smart Data Viewer</div>
         <div class="side-item" onclick="nav('standards')"><span class="side-icon">🌍</span>Global Accounting Std<span class="side-badge-new">NEW</span></div>
         <div class="side-item" onclick="nav('importexport')"><span class="side-icon">🔄</span>Import / Export</div>
         <div class="side-item" onclick="nav('settings')"><span class="side-icon">⚙️</span>Settings</div>
@@ -429,126 +442,146 @@ html,body{height:100%;font-family:'DM Sans',system-ui,sans-serif;background:var(
 
       <!-- COMPANY PROFILE PANEL -->
       <div class="panel" id="panel-profile">
-        <div class="page-header flex-between">
-          <div><div class="page-title">🏢 Company Profile</div><div class="page-sub">Entity information and reporting configuration</div></div>
-          <button class="btn btn-gold" onclick="saveProfile()">💾 Save Profile</button>
-        </div>
-        <div class="box">
-          <div class="box-title"><span class="icon">📋</span>Basic Information</div>
-          <div class="form-grid">
-            <div class="form-group"><label>Company / Entity Name *</label><input id="coName" placeholder="ABC Private Limited" oninput="updateCoName()"></div>
-            <div class="form-group"><label>PAN Number</label><input id="coPan" placeholder="AABCA1234Z" style="text-transform:uppercase"></div>
-            <div class="form-group"><label>CIN / Registration No.</label><input id="coCin" placeholder="U74999MH2010PTC123456"></div>
-            <div class="form-group"><label>Date of Incorporation</label><input type="date" id="coIncorp"></div>
-            <div class="form-group"><label>Financial Year End</label>
-              <select id="coFyEnd">
-                <option value="March">31st March</option>
-                <option value="June">30th June</option>
-                <option value="September">30th September</option>
-                <option value="December">31st December</option>
-              </select>
+        <div class="page-header"><div class="page-title">🏢 Client Directory</div><div class="page-sub">Manage multiple client profiles — select a client to load their data</div></div>
+        <div class="profile-split">
+          <!-- LEFT: Client Directory -->
+          <div class="client-directory">
+            <input class="client-search" id="clientSearch" placeholder="Search clients…" oninput="renderClientList()">
+            <div class="client-dir-list" id="clientDirList"></div>
+            <button class="btn btn-teal" onclick="newClient()" style="width:100%">+ Add New Client</button>
+          </div>
+          <!-- RIGHT: Profile Details -->
+          <div class="client-detail" id="clientDetailPane">
+            <div class="client-no-sel" id="clientNoSel"><div style="font-size:32px;margin-bottom:12px">🏢</div><div>Select a client from the directory<br>or click <strong>+ Add New Client</strong></div></div>
+            <div id="clientForm" style="display:none">
+              <div class="box">
+                <div class="box-title flex-between" style="margin-bottom:12px"><span><span class="icon">📋</span>Basic Information</span>
+                  <div class="flex" style="gap:6px">
+                    <button class="btn btn-gold btn-sm" onclick="saveClient()">💾 Save Client</button>
+                    <button class="btn btn-ghost btn-sm" onclick="exportClientData()">📤 Export</button>
+                    <label class="btn btn-ghost btn-sm" style="cursor:pointer">📥 Import<input type="file" accept=".json" style="display:none" onchange="importClientData(this.files[0])"></label>
+                    <button class="btn btn-rose btn-sm" onclick="deleteClient()">🗑️ Delete</button>
+                  </div>
+                </div>
+                <div class="form-grid">
+                  <div class="form-group"><label>Company / Entity Name *</label><input id="coName" placeholder="ABC Private Limited" oninput="updateCoName()"></div>
+                  <div class="form-group"><label>PAN Number</label><input id="coPan" placeholder="AABCA1234Z" style="text-transform:uppercase"></div>
+                  <div class="form-group"><label>CIN / Registration No.</label><input id="coCin" placeholder="U74999MH2010PTC123456"></div>
+                  <div class="form-group"><label>GSTIN</label><input id="coGstin" placeholder="27AABCA1234Z1ZV"></div>
+                  <div class="form-group"><label>Date of Incorporation</label><input type="date" id="coIncorp"></div>
+                  <div class="form-group"><label>Financial Year End</label>
+                    <select id="coFyEnd">
+                      <option value="March">31st March</option>
+                      <option value="June">30th June</option>
+                      <option value="September">30th September</option>
+                      <option value="December">31st December</option>
+                    </select>
+                  </div>
+                  <div class="form-group"><label>Reporting Currency Unit</label>
+                    <select id="coUnit" onchange="updateUnit()">
+                      <option value="lakhs">₹ Lakhs</option>
+                      <option value="crores">₹ Crores</option>
+                      <option value="thousands">₹ Thousands</option>
+                      <option value="actual">Actuals (₹)</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              <div class="box">
+                <div class="box-title"><span class="icon">🏭</span>Classification</div>
+                <div class="form-grid">
+                  <div class="form-group"><label>Primary Sector</label>
+                    <select id="coSector">
+                      <option value="technology">Technology & IT Services</option>
+                      <option value="banking">Banking & Financial Services</option>
+                      <option value="insurance">Insurance & Risk Management</option>
+                      <option value="healthcare">Healthcare & Pharmaceuticals</option>
+                      <option value="biotech">Biotechnology & Life Sciences</option>
+                      <option value="fmcg">Fast Moving Consumer Goods (FMCG)</option>
+                      <option value="auto">Automobiles & Auto Components</option>
+                      <option value="realestate">Real Estate & Construction</option>
+                      <option value="infra">Infrastructure & Utilities</option>
+                      <option value="energy">Energy (Conventional)</option>
+                      <option value="renewable">Renewable Energy & Green Tech</option>
+                      <option value="oilgas">Oil & Gas & Petrochemicals</option>
+                      <option value="metals">Metals & Mining</option>
+                      <option value="chemicals">Chemicals & Specialty Chemicals</option>
+                      <option value="fertilizers">Fertilizers & Agrochemicals</option>
+                      <option value="textiles">Textiles & Apparel</option>
+                      <option value="retail">Retail & E-commerce</option>
+                      <option value="media">Media & Entertainment</option>
+                      <option value="telecom">Telecom & Communication</option>
+                      <option value="education">Education & EdTech</option>
+                      <option value="agri">Agriculture & Food Processing</option>
+                      <option value="logistics">Logistics & Transportation</option>
+                      <option value="defence">Defence & Aerospace</option>
+                      <option value="hospitality">Tourism & Hospitality</option>
+                      <option value="capgoods">Capital Goods & Heavy Engineering</option>
+                      <option value="cement">Cement & Building Materials</option>
+                      <option value="consumer">Consumer Durables & Electronics</option>
+                      <option value="gems">Gems & Jewellery</option>
+                      <option value="paper">Paper & Packaging</option>
+                      <option value="plastic">Plastic & Rubber Products</option>
+                      <option value="aviation">Aviation</option>
+                      <option value="shipping">Shipping & Ports</option>
+                      <option value="railways">Railways & Metro</option>
+                      <option value="startupvc">Startups & Venture-backed</option>
+                      <option value="ngo">NGO / Trust / Non-Profit</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                  <div class="form-group"><label>Sub-sector / Niche</label><input id="coSubSector" placeholder="e.g. SaaS, Generics, EV Components"></div>
+                  <div class="form-group"><label>Statutory Auditor Name</label><input id="coAuditor" placeholder="CA Firm Name"></div>
+                  <div class="form-group"><label>Audit Firm Registration No.</label><input id="coAuditFirm" placeholder="FRN: 123456W"></div>
+                  <div class="form-group" style="grid-column:1/-1"><label>Notes</label><textarea id="coNotes" rows="2" style="background:rgba(8,13,26,.8);border:1px solid rgba(240,192,64,.12);color:var(--text);padding:9px 12px;border-radius:8px;font-family:inherit;font-size:12px;outline:none;width:100%;resize:vertical" placeholder="Internal notes about this client…"></textarea></div>
+                </div>
+              </div>
+              <div class="box">
+                <div class="box-title"><span class="icon">📅</span>Reporting Periods</div>
+                <div class="form-grid">
+                  <div class="form-group"><label>Period 1 (Current)</label><input id="period0" value="FY 2024-25" oninput="updatePeriods()"></div>
+                  <div class="form-group"><label>Period 2 (Prior)</label><input id="period1" value="FY 2023-24" oninput="updatePeriods()"></div>
+                  <div class="form-group"><label>Period 3 (Earlier)</label><input id="period2" value="FY 2022-23" oninput="updatePeriods()"></div>
+                </div>
+              </div>
+              <!-- Entity-specific fields -->
+              <div class="box" id="entityFields-listed" style="display:none">
+                <div class="box-title"><span class="icon">📈</span>Listed Company Details</div>
+                <div class="form-grid">
+                  <div class="form-group"><label>Stock Exchange</label><select id="coExchange"><option>BSE</option><option>NSE</option><option>BSE & NSE</option></select></div>
+                  <div class="form-group"><label>Scrip Code (BSE / NSE)</label><input id="coScripCode" placeholder="500325 / RELIANCE"></div>
+                  <div class="form-group"><label>Market Capitalization (₹ Cr)</label><input type="number" id="coMktCap" placeholder="0.00"></div>
+                  <div class="form-group"><label>Face Value per Share (₹)</label><input type="number" id="coFaceVal" value="10"></div>
+                </div>
+              </div>
+              <div class="box" id="entityFields-startup" style="display:none">
+                <div class="box-title"><span class="icon">🚀</span>Startup Details</div>
+                <div class="form-grid">
+                  <div class="form-group"><label>Funding Stage</label><select id="coFundStage"><option>Pre-seed</option><option>Seed</option><option>Series A</option><option>Series B</option><option>Series C</option><option>Series D+</option><option>Bootstrapped</option></select></div>
+                  <div class="form-group"><label>Total Funding Raised (₹ Cr)</label><input type="number" id="coFunding" placeholder="0.00"></div>
+                  <div class="form-group"><label>Lead Investor(s)</label><input id="coInvestors" placeholder="Sequoia, SoftBank..."></div>
+                  <div class="form-group"><label>DPIIT Recognition No.</label><input id="coDpiit" placeholder="DIPP12345"></div>
+                </div>
+              </div>
+              <div class="box" id="entityFields-section8" style="display:none">
+                <div class="box-title"><span class="icon">🏛️</span>Section 8 / Non-Profit Details</div>
+                <div class="form-grid">
+                  <div class="form-group"><label>12A Registration</label><select id="co12a"><option>Yes</option><option>No</option><option>Applied</option></select></div>
+                  <div class="form-group"><label>80G Registration</label><select id="co80g"><option>Yes</option><option>No</option><option>Applied</option></select></div>
+                  <div class="form-group"><label>Primary Beneficiaries</label><input id="coBeneficiaries" placeholder="Rural women, Children..."></div>
+                  <div class="form-group"><label>Geographical Focus</label><input id="coGeo" placeholder="Pan India, State-specific..."></div>
+                </div>
+              </div>
+              <div class="box" id="entityFields-banking" style="display:none">
+                <div class="box-title"><span class="icon">🏦</span>Banking / NBFC Specific</div>
+                <div class="form-grid">
+                  <div class="form-group"><label>Gross NPA Target (%)</label><input type="number" id="coNpaTarget" placeholder="e.g. 3"></div>
+                  <div class="form-group"><label>Capital Adequacy Ratio Target (%)</label><input type="number" id="coCarTarget" placeholder="e.g. 15"></div>
+                  <div class="form-group"><label>CASA Ratio Target (%)</label><input type="number" id="coCasaTarget" placeholder="e.g. 40"></div>
+                  <div class="form-group"><label>RBI License Type</label><input id="coRbiLicense" placeholder="Scheduled Commercial Bank..."></div>
+                </div>
+              </div>
             </div>
-            <div class="form-group"><label>Reporting Currency Unit</label>
-              <select id="coUnit" onchange="updateUnit()">
-                <option value="lakhs">₹ Lakhs</option>
-                <option value="crores">₹ Crores</option>
-                <option value="thousands">₹ Thousands</option>
-                <option value="actual">Actuals (₹)</option>
-              </select>
-            </div>
-          </div>
-        </div>
-        <div class="box">
-          <div class="box-title"><span class="icon">🏭</span>Classification</div>
-          <div class="form-grid">
-            <div class="form-group"><label>Primary Sector</label>
-              <select id="coSector">
-                <option value="technology">Technology & IT Services</option>
-                <option value="banking">Banking & Financial Services</option>
-                <option value="insurance">Insurance & Risk Management</option>
-                <option value="healthcare">Healthcare & Pharmaceuticals</option>
-                <option value="biotech">Biotechnology & Life Sciences</option>
-                <option value="fmcg">Fast Moving Consumer Goods (FMCG)</option>
-                <option value="auto">Automobiles & Auto Components</option>
-                <option value="realestate">Real Estate & Construction</option>
-                <option value="infra">Infrastructure & Utilities</option>
-                <option value="energy">Energy (Conventional)</option>
-                <option value="renewable">Renewable Energy & Green Tech</option>
-                <option value="oilgas">Oil & Gas & Petrochemicals</option>
-                <option value="metals">Metals & Mining</option>
-                <option value="chemicals">Chemicals & Specialty Chemicals</option>
-                <option value="fertilizers">Fertilizers & Agrochemicals</option>
-                <option value="textiles">Textiles & Apparel</option>
-                <option value="retail">Retail & E-commerce</option>
-                <option value="media">Media & Entertainment</option>
-                <option value="telecom">Telecom & Communication</option>
-                <option value="education">Education & EdTech</option>
-                <option value="agri">Agriculture & Food Processing</option>
-                <option value="logistics">Logistics & Transportation</option>
-                <option value="defence">Defence & Aerospace</option>
-                <option value="hospitality">Tourism & Hospitality</option>
-                <option value="capgoods">Capital Goods & Heavy Engineering</option>
-                <option value="cement">Cement & Building Materials</option>
-                <option value="consumer">Consumer Durables & Electronics</option>
-                <option value="gems">Gems & Jewellery</option>
-                <option value="paper">Paper & Packaging</option>
-                <option value="plastic">Plastic & Rubber Products</option>
-                <option value="aviation">Aviation</option>
-                <option value="shipping">Shipping & Ports</option>
-                <option value="railways">Railways & Metro</option>
-                <option value="startupvc">Startups & Venture-backed</option>
-                <option value="ngo">NGO / Trust / Non-Profit</option>
-                <option value="other">Other</option>
-              </select>
-            </div>
-            <div class="form-group"><label>Sub-sector / Niche</label><input id="coSubSector" placeholder="e.g. SaaS, Generics, EV Components"></div>
-            <div class="form-group"><label>Statutory Auditor Name</label><input id="coAuditor" placeholder="CA Firm Name"></div>
-            <div class="form-group"><label>Audit Firm Registration No.</label><input id="coAuditFirm" placeholder="FRN: 123456W"></div>
-          </div>
-        </div>
-        <div class="box">
-          <div class="box-title"><span class="icon">📅</span>Reporting Periods</div>
-          <div class="form-grid">
-            <div class="form-group"><label>Period 1 (Current)</label><input id="period0" value="FY 2024-25" oninput="updatePeriods()"></div>
-            <div class="form-group"><label>Period 2 (Prior)</label><input id="period1" value="FY 2023-24" oninput="updatePeriods()"></div>
-            <div class="form-group"><label>Period 3 (Earlier)</label><input id="period2" value="FY 2022-23" oninput="updatePeriods()"></div>
-          </div>
-        </div>
-        <!-- Entity-specific fields -->
-        <div class="box" id="entityFields-listed" style="display:none">
-          <div class="box-title"><span class="icon">📈</span>Listed Company Details</div>
-          <div class="form-grid">
-            <div class="form-group"><label>Stock Exchange</label><select id="coExchange"><option>BSE</option><option>NSE</option><option>BSE & NSE</option></select></div>
-            <div class="form-group"><label>Scrip Code (BSE / NSE)</label><input id="coScripCode" placeholder="500325 / RELIANCE"></div>
-            <div class="form-group"><label>Market Capitalization (₹ Cr)</label><input type="number" id="coMktCap" placeholder="0.00"></div>
-            <div class="form-group"><label>Face Value per Share (₹)</label><input type="number" id="coFaceVal" value="10"></div>
-          </div>
-        </div>
-        <div class="box" id="entityFields-startup" style="display:none">
-          <div class="box-title"><span class="icon">🚀</span>Startup Details</div>
-          <div class="form-grid">
-            <div class="form-group"><label>Funding Stage</label><select id="coFundStage"><option>Pre-seed</option><option>Seed</option><option>Series A</option><option>Series B</option><option>Series C</option><option>Series D+</option><option>Bootstrapped</option></select></div>
-            <div class="form-group"><label>Total Funding Raised (₹ Cr)</label><input type="number" id="coFunding" placeholder="0.00"></div>
-            <div class="form-group"><label>Lead Investor(s)</label><input id="coInvestors" placeholder="Sequoia, SoftBank..."></div>
-            <div class="form-group"><label>DPIIT Recognition No.</label><input id="coDpiit" placeholder="DIPP12345"></div>
-          </div>
-        </div>
-        <div class="box" id="entityFields-section8" style="display:none">
-          <div class="box-title"><span class="icon">🏛️</span>Section 8 / Non-Profit Details</div>
-          <div class="form-grid">
-            <div class="form-group"><label>12A Registration</label><select id="co12a"><option>Yes</option><option>No</option><option>Applied</option></select></div>
-            <div class="form-group"><label>80G Registration</label><select id="co80g"><option>Yes</option><option>No</option><option>Applied</option></select></div>
-            <div class="form-group"><label>Primary Beneficiaries</label><input id="coBeneficiaries" placeholder="Rural women, Children..."></div>
-            <div class="form-group"><label>Geographical Focus</label><input id="coGeo" placeholder="Pan India, State-specific..."></div>
-          </div>
-        </div>
-        <div class="box" id="entityFields-banking" style="display:none">
-          <div class="box-title"><span class="icon">🏦</span>Banking / NBFC Specific</div>
-          <div class="form-grid">
-            <div class="form-group"><label>Gross NPA Target (%)</label><input type="number" id="coNpaTarget" placeholder="e.g. 3"></div>
-            <div class="form-group"><label>Capital Adequacy Ratio Target (%)</label><input type="number" id="coCarTarget" placeholder="e.g. 15"></div>
-            <div class="form-group"><label>CASA Ratio Target (%)</label><input type="number" id="coCasaTarget" placeholder="e.g. 40"></div>
-            <div class="form-group"><label>RBI License Type</label><input id="coRbiLicense" placeholder="Scheduled Commercial Bank..."></div>
           </div>
         </div>
       </div>
@@ -564,6 +597,8 @@ html,body{height:100%;font-family:'DM Sans',system-ui,sans-serif;background:var(
           </div>
         </div>
         <div id="importBar-bs" class="hidden"><div id="importBarInner-bs"></div></div>
+        <div id="entityBanner-bs"></div>
+        <div id="unitBanner-bs" style="font-size:11px;color:var(--muted);margin-bottom:8px;padding:4px 0"></div>
         <div id="mpDash-bs"></div>
         <div class="box" style="padding:0;overflow:hidden">
           <div class="fin-table-wrap">
@@ -592,6 +627,8 @@ html,body{height:100%;font-family:'DM Sans',system-ui,sans-serif;background:var(
           </div>
         </div>
         <div id="importBar-pl" class="hidden"><div id="importBarInner-pl"></div></div>
+        <div id="entityBanner-pl"></div>
+        <div id="unitBanner-pl" style="font-size:11px;color:var(--muted);margin-bottom:8px;padding:4px 0"></div>
         <div id="mpDash-pl"></div>
         <div class="box" style="padding:0;overflow:hidden">
           <div class="fin-table-wrap">
@@ -697,7 +734,7 @@ html,body{height:100%;font-family:'DM Sans',system-ui,sans-serif;background:var(
 
       <!-- CHAT PANEL -->
       <div class="panel" id="panel-chat">
-        <div class="page-header"><div class="page-title">💬 AI Financial Analyst Chat</div><div class="page-sub">Ask questions about the loaded financial data</div></div>
+        <div class="page-header flex-between"><div><div class="page-title">💬 AI Financial Analyst Chat</div><div class="page-sub">Ask questions about the loaded financial data</div></div><button class="btn btn-ghost btn-sm" onclick="clearChat()">🗑️ Clear Chat</button></div>
         <div class="box" style="padding:0;overflow:hidden">
           <div class="chat-wrap">
             <div class="quick-pills">
@@ -745,6 +782,67 @@ html,body{height:100%;font-family:'DM Sans',system-ui,sans-serif;background:var(
             <div class="export-card" onclick="exportPDF()"><div class="icon">📕</div><div class="name">PDF Report</div><div class="desc">Formatted financial analysis report</div></div>
             <div class="export-card" onclick="exportJSON()"><div class="icon">💾</div><div class="name">Session Backup (JSON)</div><div class="desc">Full session backup — restore later</div></div>
             <div class="export-card" onclick="exportAIReport()"><div class="icon">🤖</div><div class="name">AI Analysis Report</div><div class="desc">Export AI analysis as HTML document</div></div>
+          </div>
+        </div>
+        <!-- SMART DATA VIEWER (merged from standalone panel) -->
+        <div class="box">
+          <div class="box-title" style="cursor:pointer" onclick="var d=document.getElementById('svMergedBody');d.style.display=d.style.display==='none'?'block':'none'"><span class="icon">🗂️</span>Smart Data Viewer <span style="font-size:11px;color:var(--muted);margin-left:6px">(click to expand)</span></div>
+          <div id="svMergedBody" style="display:none">
+            <div class="flex" style="flex-wrap:wrap;gap:8px;margin-bottom:12px">
+              <button class="btn btn-ghost btn-sm" onclick="downloadTemplate('pl')">⬇ P&amp;L Template</button>
+              <button class="btn btn-ghost btn-sm" onclick="downloadTemplate('bs')">⬇ BS Template</button>
+              <button class="btn btn-ghost btn-sm" onclick="downloadTemplate('cf')">⬇ CF Template</button>
+              <button class="btn btn-gold btn-sm" onclick="downloadUniversalTemplate('pl')">⬇ Universal Template</button>
+              <button class="btn btn-teal btn-sm" onclick="loadSampleData('all')">▶ Load Sample Data</button>
+            </div>
+            <div class="box teal" id="svDropZone" style="border:2px dashed rgba(0,212,170,.3);border-radius:14px;padding:32px;text-align:center;cursor:pointer;transition:all .2s"
+              ondragover="event.preventDefault();this.style.background='rgba(0,212,170,.08)'"
+              ondragleave="this.style.background=''"
+              ondrop="event.preventDefault();this.style.background='';handleSVDrop(event)"
+              onclick="document.getElementById('svFileInput').click()">
+              <input type="file" id="svFileInput" accept=".xlsx,.csv,.xls" style="display:none" onchange="handleSVFile(this.files[0])">
+              <div style="font-size:40px;margin-bottom:12px">📂</div>
+              <div style="font-size:14px;font-weight:600;color:var(--teal2);margin-bottom:4px">Drop any Excel or CSV file here</div>
+              <div style="font-size:12px;color:var(--muted)">Supports NetSuite, Tally, Zoho, QuickBooks, SAP exports · Any column structure · Multi-period comparative</div>
+            </div>
+            <div id="svControls" class="hidden">
+              <div class="box sky" style="padding:12px 16px">
+                <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center">
+                  <div class="flex"><span style="font-size:11px;color:var(--muted);margin-right:4px">Header row:</span><select id="svHeaderRow" class="tb-select" style="max-width:90px" onchange="reparseWithHeader()"></select></div>
+                  <div class="flex"><span style="font-size:11px;color:var(--muted);margin-right:4px">Label col:</span><select id="svLabelCol" class="tb-select" style="max-width:120px" onchange="rerenderSV()"></select></div>
+                  <div class="flex"><span style="font-size:11px;color:var(--muted);margin-right:4px">Search:</span><input id="svSearch" style="background:rgba(8,13,26,.8);border:1px solid rgba(56,189,248,.2);color:var(--text);padding:5px 10px;border-radius:6px;font-size:11px;width:160px;outline:none" placeholder="Filter rows…" oninput="rerenderSV()"></div>
+                  <div class="flex"><label style="font-size:11px;color:var(--muted);display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="svHideTotals" onchange="rerenderSV()"> Hide total rows</label></div>
+                  <div class="flex"><label style="font-size:11px;color:var(--muted);display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="svHideDetail" onchange="rerenderSV()"> Collapse detail rows</label></div>
+                  <button class="btn btn-teal btn-sm" onclick="runAIOnSmartData()">✨ AI Analyse This Data</button>
+                  <button class="btn btn-gold btn-sm" onclick="exportSVExcel()">⬇ Export</button>
+                </div>
+              </div>
+              <div class="box" id="svColSelector" style="padding:12px 16px">
+                <div style="font-size:11px;color:var(--muted);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Select Columns to Display:</div>
+                <div id="svColCheckboxes" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+              </div>
+              <div id="svSummaryCards" class="cards" style="grid-template-columns:repeat(auto-fill,minmax(140px,1fr))"></div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px" id="svChartGrid">
+                <div class="box purple"><div class="box-title">Period Trend</div><div class="chart-wrap"><canvas id="svChart1"></canvas></div></div>
+                <div class="box coral"><div class="box-title">Category Breakdown</div><div class="chart-wrap"><canvas id="svChart2"></canvas></div></div>
+              </div>
+              <div class="box" style="padding:0;overflow:hidden">
+                <div class="sv-wrap" id="svTableWrap">
+                  <table class="sv-table" id="svTable"><thead id="svThead"></thead><tbody id="svTbody"></tbody></table>
+                </div>
+              </div>
+              <div id="svStats" style="font-size:11px;color:var(--muted);text-align:center;margin-top:8px"></div>
+            </div>
+            <div class="box" id="svTemplatesBox" style="margin-top:12px">
+              <div class="box-title"><span class="icon">📋</span>Download Sample Templates</div>
+              <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Use these templates to prepare your data in a format FinAnalyser Pro can automatically parse and map.</div>
+              <div class="export-grid">
+                <div class="export-card" onclick="downloadTemplate('pl')"><div class="icon">📈</div><div class="name">P&amp;L Statement</div><div class="desc">Income statement with periods</div></div>
+                <div class="export-card" onclick="downloadTemplate('bs')"><div class="icon">⚖️</div><div class="name">Balance Sheet</div><div class="desc">Schedule III format with 3 years</div></div>
+                <div class="export-card" onclick="downloadTemplate('cf')"><div class="icon">💧</div><div class="name">Cash Flow</div><div class="desc">Indirect method template</div></div>
+                <div class="export-card" onclick="downloadTemplate('ratios')"><div class="icon">🔢</div><div class="name">Ratio Analysis</div><div class="desc">Pre-filled ratio calculator</div></div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -827,79 +925,6 @@ html,body{height:100%;font-family:'DM Sans',system-ui,sans-serif;background:var(
         <!-- SLIDE VIEWER -->
         <div id="slideViewer" style="background:var(--ink2);border:1px solid var(--bdr);border-radius:12px;overflow:hidden;min-height:480px;position:relative"></div>
         <div style="display:flex;justify-content:center;gap:6px;margin-top:12px" id="slideDots"></div>
-      </div>
-
-      <!-- SMART DATA VIEWER PANEL -->
-      <div class="panel" id="panel-smartviewer">
-        <div class="page-header flex-between">
-          <div>
-            <div class="page-title">🗂️ Smart Data Viewer</div>
-            <div class="page-sub">Upload any Excel / CSV — auto-detects structure, periods, hierarchy and renders interactively</div>
-          </div>
-          <div class="flex">
-            <button class="btn btn-ghost btn-sm" onclick="downloadTemplate('pl')">⬇ P&L Template</button>
-            <button class="btn btn-ghost btn-sm" onclick="downloadTemplate('bs')">⬇ BS Template</button>
-            <button class="btn btn-ghost btn-sm" onclick="downloadTemplate('cf')">⬇ CF Template</button>
-            <button class="btn btn-gold btn-sm" onclick="downloadUniversalTemplate('pl')">⬇ Universal Template</button>
-            <button class="btn btn-teal btn-sm" onclick="loadSampleData('all')">▶ Load Sample Data</button>
-          </div>
-        </div>
-        <!-- UPLOAD ZONE -->
-        <div class="box teal" id="svDropZone" style="border:2px dashed rgba(0,212,170,.3);border-radius:14px;padding:32px;text-align:center;cursor:pointer;transition:all .2s"
-          ondragover="event.preventDefault();this.style.background='rgba(0,212,170,.08)'"
-          ondragleave="this.style.background=''"
-          ondrop="event.preventDefault();this.style.background='';handleSVDrop(event)"
-          onclick="document.getElementById('svFileInput').click()">
-          <input type="file" id="svFileInput" accept=".xlsx,.csv,.xls" style="display:none" onchange="handleSVFile(this.files[0])">
-          <div style="font-size:40px;margin-bottom:12px">📂</div>
-          <div style="font-size:14px;font-weight:600;color:var(--teal2);margin-bottom:4px">Drop any Excel or CSV file here</div>
-          <div style="font-size:12px;color:var(--muted)">Supports NetSuite, Tally, Zoho, QuickBooks, SAP exports · Any column structure · Multi-period comparative</div>
-        </div>
-        <!-- CONTROLS (hidden until file loaded) -->
-        <div id="svControls" class="hidden">
-          <div class="box sky" style="padding:12px 16px">
-            <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center">
-              <div class="flex"><span style="font-size:11px;color:var(--muted);margin-right:4px">Header row:</span><select id="svHeaderRow" class="tb-select" style="max-width:90px" onchange="reparseWithHeader()"></select></div>
-              <div class="flex"><span style="font-size:11px;color:var(--muted);margin-right:4px">Label col:</span><select id="svLabelCol" class="tb-select" style="max-width:120px" onchange="rerenderSV()"></select></div>
-              <div class="flex"><span style="font-size:11px;color:var(--muted);margin-right:4px">Search:</span><input id="svSearch" style="background:rgba(8,13,26,.8);border:1px solid rgba(56,189,248,.2);color:var(--text);padding:5px 10px;border-radius:6px;font-size:11px;width:160px;outline:none" placeholder="Filter rows…" oninput="rerenderSV()"></div>
-              <div class="flex"><label style="font-size:11px;color:var(--muted);display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="svHideTotals" onchange="rerenderSV()"> Hide total rows</label></div>
-              <div class="flex"><label style="font-size:11px;color:var(--muted);display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="svHideDetail" onchange="rerenderSV()"> Collapse detail rows</label></div>
-              <button class="btn btn-teal btn-sm" onclick="runAIOnSmartData()">✨ AI Analyse This Data</button>
-              <button class="btn btn-gold btn-sm" onclick="exportSVExcel()">⬇ Export</button>
-            </div>
-          </div>
-          <!-- PERIOD COLUMN SELECTOR -->
-          <div class="box" id="svColSelector" style="padding:12px 16px">
-            <div style="font-size:11px;color:var(--muted);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Select Columns to Display:</div>
-            <div id="svColCheckboxes" style="display:flex;flex-wrap:wrap;gap:8px"></div>
-          </div>
-          <!-- SUMMARY CARDS -->
-          <div id="svSummaryCards" class="cards" style="grid-template-columns:repeat(auto-fill,minmax(140px,1fr))"></div>
-          <!-- CHARTS -->
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px" id="svChartGrid">
-            <div class="box purple"><div class="box-title">Period Trend</div><div class="chart-wrap"><canvas id="svChart1"></canvas></div></div>
-            <div class="box coral"><div class="box-title">Category Breakdown</div><div class="chart-wrap"><canvas id="svChart2"></canvas></div></div>
-          </div>
-          <!-- DATA TABLE -->
-          <div class="box" style="padding:0;overflow:hidden">
-            <div class="sv-wrap" id="svTableWrap">
-              <table class="sv-table" id="svTable"><thead id="svThead"></thead><tbody id="svTbody"></tbody></table>
-            </div>
-          </div>
-          <!-- STATS BAR -->
-          <div id="svStats" style="font-size:11px;color:var(--muted);text-align:center;margin-top:8px"></div>
-        </div>
-        <!-- SAMPLE TEMPLATES -->
-        <div class="box" id="svTemplatesBox">
-          <div class="box-title"><span class="icon">📋</span>Download Sample Templates</div>
-          <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Use these templates to prepare your data in a format FinAnalyser Pro can automatically parse and map.</div>
-          <div class="export-grid">
-            <div class="export-card" onclick="downloadTemplate('pl')"><div class="icon">📈</div><div class="name">P&L Statement</div><div class="desc">Income statement with periods</div></div>
-            <div class="export-card" onclick="downloadTemplate('bs')"><div class="icon">⚖️</div><div class="name">Balance Sheet</div><div class="desc">Schedule III format with 3 years</div></div>
-            <div class="export-card" onclick="downloadTemplate('cf')"><div class="icon">💧</div><div class="name">Cash Flow</div><div class="desc">Indirect method template</div></div>
-            <div class="export-card" onclick="downloadTemplate('ratios')"><div class="icon">🔢</div><div class="name">Ratio Analysis</div><div class="desc">Pre-filled ratio calculator</div></div>
-          </div>
-        </div>
       </div>
 
       <!-- GLOBAL ACCOUNTING STANDARDS PANEL -->
@@ -1061,6 +1086,7 @@ function checkPw(){
 
 // ─── NAVIGATION ──────────────────────────────────────────────────────────────
 function nav(id){
+  if(id==='smartviewer')id='importexport';
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.side-item').forEach(s=>s.classList.remove('active'));
   const panel=document.getElementById('panel-'+id);
@@ -1082,14 +1108,22 @@ function initApp(){
   updateDashboard();
   checkApiKey();
   loadFromStorage();
+  loadClients();
 }
 
 // ─── UNIT FORMATTER ─────────────────────────────────────────────────────────
 function fmt(v){
-  if(v===''||v===null||v===undefined||isNaN(v))return '—';
-  const n=parseFloat(v);
+  if(v===''||v===null||v===undefined)return '—';
+  var n=parseFloat(v);
   if(isNaN(n))return '—';
-  return '₹ '+n.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
+  var unit=(S&&S.co&&S.co.unit)||'actual';
+  var dv=n, suffix='';
+  if(unit==='thousands'){dv=n/1000;suffix=' T';}
+  else if(unit==='lakhs'){dv=n/100000;suffix=' L';}
+  else if(unit==='crores'){dv=n/10000000;suffix=' Cr';}
+  var sign=dv<0?'(':'';
+  var end=dv<0?')':'';
+  return sign+'₹ '+Math.abs(dv).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})+suffix+end;
 }
 function pct(v){
   if(isNaN(v)||!isFinite(v))return '—';
@@ -1144,22 +1178,198 @@ function onEntityChange(){
   if(v==='startup')document.getElementById('entityFields-startup').style.display='';
   if(v==='section8')document.getElementById('entityFields-section8').style.display='';
   if(['bank_pub','bank_pvt','nbfc','mfi'].includes(v))document.getElementById('entityFields-banking').style.display='';
+  applyEntityFinancialBanner(v);
 }
-function updateUnit(){S.co.unit=document.getElementById('coUnit').value;}
+function updateUnit(){
+  S.co.unit=document.getElementById('coUnit').value;
+  var labels={'actual':'Actuals (₹)','thousands':'₹ Thousands','lakhs':'₹ Lakhs','crores':'₹ Crores'};
+  var txt='All figures in '+( labels[S.co.unit]||'₹ Actuals');
+  ['bs','pl'].forEach(function(p){var el=document.getElementById('unitBanner-'+p);if(el)el.textContent=txt;});
+  recalcBS();recalcPL();
+}
+window._entityOverrides={};
+function applyEntityFinancialBanner(entity){
+  var bannerText='';
+  if(entity==='llp'){
+    bannerText='ℹ️ Displayed per LLP Act 2008 — Partners\' Capital basis.';
+    window._entityOverrides={'Shareholders\' Funds':'Partners\' Capital Account','Share Capital':'Partners\' Capital','Reserves & Surplus':'Partners\' Current Account'};
+  } else if(entity==='partnership'){
+    bannerText='ℹ️ Displayed per Partnership Act 1932.';
+    window._entityOverrides={'Shareholders\' Funds':'Partners\' Capital Account','Share Capital':'Partners\' Capital','Reserves & Surplus':'Partners\' Current Account'};
+  } else if(entity==='proprietorship'){
+    bannerText='ℹ️ Proprietorship — single capital account basis.';
+    window._entityOverrides={'Shareholders\' Funds':'Proprietor\'s Capital','Share Capital':'Proprietor\'s Capital'};
+  } else if(entity==='bank_pub'||entity==='bank_pvt'){
+    bannerText='⚠️ Banking entities use Schedule III (Form A for B/S, Form B for P&L) under Banking Regulation Act 1949 — the structure below is an approximation; use RBI prescribed forms for statutory filing.';
+    window._entityOverrides={};
+  } else if(entity==='nbfc'){
+    bannerText='ℹ️ NBFC Schedule III per Companies Act / RBI Master Directions. Loan book and borrowings are key drivers.';
+    window._entityOverrides={};
+  } else {
+    bannerText='';
+    window._entityOverrides={};
+  }
+  var style=bannerText?'padding:8px 14px;background:rgba(240,192,64,.08);border:1px solid rgba(240,192,64,.2);border-radius:8px;margin-bottom:10px;font-size:12px;color:var(--gold2)':'';
+  ['bs','pl'].forEach(function(p){
+    var el=document.getElementById('entityBanner-'+p);
+    if(!el)return;
+    el.textContent=bannerText;
+    el.style.cssText=style;
+  });
+}
 function updateCoName(){
   const v=document.getElementById('coName').value;
   document.getElementById('dashCoName').textContent=v?v+' — Financial Overview':'No company loaded';
   S.co.name=v;
 }
-function saveProfile(){
-  S.co.name=document.getElementById('coName').value;
-  S.co.pan=document.getElementById('coPan').value;
-  S.co.cin=document.getElementById('coCin').value;
-  S.co.sector=document.getElementById('coSector').value;
-  S.co.subSector=document.getElementById('coSubSector').value;
-  S.co.auditor=document.getElementById('coAuditor').value;
+// ─── MULTI-CLIENT BOOK ───────────────────────────────────────────────────────
+window._clientBook=[];
+window._activeClientId=null;
+
+function loadClients(){
+  try{
+    var raw=localStorage.getItem('finpro_clients');
+    if(raw){window._clientBook=JSON.parse(raw)||[];}
+    // Migrate old single-profile if present
+    if(window._clientBook.length===0){
+      var oldRaw=localStorage.getItem('fap_state');
+      if(oldRaw){try{var od=JSON.parse(oldRaw);if(od.company&&od.company.name){var mc=Object.assign({id:'c0',createdAt:Date.now(),updatedAt:Date.now()},od.company);window._clientBook=[mc];saveClients();}}catch(e){}}
+    }
+    window._activeClientId=localStorage.getItem('finpro_activeClientId')||null;
+    renderClientList();
+    if(window._activeClientId){
+      var found=window._clientBook.find(function(c){return c.id===window._activeClientId;});
+      if(found)_loadClientIntoForm(found);
+    }
+  }catch(e){}
+}
+function saveClients(){
+  try{localStorage.setItem('finpro_clients',JSON.stringify(window._clientBook));}catch(e){}
+}
+function _getFormData(){
+  var g=function(id){var el=document.getElementById(id);return el?el.value:'';};
+  return {
+    name:g('coName'),pan:g('coPan'),cin:g('coCin'),gstin:g('coGstin'),
+    incorp:g('coIncorp'),fyEnd:g('coFyEnd'),unit:g('coUnit'),
+    entity:document.getElementById('entitySelect')?document.getElementById('entitySelect').value:'',
+    sector:g('coSector'),subSector:g('coSubSector'),
+    auditor:g('coAuditor'),auditFirm:g('coAuditFirm'),notes:g('coNotes'),
+    updatedAt:Date.now()
+  };
+}
+function _loadClientIntoForm(rec){
+  var sv=function(id,v){var el=document.getElementById(id);if(el)el.value=v||'';};
+  sv('coName',rec.name);sv('coPan',rec.pan);sv('coCin',rec.cin);sv('coGstin',rec.gstin);
+  sv('coIncorp',rec.incorp);sv('coFyEnd',rec.fyEnd);sv('coUnit',rec.unit||'lakhs');
+  sv('coSector',rec.sector);sv('coSubSector',rec.subSector);
+  sv('coAuditor',rec.auditor);sv('coAuditFirm',rec.auditFirm);sv('coNotes',rec.notes);
+  var esel=document.getElementById('entitySelect');if(esel&&rec.entity)esel.value=rec.entity;
+  onEntityChange();
+  updateCoName();
+  updateUnit();
+  // Show form, hide placeholder
+  var ns=document.getElementById('clientNoSel');var cf=document.getElementById('clientForm');
+  if(ns)ns.style.display='none';if(cf)cf.style.display='';
+  // Update S.co
+  Object.assign(S.co,{name:rec.name,pan:rec.pan,cin:rec.cin,sector:rec.sector,subSector:rec.subSector,auditor:rec.auditor,unit:rec.unit||'lakhs',entity:rec.entity});
+}
+function selectClient(id){
+  var rec=window._clientBook.find(function(c){return c.id===id;});
+  if(!rec)return;
+  window._activeClientId=id;
+  localStorage.setItem('finpro_activeClientId',id);
+  _loadClientIntoForm(rec);
+  renderClientList();
+}
+function newClient(){
+  window._activeClientId=null;
+  var ns=document.getElementById('clientNoSel');var cf=document.getElementById('clientForm');
+  if(ns)ns.style.display='none';if(cf)cf.style.display='';
+  ['coName','coPan','coCin','coGstin','coIncorp','coSubSector','coAuditor','coAuditFirm','coNotes'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
+  var esel=document.getElementById('entitySelect');if(esel)esel.value='unlisted_pvt';
+  var usel=document.getElementById('coUnit');if(usel)usel.value='lakhs';
+  onEntityChange();renderClientList();
+}
+function saveClient(){
+  var data=_getFormData();
+  if(!data.name){showToast('Client name is required.','warn');return;}
+  if(!window._activeClientId){
+    window._activeClientId='c'+Date.now();
+    data.id=window._activeClientId;data.createdAt=Date.now();
+    window._clientBook.push(data);
+  } else {
+    var idx=window._clientBook.findIndex(function(c){return c.id===window._activeClientId;});
+    if(idx>=0){Object.assign(window._clientBook[idx],data);}
+    else{data.id=window._activeClientId;data.createdAt=Date.now();window._clientBook.push(data);}
+  }
+  localStorage.setItem('finpro_activeClientId',window._activeClientId);
+  saveClients();
+  Object.assign(S.co,{name:data.name,pan:data.pan,cin:data.cin,sector:data.sector,subSector:data.subSector,auditor:data.auditor,unit:data.unit||'lakhs',entity:data.entity});
   saveToStorage();
-  alert('Profile saved!');
+  renderClientList();
+  showToast('Client saved: '+data.name);
+}
+function saveProfile(){saveClient();}
+function deleteClient(){
+  if(!window._activeClientId){return;}
+  var rec=window._clientBook.find(function(c){return c.id===window._activeClientId;});
+  if(!confirm('Delete client "'+(rec?rec.name:'this client')+'"? This cannot be undone.'))return;
+  window._clientBook=window._clientBook.filter(function(c){return c.id!==window._activeClientId;});
+  window._activeClientId=null;
+  localStorage.removeItem('finpro_activeClientId');
+  saveClients();
+  var ns=document.getElementById('clientNoSel');var cf=document.getElementById('clientForm');
+  if(ns)ns.style.display='';if(cf)cf.style.display='none';
+  renderClientList();
+  showToast('Client deleted.','warn');
+}
+function exportClientData(){
+  if(!window._activeClientId){showToast('No client selected.','warn');return;}
+  var rec=window._clientBook.find(function(c){return c.id===window._activeClientId;});
+  if(!rec)return;
+  var blob=new Blob([JSON.stringify(rec,null,2)],{type:'application/json'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=(rec.name||'client').replace(/[^a-z0-9]/gi,'_')+'_profile.json';
+  a.click();
+}
+function importClientData(file){
+  if(!file)return;
+  var r=new FileReader();
+  r.onload=function(e){
+    try{
+      var rec=JSON.parse(e.target.result);
+      if(!rec.name){showToast('Invalid client file — missing name.','warn');return;}
+      var existing=window._clientBook.findIndex(function(c){return c.id===rec.id;});
+      if(existing>=0){window._clientBook[existing]=rec;}
+      else{if(!rec.id)rec.id='c'+Date.now();window._clientBook.push(rec);}
+      saveClients();renderClientList();showToast('Client imported: '+rec.name);
+    }catch(ex){showToast('Import failed: invalid JSON.','warn');}
+  };
+  r.readAsText(file);
+}
+function renderClientList(){
+  var list=document.getElementById('clientDirList');if(!list)return;
+  var q=(document.getElementById('clientSearch')||{}).value||'';q=q.toLowerCase();
+  var filtered=window._clientBook.filter(function(c){return !q||((c.name||'').toLowerCase().includes(q)||(c.pan||'').toLowerCase().includes(q));});
+  if(filtered.length===0){list.innerHTML='<div style="font-size:11px;color:var(--muted);text-align:center;padding:20px">No clients found</div>';return;}
+  var html='';
+  filtered.forEach(function(c){
+    var active=c.id===window._activeClientId;
+    html+='<div class="client-card'+(active?' selected':'')+'" onclick="selectClient(\''+c.id+'\')">';
+    html+='<div class="client-card-name">'+(c.name||'Unnamed Client')+'</div>';
+    html+='<div class="client-card-meta">'+(c.pan||'PAN not set')+'</div>';
+    var ent=c.entity||'unlisted_pvt';
+    html+='<span class="client-card-badge">'+ent.replace(/_/g,' ')+'</span>';
+    html+='</div>';
+  });
+  list.innerHTML=html;
+}
+function showToast(msg,type){
+  var t=document.createElement('div');
+  t.textContent=msg;
+  t.style.cssText='position:fixed;bottom:24px;right:24px;background:'+(type==='warn'?'var(--coral)':'var(--em)')+';color:#fff;padding:10px 18px;border-radius:10px;font-size:12px;font-weight:600;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,.4);transition:opacity .3s';
+  document.body.appendChild(t);
+  setTimeout(function(){t.style.opacity='0';setTimeout(function(){t.remove();},350);},2500);
 }
 
 // ─── BALANCE SHEET ROWS ───────────────────────────────────────────────────────
@@ -1209,13 +1419,27 @@ const BS_ROWS=[
   {type:'grand',id:'total_assets',label:'TOTAL ASSETS',calcFn:(p)=>sum(p,['total_nca','total_ca'])},
 ];
 
+function _parseDisplayVal(text){
+  // Parse formatted text like "₹ 5.40 L", "(₹ 3.20 Cr)", "₹ 1,234.00"
+  var t=(text||'').trim();
+  var neg=t.startsWith('(')&&t.endsWith(')');
+  var unit=(S&&S.co&&S.co.unit)||'actual';
+  t=t.replace(/[₹,\s—()]/g,'');
+  // strip suffix
+  var mult=1;
+  if(t.endsWith('Cr')){t=t.slice(0,-2);mult=10000000;}
+  else if(t.endsWith('L')){t=t.slice(0,-1);mult=100000;}
+  else if(t.endsWith('T')){t=t.slice(0,-1);mult=1000;}
+  var n=parseFloat(t)||0;
+  n=n*mult;
+  return neg?-n:n;
+}
 function sum(period,ids){return ids.reduce((acc,id)=>{
   const el=document.getElementById(id+'_'+period);
   if(!el)return acc;
   if(el.tagName==='INPUT')return acc+(parseFloat(el.value)||0);
   // computed subtotal cell (TD/SPAN) — read formatted text
-  const t=(el.textContent||'').replace(/[₹,\s—]/g,'');
-  return acc+(parseFloat(t)||0);
+  return acc+_parseDisplayVal(el.textContent);
 },0);}
 
 function initBS(){
@@ -1263,15 +1487,13 @@ function recalcBS(){
 function getNumText(id){
   const el=document.getElementById(id);
   if(!el)return 0;
-  const t=el.textContent.replace(/[₹,\s—]/g,'');
-  return parseFloat(t)||0;
+  return _parseDisplayVal(el.textContent);
 }
 function getBSVal(id,period=0){
   const el=document.getElementById(id+'_'+period);
   if(!el)return 0;
   if(el.tagName==='INPUT')return parseFloat(el.value)||0;
-  const t=el.textContent.replace(/[₹,\s—]/g,'');
-  return parseFloat(t)||0;
+  return _parseDisplayVal(el.textContent);
 }
 
 // ─── P&L ROWS ─────────────────────────────────────────────────────────────────
@@ -1316,8 +1538,7 @@ function getBSVPL(id,period){
   const el=document.getElementById('pl_'+id+'_'+period);
   if(!el)return 0;
   if(el.tagName==='INPUT')return parseFloat(el.value)||0;
-  const t=el.textContent.replace(/[₹,\s—]/g,'');
-  return parseFloat(t)||0;
+  return _parseDisplayVal(el.textContent);
 }
 function sumPL(period,ids){return ids.reduce((acc,id)=>acc+getPLInput(id,period),0);}
 function plNumIn(id,period){
@@ -1406,7 +1627,7 @@ function getCFVal(id,period){
   const el=document.getElementById('cf_'+id+'_'+period);
   if(!el)return 0;
   if(el.tagName==='INPUT')return parseFloat(el.value)||0;
-  const t=el.textContent.replace(/[₹,\s—]/g,'');return parseFloat(t)||0;
+  return _parseDisplayVal(el.textContent);
 }
 function sumCF(period,ids){return ids.reduce((acc,id)=>acc+getCFIn(id,period),0);}
 function cfNumIn(id,period){
@@ -1849,78 +2070,236 @@ async function sendChat(){
 // Local (offline) chat answer engine — computes answers from loaded data.
 function localChatAnswer(question){
   var q=String(question||'').toLowerCase();
-  var fmt=function(v){return '₹'+(Math.round(v*100)/100).toLocaleString('en-IN');};
-  var pct=function(v){return (Math.round(v*10)/10)+'%';};
-  var rev0=getBSVPL('total_rev',0),rev1=getBSVPL('total_rev',1);
-  var pat0=getBSVPL('pat',0),pat1=getBSVPL('pat',1);
-  var ebitda0=getBSVPL('ebitda',0);
+  var fmtL=function(v){if(isNaN(v)||v===null||v===undefined)return '—';return '₹'+(Math.round(v*100)/100).toLocaleString('en-IN');};
+  var pctL=function(v){if(isNaN(v)||!isFinite(v))return '—';return (Math.round(v*10)/10)+'%';};
+  var emo=function(v,goodAbove,warnAbove){if(v===null||isNaN(v))return '';return v>=goodAbove?'✅':(v>=warnAbove?'⚠️':'🔴');};
+
+  var rev0=getBSVPL('total_rev',0),rev1=getBSVPL('total_rev',1),rev2=getBSVPL('total_rev',2);
+  var pat0=getBSVPL('pat',0),pat1=getBSVPL('pat',1),pat2=getBSVPL('pat',2);
+  var ebitda0=getBSVPL('ebitda',0),ebitda1=getBSVPL('ebitda',1),ebitda2=getBSVPL('ebitda',2);
+  var ebit0=getBSVPL('ebit',0),pbt0=getBSVPL('pbt',0);
   var fin0=getPLInput('finance_costs',0);
-  var ta=getBSVal('total_assets',0),te=getBSVal('total_equity',0);
+  var dep0=getPLInput('depreciation',0);
+  var emp0=getPLInput('emp_benefits',0);
+  var mat0=getPLInput('cost_materials',0);
+  var oth0=getPLInput('other_exp',0);
+  var ta=getBSVal('total_assets',0),ta1=getBSVal('total_assets',1);
+  var te=getBSVal('total_equity',0);
+  var nca=getBSVal('total_nca',0);
   var ca=getBSVal('total_ca',0),cl=getBSVal('total_cl',0);
+  var inv=getBSVal('inventories',0);
+  var tr=getBSVal('trade_rec',0);
+  var cash0=getBSVal('cash',0);
   var debt=getBSVal('lt_borrowings',0)+getBSVal('st_borrowings',0);
+  var ltD=getBSVal('lt_borrowings',0),stD=getBSVal('st_borrowings',0);
   var wc=ca-cl;
-  var cr=cl?ca/cl:null;
-  var de=te?debt/te:null;
-  var patMargin=rev0?pat0/rev0*100:null;
-  var revGrowth=rev1?((rev0-rev1)/Math.abs(rev1)*100):null;
-  var patTrend=(pat1!=null&&pat1!==0)?((pat0-pat1)/Math.abs(pat1)*100):null;
-  var out=[];
-  var P='📊 Computed from loaded data (offline mode):';
+  var cr=cl>0?ca/cl:null;
+  var qr=cl>0?(ca-inv)/cl:null;
+  var de=te>0?debt/te:null;
+  var ic=fin0>0?ebit0/fin0:null;
+  var patMargin=rev0>0?pat0/rev0*100:null;
+  var ebitdaMargin=rev0>0?ebitda0/rev0*100:null;
+  var ebitMargin=rev0>0?ebit0/rev0*100:null;
+  var pbtMargin=rev0>0?pbt0/rev0*100:null;
+  var revGrowth=rev1>0?((rev0-rev1)/Math.abs(rev1)*100):null;
+  var patGrowth=pat1!==0&&pat1?((pat0-pat1)/Math.abs(pat1)*100):null;
+  var roa=ta>0?pat0/ta*100:null;
+  var p0=S.periods[0]||'P1',p1=S.periods[1]||'P2',p2=S.periods[2]||'P3';
+  var P='📊 **Computed from loaded data (offline mode)**';
+  var FOOTER='\n\n---\n💡 Ask me about: **expense breakdown** | **going concern** | **audit risks** | **period trend** | **ratios** | **schedule III**';
+
+  function periodTable(rows){
+    var h='| Metric | '+p0+' | '+p1+' | '+p2+' |\n|---|---:|---:|---:|\n';
+    rows.forEach(function(r){h+='| '+r[0]+' | '+fmtL(r[1])+' | '+fmtL(r[2])+' | '+fmtL(r[3])+' |\n';});
+    return h;
+  }
 
   function revenueAns(){
-    var s='**Revenue:** '+fmt(rev0)+' (current period)';
-    if(revGrowth!=null)s+=', '+(revGrowth>=0?'up ':'down ')+pct(Math.abs(revGrowth))+' vs prior period ('+fmt(rev1)+')';
-    return s+'.';
-  }
-  function profitAns(){
-    var s='**PAT:** '+fmt(pat0)+(patMargin!=null?' ('+pct(patMargin)+' net margin)':'');
-    if(patTrend!=null)s+='; trend vs prior period: '+(patTrend>=0?'▲ ':'▼ ')+pct(Math.abs(patTrend));
-    s+='. EBITDA: '+fmt(ebitda0)+'.';
+    var s='## Revenue Analysis\n\n';
+    s+=periodTable([['Revenue',rev0,rev1,rev2],['EBITDA',ebitda0,ebitda1,ebitda2],['PAT',pat0,pat1,pat2]]);
+    s+='\n**Current Period Revenue:** '+fmtL(rev0)+' '+emo(revGrowth,10,-5)+'\n\n';
+    if(revGrowth!==null)s+='**YoY Growth:** '+(revGrowth>=0?'▲ ':'▼ ')+pctL(Math.abs(revGrowth))+' vs '+p1+'\n\n';
+    if(rev2>0&&rev0>0){var cagr=Math.pow(rev0/rev2,1/2)-1;s+='**2-year CAGR:** '+pctL(cagr*100)+'\n\n';}
+    s+='**EBITDA Margin:** '+pctL(ebitdaMargin)+' '+emo(ebitdaMargin,20,10)+'\n\n';
+    s+='**Net Margin:** '+pctL(patMargin)+' '+emo(patMargin,10,5);
     return s;
-  }
-  function liquidityAns(){
-    var s='**Liquidity:** Current Assets '+fmt(ca)+', Current Liabilities '+fmt(cl)+'. Working Capital: '+fmt(wc)+'.';
-    if(cr!=null){
-      s+=' Current Ratio: '+(Math.round(cr*100)/100)+' — ';
-      s+=cr>=2?'comfortable liquidity position.':(cr>=1?'adequate, but monitor short-term obligations.':'stretched; current liabilities exceed current assets.');
-    }
-    return s;
-  }
-  function debtAns(){
-    var s='**Leverage:** Total borrowings '+fmt(debt)+' (LT '+fmt(getBSVal('lt_borrowings',0))+' + ST '+fmt(getBSVal('st_borrowings',0))+').';
-    if(de!=null){
-      s+=' Debt/Equity: '+(Math.round(de*100)/100)+' — ';
-      s+=de<=1?'conservative leverage.':(de<=2?'moderate leverage; serviceability depends on cash flows.':'high leverage; solvency risk warrants attention.');
-    }
-    s+=' Finance costs: '+fmt(fin0)+'.';
-    return s;
-  }
-  function goingConcernAns(){
-    var s='**Going Concern mini-assessment:** ';
-    s+='PAT is '+(pat0>=0?'positive ('+fmt(pat0)+')':'negative ('+fmt(pat0)+')')+'; ';
-    s+='Current Ratio is '+(cr!=null?(Math.round(cr*100)/100):'n/a')+'; ';
-    s+='Net Worth is '+(te>=0?'positive ('+fmt(te)+')':'negative ('+fmt(te)+')')+'. ';
-    var flags=(pat0<0?1:0)+((cr!=null&&cr<1)?1:0)+(te<0?1:0);
-    s+=flags===0?'No primary going-concern indicators are triggered on these metrics.':(flags===1?'One indicator warrants monitoring, but on balance no material uncertainty is evident from these figures alone.':'Multiple indicators are adverse — a detailed going-concern evaluation is recommended.');
-    return s;
-  }
-  function summaryAns(){
-    return revenueAns()+'\n\n'+profitAns()+'\n\n'+liquidityAns()+'\n\n'+debtAns()+'\n\nTotal Assets: '+fmt(ta)+'; Total Equity: '+fmt(te)+'.';
   }
 
-  if(/revenue|sales|turnover|top ?line/.test(q))out.push(revenueAns());
-  else if(/profit|pat|bottom ?line|earnings|loss/.test(q))out.push(profitAns());
-  else if(/liquid|current ratio|working capital/.test(q))out.push(liquidityAns());
-  else if(/debt|borrow|leverage|solven/.test(q))out.push(debtAns());
-  else if(/going concern/.test(q))out.push(goingConcernAns());
-  else if(/health|overall|summary|how is/.test(q))out.push(summaryAns());
-  else{
-    out.push(summaryAns());
-    out.push('\n\n*You can also ask about: revenue, profit/PAT, liquidity & working capital, debt & leverage, or going concern.*');
+  function profitAns(){
+    var s='## Profitability Analysis\n\n';
+    s+=periodTable([['Revenue',rev0,rev1,rev2],['EBITDA',ebitda0,ebitda1,ebitda2],['EBIT',ebit0,getBSVPL('ebit',1),getBSVPL('ebit',2)],['PBT',pbt0,getBSVPL('pbt',1),getBSVPL('pbt',2)],['PAT',pat0,pat1,pat2]]);
+    s+='\n**Margin Analysis (Current Period):**\n';
+    s+='- EBITDA Margin: '+pctL(ebitdaMargin)+' '+emo(ebitdaMargin,20,10)+'\n';
+    s+='- EBIT Margin: '+pctL(ebitMargin)+' '+emo(ebitMargin,15,8)+'\n';
+    s+='- PBT Margin: '+pctL(pbtMargin)+' '+emo(pbtMargin,12,5)+'\n';
+    s+='- Net (PAT) Margin: '+pctL(patMargin)+' '+emo(patMargin,10,5)+'\n';
+    if(patGrowth!==null)s+='\n**PAT Growth:** '+(patGrowth>=0?'▲ ':'▼ ')+pctL(Math.abs(patGrowth))+' vs '+p1+' '+emo(patGrowth,0,-20);
+    return s;
   }
-  return P+'\n\n'+out.join('');
+
+  function expenseAns(){
+    var s='## Expense Breakdown\n\n';
+    var totExp=mat0+emp0+fin0+dep0+oth0;
+    var pctOf=function(v){return rev0>0?pctL(v/rev0*100):'—';};
+    s+='| Expense Head | Amount | % of Revenue |\n|---|---:|---:|\n';
+    s+='| Cost of Materials | '+fmtL(mat0)+' | '+pctOf(mat0)+' |\n';
+    s+='| Employee Benefits | '+fmtL(emp0)+' | '+pctOf(emp0)+' |\n';
+    s+='| Finance Costs | '+fmtL(fin0)+' | '+pctOf(fin0)+' |\n';
+    s+='| Depreciation | '+fmtL(dep0)+' | '+pctOf(dep0)+' |\n';
+    s+='| Other Expenses | '+fmtL(oth0)+' | '+pctOf(oth0)+' |\n';
+    s+='| **Total Expenses** | **'+fmtL(totExp)+'** | **'+pctOf(totExp)+'** |\n\n';
+    var heads=[[mat0,'Materials'],[emp0,'Employee'],[fin0,'Finance'],[dep0,'Depreciation'],[oth0,'Other']];
+    var maxH=heads.sort(function(a,b){return b[0]-a[0];})[0];
+    s+='**Dominant expense head:** '+maxH[1]+' at '+fmtL(maxH[0]);
+    return s;
+  }
+
+  function liquidityAns(){
+    var s='## Liquidity & Working Capital\n\n';
+    s+='| Metric | Value | Signal |\n|---|---:|:---:|\n';
+    s+='| Current Assets | '+fmtL(ca)+' | |\n';
+    s+='| Current Liabilities | '+fmtL(cl)+' | |\n';
+    s+='| Working Capital | '+fmtL(wc)+' | '+(wc>=0?'✅':'🔴')+' |\n';
+    s+='| Current Ratio | '+(cr!==null?(Math.round(cr*100)/100)+'x':'—')+' | '+emo(cr,2,1)+' |\n';
+    s+='| Quick Ratio | '+(qr!==null?(Math.round(qr*100)/100)+'x':'—')+' | '+emo(qr,1,0.5)+' |\n';
+    s+='| Cash & Equivalents | '+fmtL(cash0)+' | |\n\n';
+    if(cr!==null){
+      s+='**Assessment:** ';
+      s+=cr>=2?'✅ Comfortable liquidity — Current Ratio above 2.0 indicates strong short-term coverage.':(cr>=1?'⚠️ Adequate liquidity — monitor short-term obligations; aim for ratio above 2.0.':'🔴 Stretched liquidity — Current Liabilities exceed Current Assets; immediate action may be required.');
+    }
+    return s;
+  }
+
+  function debtAns(){
+    var s='## Debt & Leverage Analysis\n\n';
+    s+='| Metric | Value | Signal |\n|---|---:|:---:|\n';
+    s+='| LT Borrowings | '+fmtL(ltD)+' | |\n';
+    s+='| ST Borrowings | '+fmtL(stD)+' | |\n';
+    s+='| Total Debt | '+fmtL(debt)+' | |\n';
+    s+='| Total Equity | '+fmtL(te)+' | |\n';
+    s+='| Debt/Equity Ratio | '+(de!==null?(Math.round(de*100)/100)+'x':'—')+' | '+emo(de!==null?-de:null,-1,-2)+' |\n';
+    s+='| Interest Coverage | '+(ic!==null?(Math.round(ic*100)/100)+'x':'—')+' | '+emo(ic,3,1.5)+' |\n';
+    s+='| Finance Costs | '+fmtL(fin0)+' | |\n\n';
+    if(de!==null){
+      s+='**Leverage Assessment:** ';
+      s+=de<=1?'✅ Conservative leverage — D/E below 1x is considered healthy.':(de<=2?'⚠️ Moderate leverage — serviceability depends on cash flows. Monitor DSCR.':'🔴 High leverage — D/E above 2x. Solvency risk warrants immediate attention.');
+    }
+    return s;
+  }
+
+  function assetAns(){
+    var s='## Asset Analysis\n\n';
+    s+='| Metric | Value |\n|---|---:|\n';
+    s+='| Total Assets | '+fmtL(ta)+' |\n';
+    s+='| Non-Current Assets | '+fmtL(nca)+' |\n';
+    s+='| Current Assets | '+fmtL(ca)+' |\n';
+    s+='| Trade Receivables | '+fmtL(tr)+' |\n';
+    s+='| Inventories | '+fmtL(inv)+' |\n\n';
+    if(ta>0){s+='**Fixed vs Current Split:** '+(nca/ta*100).toFixed(1)+'% fixed / '+(ca/ta*100).toFixed(1)+'% current\n\n';}
+    var assetTurn=ta>0?rev0/ta:null;
+    s+='**Asset Turnover:** '+(assetTurn!==null?(Math.round(assetTurn*100)/100)+'x':'—')+' '+emo(assetTurn,1,0.5)+'\n';
+    s+='**Return on Assets (ROA):** '+pctL(roa)+' '+emo(roa,10,5);
+    return s;
+  }
+
+  function goingConcernAns(){
+    var s='## Going Concern Assessment\n\n';
+    var flags=0;
+    s+='| Indicator | Value | Status |\n|---|---|:---:|\n';
+    var patOk=pat0>=0;s+='| Profitability (PAT) | '+fmtL(pat0)+' | '+(patOk?'✅':'🔴')+' |\n';if(!patOk)flags++;
+    var cashOk=cash0>=0&&wc>=0;s+='| Cash & Working Capital | WC: '+fmtL(wc)+' | '+(cashOk?'✅':'🔴')+' |\n';if(!cashOk)flags++;
+    var levOk=de===null||de<=3;s+='| Leverage (D/E) | '+(de!==null?(Math.round(de*100)/100)+'x':'—')+' | '+(levOk?'✅':'🔴')+' |\n';if(!levOk)flags++;
+    var crOk=cr===null||cr>=1;s+='| Short-term Solvency (CR) | '+(cr!==null?(Math.round(cr*100)/100)+'x':'—')+' | '+(crOk?'✅':'🔴')+' |\n';if(!crOk)flags++;
+    var growOk=revGrowth===null||revGrowth>=-10;s+='| Revenue Trend | '+(revGrowth!==null?pctL(revGrowth):'N/A')+' | '+(growOk?'✅':'⚠️')+' |\n';if(!growOk)flags++;
+    s+='\n**Overall Going Concern Level:** ';
+    s+=flags===0?'✅ **Low Concern** — No material indicators of going concern issues based on current data.':(flags<=2?'⚠️ **Medium Concern** — Some indicators warrant monitoring. Disclose and assess further.':'🔴 **High Concern** — Multiple adverse indicators. A formal going-concern evaluation per SA 570 is strongly recommended.');
+    return s;
+  }
+
+  function ratiosAns(){
+    var s='## Comprehensive Ratio Analysis\n\n';
+    s+='**Liquidity Ratios**\n';
+    s+='- Current Ratio: '+(cr!==null?(Math.round(cr*100)/100)+'x':'—')+' '+emo(cr,2,1)+'\n';
+    s+='- Quick Ratio: '+(qr!==null?(Math.round(qr*100)/100)+'x':'—')+' '+emo(qr,1,0.5)+'\n\n';
+    s+='**Leverage Ratios**\n';
+    s+='- Debt/Equity: '+(de!==null?(Math.round(de*100)/100)+'x':'—')+' '+emo(de!==null?-de:null,-1,-2)+'\n';
+    s+='- Interest Coverage: '+(ic!==null?(Math.round(ic*100)/100)+'x':'—')+' '+emo(ic,3,1.5)+'\n\n';
+    s+='**Profitability Ratios**\n';
+    s+='- EBITDA Margin: '+pctL(ebitdaMargin)+' '+emo(ebitdaMargin,20,10)+'\n';
+    s+='- Net Margin: '+pctL(patMargin)+' '+emo(patMargin,10,5)+'\n';
+    s+='- ROA: '+pctL(roa)+' '+emo(roa,10,5)+'\n';
+    var roe=te>0?pat0/te*100:null;
+    s+='- ROE: '+pctL(roe)+' '+emo(roe,15,8)+'\n\n';
+    s+='**Efficiency Ratios**\n';
+    var dso=rev0>0&&tr>0?365/(rev0/tr):null;
+    var dio=rev0>0&&inv>0?365/(rev0/inv):null;
+    s+='- DSO (Debtor Days): '+(dso!==null?Math.round(dso)+' days':'—')+' '+emo(dso!==null?-dso:null,-30,-90)+'\n';
+    s+='- DIO (Inventory Days): '+(dio!==null?Math.round(dio)+' days':'—')+' '+emo(dio!==null?-dio:null,-60,-180)+'\n';
+    var assTurn=ta>0?rev0/ta:null;
+    s+='- Asset Turnover: '+(assTurn!==null?(Math.round(assTurn*100)/100)+'x':'—')+' '+emo(assTurn,1,0.5)+'\n\n';
+    s+='**Growth Ratios**\n';
+    s+='- Revenue Growth: '+pctL(revGrowth)+' '+emo(revGrowth,10,0)+'\n';
+    s+='- PAT Growth: '+pctL(patGrowth)+' '+emo(patGrowth,10,0);
+    return s;
+  }
+
+  function auditAns(){
+    var s='## Audit Focus Areas\n\n';
+    var areas=[];
+    if(tr>0&&rev0>0&&365/(rev0/tr)>90)areas.push('🔴 **Debtors Confirmation (SA 505)** — DSO exceeds 90 days ('+Math.round(365/(rev0/tr))+' days). Send independent confirmation to major debtors.');
+    else areas.push('✅ **Debtors Confirmation** — DSO within acceptable range. Standard confirmation procedures apply.');
+    if(inv>0)areas.push('⚠️ **Stock Audit / Physical Verification** — Inventories of '+fmtL(inv)+' recorded. Verify physical count and valuation method (FIFO/WA).');
+    if(pat0<0||te<0)areas.push('🔴 **Going Concern (SA 570)** — '+(pat0<0?'Net loss recorded.':'')+' '+(te<0?'Negative net worth.':'')+' Mandatory going-concern evaluation required.');
+    if(de!==null&&de>2)areas.push('🔴 **Covenant Compliance** — High D/E ratio ('+Math.round(de*100)/100+'x). Review loan covenants and test for technical defaults.');
+    if(fin0>0&&ic!==null&&ic<2)areas.push('⚠️ **Interest Coverage Risk** — Coverage ratio of '+Math.round(ic*100)/100+'x is below safe threshold of 3x. Assess debt serviceability.');
+    areas.push('ℹ️ **Related Party Transactions (SA 550)** — Verify all RPT disclosures as per AS 18 / Ind AS 24.');
+    s+=areas.slice(0,5).join('\n\n');
+    return s;
+  }
+
+  function trendAns(){
+    var s='## Period-by-Period Trend Analysis\n\n';
+    s+=periodTable([['Revenue',rev0,rev1,rev2],['EBITDA',ebitda0,ebitda1,ebitda2],['PAT',pat0,pat1,pat2],['Total Assets',ta,ta1,getBSVal('total_assets',2)]]);
+    s+='\n**Revenue Growth (P2→P1):** '+pctL(revGrowth)+' '+emo(revGrowth,10,0)+'\n';
+    s+='**PAT Growth (P2→P1):** '+pctL(patGrowth)+' '+emo(patGrowth,10,0)+'\n';
+    if(rev2>0&&rev0>0){var cagr=Math.pow(rev0/rev2,1/2)-1;s+='\n**Revenue 2-Year CAGR:** '+pctL(cagr*100)+'\n';}
+    s+='\n**Profitability Trend:** '+pctL(rev0>0?ebitda0/rev0*100:null)+' EBITDA margin now vs '+pctL(rev1>0?ebitda1/rev1*100:null)+' in '+p1;
+    return s;
+  }
+
+  function helpAns(){
+    var s='## What I Can Analyse\n\n';
+    s+='**Financial Performance**\n- Revenue, sales & turnover analysis\n- Profit breakdown (PAT, EBITDA, EBIT, PBT)\n- Expense analysis by category\n\n';
+    s+='**Balance Sheet**\n- Asset composition & turnover\n- Liquidity & working capital\n- Debt & leverage analysis\n\n';
+    s+='**Risk Assessment**\n- Going concern evaluation (5-point)\n- Audit focus areas & red flags\n- Interest coverage & covenant risk\n\n';
+    s+='**Trends & Comparison**\n- Period-by-period comparison table\n- Growth rates & CAGR\n- All financial ratios\n\n';
+    s+='**Navigation**\n- Ask about "schedule III" or "financial drafting" to go there\n- Ask "ratios" for full ratio table\n- Ask "help" to see this list';
+    return s;
+  }
+
+  function summaryAns(){
+    return revenueAns()+'\n\n---\n\n'+profitAns().replace('## Profitability Analysis\n\n','**Profitability Summary:**\n\n')+'\n\n---\n\n'+liquidityAns()+'\n\n---\n\n'+debtAns();
+  }
+
+  var ans='';
+  if(/revenue|sales|turnover|income|top.?line/.test(q))ans=revenueAns();
+  else if(/profit|pat|net|loss|earnings|margin|bottom.?line/.test(q))ans=profitAns();
+  else if(/expense|cost|overhead/.test(q))ans=expenseAns();
+  else if(/liquid|cash|working.?capital|current.?ratio|quick.?ratio/.test(q))ans=liquidityAns();
+  else if(/debt|leverage|solven|borrow|interest/.test(q))ans=debtAns();
+  else if(/asset|turnover|roa/.test(q))ans=assetAns();
+  else if(/going.?concern/.test(q))ans=goingConcernAns();
+  else if(/ratio|financial.?health|health/.test(q))ans=ratiosAns();
+  else if(/audit|risk|flag/.test(q))ans=auditAns();
+  else if(/compare|trend|period|monthly/.test(q))ans=trendAns();
+  else if(/schedule|draft|sched.?3/.test(q)){nav('sched3');ans='Navigating to Financial Drafting panel...';}
+  else if(/help|what.?can.?you|what.?can.?i.?ask/.test(q))ans=helpAns();
+  else ans=summaryAns();
+
+  return P+'\n\n'+ans+FOOTER;
 }
 function quickChat(q){document.getElementById('chatInput').value=q;sendChat();}
+function clearChat(){S.chat=[];var el=document.getElementById('chatMsgs');if(el){el.innerHTML='<div class="chat-msg ai"><div class="role">🤖 AI Analyst</div>Chat cleared. Ask me anything about the loaded financial data!</div>';}}
 function addChatMsg(role,text,typing=false){
   const msgs=document.getElementById('chatMsgs');
   const div=document.createElement('div');
@@ -2170,14 +2549,14 @@ function exportExcel(){
   const bsArr=[['Balance Sheet','FY 2024-25','FY 2023-24','FY 2022-23']];
   BS_ROWS.forEach(r=>{
     if(r.type==='section'){bsArr.push([r.label,'','','']);return;}
-    if(r.id){const label=r.label;const vals=[0,1,2].map(p=>{const el=document.getElementById(r.id+'_'+p);return el?parseFloat(el.tagName==='INPUT'?el.value:el.textContent.replace(/[₹,\s—]/g,''))||0:0;});bsArr.push([label,...vals]);}
+    if(r.id){const label=r.label;const vals=[0,1,2].map(p=>{const el=document.getElementById(r.id+'_'+p);return el?(el.tagName==='INPUT'?parseFloat(el.value)||0:_parseDisplayVal(el.textContent)):0;});bsArr.push([label,...vals]);}
   });
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(bsArr),'Balance Sheet');
   // PL sheet
   const plArr=[['Profit & Loss','FY 2024-25','FY 2023-24','FY 2022-23']];
   PL_ROWS.forEach(r=>{
     if(r.type==='section'){plArr.push([r.label,'','','']);return;}
-    if(r.id){const label=r.label;const vals=[0,1,2].map(p=>{const el=document.getElementById('pl_'+r.id+'_'+p);return el?parseFloat(el.tagName==='INPUT'?el.value:el.textContent.replace(/[₹,\s—]/g,''))||0:0;});plArr.push([label,...vals]);}
+    if(r.id){const label=r.label;const vals=[0,1,2].map(p=>{const el=document.getElementById('pl_'+r.id+'_'+p);return el?(el.tagName==='INPUT'?parseFloat(el.value)||0:_parseDisplayVal(el.textContent)):0;});plArr.push([label,...vals]);}
   });
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(plArr),'Profit & Loss');
   // AI sheet
