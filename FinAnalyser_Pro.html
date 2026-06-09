@@ -2166,8 +2166,8 @@ function renderPBI(){
 }
 
 function renderPBIKpis(){
-  const p=pbiPeriod==='all'?0:pbiPeriod;
-  const kpis=[
+  var p=pbiPeriod==='all'?0:pbiPeriod;
+  var kpis=[
     {label:'Revenue',val:getBSVPL('total_rev',p),prev:getBSVPL('total_rev',p+1),color:'var(--gold)'},
     {label:'EBITDA',val:getBSVPL('ebitda',p),prev:getBSVPL('ebitda',p+1),color:'var(--sky2)'},
     {label:'Net Profit',val:getBSVPL('pat',p),prev:getBSVPL('pat',p+1),color:'var(--em)'},
@@ -2175,13 +2175,21 @@ function renderPBIKpis(){
     {label:'Equity',val:getBSVal('total_equity',p),prev:getBSVal('total_equity',p+1),color:'var(--sky)'},
     {label:'Net Debt',val:getBSVal('lt_borrowings',p)+getBSVal('st_borrowings',p)-getBSVal('cash',p),prev:0,color:'var(--amb)'},
   ];
-  const el=document.getElementById('pbiKpis');
-  el.innerHTML=kpis.map(k=>{
-    const chg=k.prev&&k.prev!==0?((k.val-k.prev)/Math.abs(k.prev)*100):null;
-    const arrow=chg===null?'':(chg>=0?'▲':'▼')+Math.abs(chg).toFixed(1)+'%';
-    const cls=chg===null?'neu-delta':chg>=0?'up':'dn';
-    return `<div class="card"><div class="card-label">${k.label}</div><div class="card-value" style="color:${k.color};font-size:16px">${fmt(k.val)}</div><div class="card-delta ${cls}">${arrow}</div></div>`;
-  }).join('');
+  var el=document.getElementById('pbiKpis');
+  var cards=[];
+  kpis.forEach(function(k){
+    var chg=k.prev&&k.prev!==0?((k.val-k.prev)/Math.abs(k.prev)*100):null;
+    var arrowTxt=chg===null?'':(chg>=0?'▲':'▼')+Math.abs(chg).toFixed(1)+'%';
+    var cls=chg===null?'neu-delta':chg>=0?'up':'dn';
+    cards.push(
+      '<div class="card">'+
+      '<div class="card-label">'+k.label+'</div>'+
+      '<div class="card-value" style="color:'+k.color+';font-size:16px">'+fmt(k.val)+'</div>'+
+      '<div class="card-delta '+cls+'">'+arrowTxt+'</div>'+
+      '</div>'
+    );
+  });
+  el.innerHTML=cards.join('');
 }
 
 function renderPBICharts(){
@@ -2307,31 +2315,36 @@ function renderPBICharts(){
 function destroyChart(id){if(pbiCharts[id]){pbiCharts[id].destroy();delete pbiCharts[id];}}
 
 function renderPBIGauges(){
-  const p=pbiPeriod==='all'?0:pbiPeriod;
-  const gauges=[
-    {label:'Current Ratio',val:()=>{const cl=getBSVal('total_cl',p);return cl>0?(getBSVal('total_ca',p)/cl):0;},min:0,max:4,good:2,unit:'x'},
-    {label:'Net Margin',val:()=>{const r=getBSVPL('total_rev',p);return r>0?(getBSVPL('pat',p)/r)*100:0;},min:-20,max:40,good:10,unit:'%'},
-    {label:'ROE',val:()=>{const eq=getBSVal('total_equity',p);return eq>0?(getBSVPL('pat',p)/eq)*100:0;},min:0,max:40,good:15,unit:'%'},
-    {label:'D/E Ratio',val:()=>{const eq=getBSVal('total_equity',p);return eq>0?(getBSVal('lt_borrowings',p)+getBSVal('st_borrowings',p))/eq:0;},min:0,max:5,good:2,unit:'x',inverted:true},
-    {label:'EBITDA Margin',val:()=>{const r=getBSVPL('total_rev',p);return r>0?(getBSVPL('ebitda',p)/r)*100:0;},min:0,max:50,good:20,unit:'%'},
-    {label:'Interest Cover',val:()=>{const fc=getPLInput('finance_costs',p);return fc>0?getBSVPL('ebit',p)/fc:0;},min:0,max:10,good:3,unit:'x'},
+  var p=pbiPeriod==='all'?0:pbiPeriod;
+  var gauges=[
+    {label:'Current Ratio',valFn:function(){var cl=getBSVal('total_cl',p);return cl>0?(getBSVal('total_ca',p)/cl):0;},min:0,max:4,good:2,unit:'x',inverted:false},
+    {label:'Net Margin',valFn:function(){var r=getBSVPL('total_rev',p);return r>0?(getBSVPL('pat',p)/r)*100:0;},min:-20,max:40,good:10,unit:'%',inverted:false},
+    {label:'ROE',valFn:function(){var eq=getBSVal('total_equity',p);return eq>0?(getBSVPL('pat',p)/eq)*100:0;},min:0,max:40,good:15,unit:'%',inverted:false},
+    {label:'D/E Ratio',valFn:function(){var eq=getBSVal('total_equity',p);return eq>0?(getBSVal('lt_borrowings',p)+getBSVal('st_borrowings',p))/eq:0;},min:0,max:5,good:2,unit:'x',inverted:true},
+    {label:'EBITDA Margin',valFn:function(){var r=getBSVPL('total_rev',p);return r>0?(getBSVPL('ebitda',p)/r)*100:0;},min:0,max:50,good:20,unit:'%',inverted:false},
+    {label:'Interest Cover',valFn:function(){var fc=getPLInput('finance_costs',p);return fc>0?getBSVPL('ebit',p)/fc:0;},min:0,max:10,good:3,unit:'x',inverted:false},
   ];
-  const el=document.getElementById('pbiGauges');
-  el.innerHTML=gauges.map(g=>{
-    const v=g.val();
-    const pct=Math.min(Math.max((v-g.min)/(g.max-g.min)*100,0),100);
-    const isGood=g.inverted?v<=g.good:v>=g.good;
-    const color=isGood?'var(--em)':v<(g.inverted?g.good*1.5:g.good*0.5)?'var(--rose)':'var(--amb)';
-    return `<div style="text-align:center">
-      <svg width="120" height="70" viewBox="0 0 120 70">
-        <path d="M10,60 A50,50 0 0,1 110,60" fill="none" stroke="var(--ink3)" stroke-width="10" stroke-linecap="round"/>
-        <path d="M10,60 A50,50 0 0,1 110,60" fill="none" stroke="${color}" stroke-width="10" stroke-linecap="round"
-          stroke-dasharray="${pct*1.57} 157" opacity=".85"/>
-        <text x="60" y="55" text-anchor="middle" fill="${color}" font-size="14" font-weight="700" font-family="DM Sans">${isNaN(v)?'—':v.toFixed(1)+g.unit}</text>
-      </svg>
-      <div style="font-size:11px;color:var(--muted);margin-top:-4px">${g.label}</div>
-    </div>`;
-  }).join('');
+  var el=document.getElementById('pbiGauges');
+  var items=[];
+  gauges.forEach(function(g){
+    var v=g.valFn();
+    var pct=Math.min(Math.max((v-g.min)/(g.max-g.min)*100,0),100);
+    var isGood=g.inverted?v<=g.good:v>=g.good;
+    var color=isGood?'var(--em)':v<(g.inverted?g.good*1.5:g.good*0.5)?'var(--rose)':'var(--amb)';
+    var dispVal=isNaN(v)?'&mdash;':v.toFixed(1)+g.unit;
+    var dashArr=(pct*1.57)+' 157';
+    items.push(
+      '<div style="text-align:center">'+
+      '<svg width="120" height="70" viewBox="0 0 120 70">'+
+      '<path d="M10,60 A50,50 0 0,1 110,60" fill="none" stroke="var(--ink3)" stroke-width="10" stroke-linecap="round"/>'+
+      '<path d="M10,60 A50,50 0 0,1 110,60" fill="none" stroke="'+color+'" stroke-width="10" stroke-linecap="round" stroke-dasharray="'+dashArr+'" opacity=".85"/>'+
+      '<text x="60" y="55" text-anchor="middle" fill="'+color+'" font-size="14" font-weight="700" font-family="DM Sans">'+dispVal+'</text>'+
+      '</svg>'+
+      '<div style="font-size:11px;color:var(--muted);margin-top:-4px">'+g.label+'</div>'+
+      '</div>'
+    );
+  });
+  el.innerHTML=items.join('');
 }
 
 // ─── PRESENTATION MODE ────────────────────────────────────────────────────────
