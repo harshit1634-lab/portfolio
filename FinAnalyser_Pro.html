@@ -3277,18 +3277,18 @@ const PL_FIELD_KEYWORDS={
 const BS_FIELD_KEYWORDS={
   share_capital:['share capital','paid up capital','equity share capital'],
   reserves_surplus:['reserves','surplus','retained earnings','general reserve','capital reserve'],
-  lt_borrowings:['long-term borrow','long term debt','term loan','debentures','bonds payable'],
+  lt_borrowings:['long-term borrow','long term borrow','long term debt','term loan','debentures','bonds payable'],
   dtl:['deferred tax liab'],
   other_ltl:['other long-term liab','long term liab'],
   lt_provisions:['long-term provision'],
-  st_borrowings:['short-term borrow','working capital loan','cash credit','overdraft','short term debt'],
+  st_borrowings:['short-term borrow','short term borrow','working capital loan','cash credit','overdraft','short term debt'],
   trade_pay_others:['trade payable','creditors','accounts payable','sundry creditor'],
   other_cl:['other current liab','accruals','other payable'],
   st_provisions:['short-term provision','provision for','current provision'],
-  tangible:['tangible','property plant','fixed assets','plant and machinery','furniture','equipment','land and building'],
   intangible:['intangible','goodwill','patents','software','licenses'],
+  tangible:['property plant','fixed assets','plant and machinery','furniture','equipment','land and building','tangible asset'],
   cwip:['capital work','cwip','construction in progress'],
-  nc_investments:['non-current invest','long term invest','investment in subsidiar'],
+  nc_investments:['non-current invest','non current invest','long term invest','investment in subsidiar'],
   dta:['deferred tax asset'],
   lt_loans:['long-term loan','long term advance','security deposit'],
   other_nca:['other non-current'],
@@ -3296,7 +3296,7 @@ const BS_FIELD_KEYWORDS={
   inventories:['inventor','stock','raw material stock','wip','finished goods'],
   trade_rec:['trade receivable','debtors','accounts receivable','sundry debtor'],
   cash:['cash','bank balance','cash equivalent','cash and bank'],
-  st_loans:['short-term loan','short term advance','advance to supplier'],
+  st_loans:['short-term loan','short term loan','short term advance','advance to supplier'],
   other_ca:['other current asset','prepaid','advance tax','tds receivable'],
 };
 const CF_FIELD_KEYWORDS={
@@ -3769,6 +3769,47 @@ function deleteDataset(dsKey){
 }
 // ─── PUSH DATASET TO MAIN ANALYSIS PAGES ─────────────────────────────────────
 // Maps parsed rows → P&L / BS / CF input fields using keyword matching
+// Classify a row label as Balance Sheet-like ('bs'), P&L-like ('pl') or 'any' (ambiguous)
+var _BS_ROW_RE=/share capital|reserve|borrowing|payable|provision|fixed asset|property|plant|intangible|investment|inventor|receivable|cash|loans? & advances|loans? and advances|deferred tax asset|equity|liabilit|assets/i;
+var _PL_ROW_RE=/revenue|sales|turnover|income|expense|cost|purchase|tax|profit|loss|ebitda|ebit|depreciation|amortis|amortiz|salar|wages|eps|earnings/i;
+function _rowStmtClass(label){
+  var l=String(label||'').toLowerCase();
+  var isBS=_BS_ROW_RE.test(l), isPL=_PL_ROW_RE.test(l);
+  if(isBS&&!isPL)return 'bs';
+  if(isPL&&!isBS)return 'pl';
+  return 'any';
+}
+// Map parsed period column labels → app period indices (0=latest)
+function _mapPeriodLabels(cols){
+  var out=[];
+  // 1) Explicit Current / Previous / Year-2 style labels
+  cols.forEach(function(pc){
+    var l=String(pc.label).toLowerCase();
+    if(/current/.test(l))out.push({parsedLabel:pc.label,appPeriod:0});
+    else if(/previous|prior/.test(l))out.push({parsedLabel:pc.label,appPeriod:1});
+    else if(/2 ?years?|year ?-? ?2/.test(l))out.push({parsedLabel:pc.label,appPeriod:2});
+  });
+  if(out.length)return out;
+  // 2) Parse year/month from labels and sort newest → 0
+  var MONTHS={jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
+  var keyed=[],allParsed=true;
+  cols.forEach(function(pc){
+    var l=String(pc.label).toLowerCase();
+    var ym=l.match(/(20\d{2}|19\d{2})/);
+    if(!ym){allParsed=false;return;}
+    var year=parseInt(ym[1],10);
+    var mon=12;
+    for(var mn in MONTHS){if(l.indexOf(mn)>=0){mon=MONTHS[mn];break;}}
+    keyed.push({pc:pc,key:year*100+mon});
+  });
+  if(allParsed&&keyed.length===cols.length&&keyed.length){
+    keyed.sort(function(a,b){return b.key-a.key;});
+    return keyed.slice(0,3).map(function(k,i){return {parsedLabel:k.pc.label,appPeriod:i};});
+  }
+  // 3) Fallback: chronological assumption (latest last)
+  return [].concat(cols).reverse().slice(0,3).map(function(pc,i){return {parsedLabel:pc.label,appPeriod:i};});
+}
+
 function pushDatasetToPages(dsKey, silent=false){
   const ds=window._datasets&&window._datasets[dsKey];
   if(!ds){alert('Dataset not found.');return;}
@@ -3783,7 +3824,7 @@ function pushDatasetToPages(dsKey, silent=false){
     pm.push({parsedLabel:totalCol.label,appPeriod:0});
     [...nonTotal].reverse().slice(0,2).forEach((pc,i)=>pm.push({parsedLabel:pc.label,appPeriod:i+1}));
   } else {
-    [...nonTotal].reverse().slice(0,3).forEach((pc,i)=>pm.push({parsedLabel:pc.label,appPeriod:i}));
+    _mapPeriodLabels(nonTotal).forEach(m=>{if(m.appPeriod<=2)pm.push(m);});
   }
 
   const MAPS=[
@@ -3802,7 +3843,12 @@ function pushDatasetToPages(dsKey, silent=false){
   p.rows.forEach((row,idx)=>{
     if(!row.hasValues)return;
     const lbl=row.label.toLowerCase();
+    const rcls=_rowStmtClass(row.label);
     for(const {kmap,prefix} of MAPS){
+      // Cross-statement contamination guard: BS-like rows only try the BS map;
+      // P&L-like rows skip the BS map; ambiguous rows try everything.
+      if(rcls==='bs'&&kmap!==BS_FIELD_KEYWORDS)continue;
+      if(rcls==='pl'&&kmap===BS_FIELD_KEYWORDS)continue;
       for(const [fieldId,kws] of Object.entries(kmap)){
         if(!kws.some(kw=>lbl.includes(kw)))continue;
         const key=prefix+fieldId;
