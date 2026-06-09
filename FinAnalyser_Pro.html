@@ -670,6 +670,7 @@ html,body{height:100%;font-family:'DM Sans',system-ui,sans-serif;background:var(
           <button class="btn btn-ghost" onclick="runGoingConcern()">⚠️ Going Concern</button>
           <button class="btn btn-ghost" onclick="runFraudIndicators()">🚨 Fraud Indicators</button>
           <button class="btn btn-ghost" onclick="runGrowthAnalysis()">📊 Growth Factors</button>
+          <button class="btn btn-ghost btn-sm" onclick="loadSampleData('analysis');runComputedAnalysis()">▶ Load Sample & Analyse</button>
         </div>
         <div id="aiResult" class="ai-result hidden"></div>
       </div>
@@ -824,6 +825,8 @@ html,body{height:100%;font-family:'DM Sans',system-ui,sans-serif;background:var(
             <button class="btn btn-ghost btn-sm" onclick="downloadTemplate('pl')">⬇ P&L Template</button>
             <button class="btn btn-ghost btn-sm" onclick="downloadTemplate('bs')">⬇ BS Template</button>
             <button class="btn btn-ghost btn-sm" onclick="downloadTemplate('cf')">⬇ CF Template</button>
+            <button class="btn btn-gold btn-sm" onclick="downloadUniversalTemplate('pl')">⬇ Universal Template</button>
+            <button class="btn btn-teal btn-sm" onclick="loadSampleData('analysis')">▶ Load Sample Data</button>
           </div>
         </div>
         <!-- UPLOAD ZONE -->
@@ -963,6 +966,9 @@ html,body{height:100%;font-family:'DM Sans',system-ui,sans-serif;background:var(
           <div class="box sky" style="padding:12px 16px;margin-bottom:12px">
             <div style="font-size:12px;color:var(--muted)">Reads <strong style="color:var(--sky2)">window._dynParsed</strong> — load any NetSuite/Excel file via Smart Data Viewer or Import, then return here. Auto-maps to Schedule III format.</div>
             <button class="btn btn-sky btn-sm mt8" onclick="renderSched3FromData()">↻ Render Schedule III from Loaded Data</button>
+            <button class="btn btn-teal btn-sm mt8" onclick="loadSampleData('pl')">▶ Load Sample P&L</button>
+            <button class="btn btn-ghost btn-sm mt8" onclick="loadSampleData('bs')">▶ Load Sample Balance Sheet</button>
+            <button class="btn btn-ghost btn-sm mt8" onclick="downloadUniversalTemplate('pl')">⬇ Template</button>
           </div>
           <div id="sched3LoadedOutput"></div>
         </div>
@@ -976,6 +982,8 @@ html,body{height:100%;font-family:'DM Sans',system-ui,sans-serif;background:var(
               <div>
                 <input type="file" id="tbFile" accept=".xlsx,.csv,.xls" style="display:none" onchange="handleTBFile(this.files[0])">
                 <button class="btn btn-teal" onclick="document.getElementById('tbFile').click()">📂 Upload Trial Balance (.xlsx/.csv)</button>
+                <button class="btn btn-teal btn-sm" onclick="loadSampleData('tb')">▶ Load Sample Trial Balance</button>
+                <button class="btn btn-ghost btn-sm" onclick="downloadUniversalTemplate('tb')">⬇ TB Template</button>
               </div>
               <div>
                 <textarea id="tbPasteArea" style="width:100%;height:80px;background:var(--ink);border:1px solid var(--bdr);color:var(--text);padding:8px;border-radius:6px;font-family:monospace;font-size:11px;resize:vertical" placeholder="Or paste: LedgerName[tab]Debit[tab]Credit" onpaste="setTimeout(parseTBPaste,100)"></textarea>
@@ -2826,6 +2834,175 @@ function exportSVExcel(){
   const ws=XLSX.utils.aoa_to_sheet(SV.raw);
   XLSX.utils.book_append_sheet(wb,ws,'Data');
   XLSX.writeFile(wb,'SmartViewer_Export_'+new Date().toISOString().slice(0,10)+'.xlsx');
+}
+
+// ─── UNIVERSAL SELF-DESCRIBING TEMPLATE ──────────────────────────────────────
+function downloadUniversalTemplate(kind){
+  if(!window.XLSX){alert('SheetJS not loaded');return;}
+  var stmtName=kind==='pl'?'P&L':kind==='bs'?'Balance Sheet':'Trial Balance';
+  var wb=XLSX.utils.book_new();
+  // READ_ME sheet
+  var readme=[];
+  readme.push(['FinAnalyser Pro — Universal Data Template']);
+  readme.push(['']);
+  readme.push(['HOW THIS FILE IS READ']);
+  readme.push(['The app scans the first 15 rows of the "Data" sheet to find the HEADER row.']);
+  readme.push(['The header row is the one containing "Particulars" (for P&L/Balance Sheet) or "Ledger Name" (for Trial Balance).']);
+  readme.push(['Everything below the header row is treated as your data.']);
+  readme.push(['']);
+  readme.push(['METADATA ROWS (rows 1-5 of the Data sheet, above the header)']);
+  readme.push(['Row 1 : Title banner — leave as is.']);
+  readme.push(['Row 2 : COMPANY:  — put your company name in column B.']);
+  readme.push(['Row 3 : STATEMENT TYPE: — P&L / Balance Sheet / Trial Balance.']);
+  readme.push(['Row 4 : UNIT: — Actual / Thousands / Lakhs / Crores. Enter all amounts in this unit.']);
+  readme.push(['Row 5 : blank spacer.']);
+  readme.push(['']);
+  readme.push(['PERIOD COLUMNS ARE DYNAMIC']);
+  readme.push(['For P&L / Balance Sheet you may add as many period columns as you like.']);
+  readme.push(['Just add more columns to the right of the header (e.g. Current Year, Previous Year, Year-2, Year-3 ...).']);
+  readme.push(['Headers can be dates (e.g. 31-Mar-2025) or labels like "Current Year", "Year-2", "Period 3".']);
+  readme.push(['']);
+  readme.push(['ROW TYPES (P&L / Balance Sheet)']);
+  readme.push(['SECTION HEADERS : type them in CAPITALS (e.g. REVENUE, EXPENSES, ASSETS). Leave amount cells blank.']);
+  readme.push(['ACCOUNT ROWS    : normal text label, optional Account Code in column B, amounts in period columns.']);
+  readme.push(['TOTAL ROWS      : start the label with "Total -" (e.g. "Total - Revenue"). The app treats these as totals.']);
+  readme.push(['']);
+  readme.push(['TRIAL BALANCE']);
+  readme.push(['Header columns: Ledger Name | Account Code | Debit | Credit.']);
+  readme.push(['Put each ledger on its own row with its Debit OR Credit closing balance.']);
+  readme.push(['Total Debit must equal Total Credit.']);
+  readme.push(['']);
+  readme.push(['TIP: Add or delete rows freely. Keep the header row intact so auto-detection works.']);
+  var wsReadme=XLSX.utils.aoa_to_sheet(readme);
+  XLSX.utils.book_append_sheet(wb,wsReadme,'READ_ME');
+  // Data sheet
+  var data=[];
+  data.push(['FINANCIAL DATA TEMPLATE — FinAnalyser Pro','','','','']);
+  data.push(['COMPANY:','Sample Company Pvt Ltd','','','']);
+  data.push(['STATEMENT TYPE:',stmtName,'','','']);
+  data.push(['UNIT:','Actual','','','']);
+  data.push(['','','','','']);
+  if(kind==='tb'){
+    data.push(['Ledger Name','Account Code','Debit','Credit','']);
+    SAMPLE.tb.forEach(function(r){data.push([r[0],r[1],r[2],r[3],'']);});
+  }else{
+    data.push(['Particulars','Account Code','Current Year','Previous Year','Year-2']);
+    var src=kind==='pl'?SAMPLE.pl.rows:SAMPLE.bs.rows;
+    src.forEach(function(r){
+      // r = [label, code, cy, py]
+      var isHeader=(r[2]===undefined||r[2]===null)&&(!r[1]);
+      data.push([r[0],r[1]||'',(r[2]===undefined?'':r[2]),(r[3]===undefined?'':r[3]),'']);
+    });
+  }
+  var wsData=XLSX.utils.aoa_to_sheet(data);
+  XLSX.utils.book_append_sheet(wb,wsData,'Data');
+  XLSX.writeFile(wb,'FinAnalyser_Template_'+kind+'.xlsx');
+}
+
+// ─── BUILT-IN SAMPLE DATASET ─────────────────────────────────────────────────
+window.SAMPLE={
+  periodCols:['Current Year','Previous Year'],
+  pl:{rows:[
+    ['REVENUE'],
+    ['Revenue from Operations','4000',52000000,44000000],
+    ['Other Income','4100',1200000,900000],
+    ['Total - Revenue','',53200000,44900000],
+    ['EXPENSES'],
+    ['Cost of Materials Consumed','5000',18000000,15500000],
+    ['Employee Benefit Expense','5100',16500000,14200000],
+    ['Finance Costs','5200',1800000,2100000],
+    ['Depreciation & Amortisation','5300',2400000,2200000],
+    ['Other Expenses','5400',7600000,6800000],
+    ['Total - Expenses','',46300000,40800000],
+    ['Profit Before Tax','',6900000,4100000],
+    ['Tax Expense','5500',1900000,1150000],
+    ['Net Profit/(Loss)','',5000000,2950000]
+  ]},
+  bs:{rows:[
+    ['EQUITY AND LIABILITIES'],
+    ['Share Capital','3000',10000000,10000000],
+    ['Reserves & Surplus','3100',18500000,13500000],
+    ['Long Term Borrowings','3200',12000000,15000000],
+    ['Short Term Borrowings','3300',4500000,5200000],
+    ['Trade Payables','3400',6800000,5900000],
+    ['Other Current Liabilities','3500',2200000,1800000],
+    ['Total - Equity and Liabilities','',54000000,51400000],
+    ['ASSETS'],
+    ['Property Plant & Equipment','1000',28000000,29500000],
+    ['Intangible Assets','1100',1500000,1800000],
+    ['Non Current Investments','1200',3000000,3000000],
+    ['Inventories','1300',4800000,4200000],
+    ['Trade Receivables','1400',9200000,8100000],
+    ['Cash & Cash Equivalents','1500',5300000,3600000],
+    ['Short Term Loans & Advances','1600',2200000,1200000],
+    ['Total - Assets','',54000000,51400000]
+  ]},
+  tb:[
+    ['Share Capital','3000',0,10000000],
+    ['Reserves & Surplus','3100',0,18500000],
+    ['Term Loan from Bank','3200',0,12000000],
+    ['Cash Credit Account','3300',0,4500000],
+    ['Sundry Creditors','3400',0,6800000],
+    ['Outstanding Expenses','3500',0,2200000],
+    ['Plant & Machinery','1000',28000000,0],
+    ['Computer Software','1100',1500000,0],
+    ['Investments in Mutual Funds','1200',3000000,0],
+    ['Closing Stock','1300',4800000,0],
+    ['Sundry Debtors','1400',9200000,0],
+    ['Bank Balance','1500',5300000,0],
+    ['Advances to Suppliers','1600',2200000,0],
+    ['Sales','4000',0,52000000],
+    ['Interest Income','4100',0,1200000],
+    ['Purchases','5000',18000000,0],
+    ['Salaries & Wages','5100',16500000,0],
+    ['Bank Interest','5200',1800000,0],
+    ['Depreciation','5300',2400000,0],
+    ['Office & Admin Expenses','5400',7600000,0],
+    ['Income Tax','5500',1900000,0]
+  ]
+};
+
+function loadSampleData(which){
+  if(which==='tb'){
+    _tbData=[];
+    SAMPLE.tb.forEach(function(r){
+      var dr=r[2]||0,cr=r[3]||0;
+      _tbData.push({ledger:r[0],dr:dr,cr:cr,net:dr-cr,cls:autoClassifyLedger(r[0])});
+    });
+    if(typeof renderTBMapping==='function')renderTBMapping();
+    if(typeof showToast==='function')showToast('Sample trial balance loaded');else alert('Sample trial balance loaded');
+    return;
+  }
+  var useBs=(which==='bs');
+  var src=useBs?SAMPLE.bs.rows:SAMPLE.pl.rows;
+  var stmtType=useBs?'Balance Sheet':'P&L';
+  var rows=src.map(function(r){
+    var label=r[0];
+    var hasCode=r[1]!==undefined&&r[1]!=='';
+    var hasNums=r[2]!==undefined&&r[2]!==null;
+    var isTotal=/^total\s*-/i.test(label);
+    var isSection=!hasNums&&!hasCode;
+    var type=isTotal?'total':(isSection?'section':'account');
+    return {
+      type:type,
+      label:label,
+      code:hasCode?String(r[1]):'',
+      depth:0,
+      values:hasNums?{'Current Year':r[2],'Previous Year':r[3]}:{},
+      hasValues:hasNums
+    };
+  });
+  window._dynParsed={
+    meta:{company:'Sample Company Pvt Ltd',stmtType:stmtType},
+    periodCols:[{col:2,label:'Current Year'},{col:3,label:'Previous Year'}],
+    rows:rows
+  };
+  if(typeof renderSched3FromData==='function'){
+    var pane=document.getElementById('sched3LoadedOutput');
+    if(pane)renderSched3FromData();
+  }
+  if(typeof refreshAllMPDash==='function')refreshAllMPDash();
+  if(typeof showToast==='function')showToast('Sample data loaded');else alert('Sample data loaded');
 }
 
 // ─── SAMPLE TEMPLATE GENERATOR ───────────────────────────────────────────────
