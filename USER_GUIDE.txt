@@ -1,0 +1,260 @@
+================================================================================
+              FINANALYSER PRO  —  USER GUIDE
+       Single-File Financial Analysis & Schedule III Drafting Suite
+================================================================================
+
+HOW TO OPEN
+-----------
+1. FinAnalyser_Pro.html is a single self-contained file. No installation.
+2. Double-click it (or right-click > Open With > your browser).
+   Works in Chrome, Edge, Firefox. Keep an internet connection active the
+   first time so the in-built libraries (Excel reader, charts, PDF) load.
+3. Enter the access password when prompted to unlock the suite.
+4. TIP: If a page ever looks blank or shows code as text, do a HARD REFRESH
+   (Ctrl+Shift+R / Cmd+Shift+R). That clears the old cached copy.
+
+
+================================================================================
+SECTION 0  —  THE UNIVERSAL DATA FORMAT (read this first)
+================================================================================
+The software is "self-understanding": you give it a spreadsheet and it works
+out the structure for you. You do NOT have to match fixed cells.
+
+WHAT IT AUTO-DETECTS
+  - The HEADER ROW: the first row that contains a label column named one of
+    "Particulars", "Account", "Ledger Name", "Description", or "Financial Row".
+  - The PERIOD COLUMNS: every column to the right of the label whose heading
+    looks like a period — e.g. "Nov 2025", "FY 2024-25", "Current Year",
+    "Previous Year", "Year-1", "Period 2". Add AS MANY as you like; the app
+    reads them all and lets you compare/toggle between them.
+  - The VALUES: the numbers under each period column.
+  - SECTION HEADINGS: rows in CAPITALS with no number (e.g. "REVENUE",
+    "EXPENSES", "ASSETS").
+  - TOTAL/SUBTOTAL rows: rows whose label starts with "Total -" or contains
+    words like "Total", "Gross Profit", "Net Profit/(Loss)".
+  - ACCOUNT CODES (optional): a code like 3010000-01 in the label or in an
+    "Account Code" column builds the parent/child hierarchy automatically.
+
+THE TEMPLATE LAYOUT (download it from any panel: "Universal Template")
+  Sheet "READ_ME"  -> plain-English instructions.
+  Sheet "Data":
+     Row 1:  FINANCIAL DATA TEMPLATE — FinAnalyser Pro
+     Row 2:  COMPANY:          | Your Company Pvt Ltd
+     Row 3:  STATEMENT TYPE:   | P&L   (or Balance Sheet / Trial Balance)
+     Row 4:  UNIT:             | Actual  (or Thousands / Lakhs / Crores)
+     Row 5:  (blank)
+     Row 6:  Particulars | Account Code | Current Year | Previous Year | ...
+     Row 7+: your data rows (add as many rows and period columns as needed)
+
+RULES OF THUMB
+  - Rows are dynamic: insert/delete as many as you need.
+  - Columns are dynamic: add more period columns to the right — they appear
+    automatically as extra comparison columns in the app.
+  - Put income/positive figures as positive numbers; reductions as negative.
+  - Keep the header words intact ("Particulars", period names) so detection
+    stays reliable.
+  - Supported uploads: .xlsx, .xls, .csv. You can also PASTE tab-separated
+    data directly where a paste box is offered.
+
+NOT SURE? Click "Load Sample Data" on any panel to see a complete, correct
+example instantly, then replace it with your own numbers.
+
+
+================================================================================
+SECTION 1  —  DASHBOARD
+================================================================================
+PURPOSE: One-glance health view of the active company.
+SHOWS:   Revenue, Net Profit, Total Assets, EBITDA margin, Current Ratio,
+         Debt:Equity, plus trend and asset-composition charts.
+USE IT:  Open it after loading data. Cards update automatically.
+SAMPLE:  Use "Load Sample Data" elsewhere, then revisit — cards populate.
+
+
+================================================================================
+SECTION 2  —  COMPANY PROFILE
+================================================================================
+PURPOSE: Entity identity + reporting settings that flow into every report.
+FILL IN: Name, PAN, CIN, incorporation date, FY-end, currency unit, sector,
+         auditor. The currency UNIT here controls how figures are displayed
+         (Lakhs / Crores / Thousands / Actuals).
+SAVE:    Click "Save Profile". Stored locally in your browser.
+
+
+================================================================================
+SECTION 3  —  FINANCIAL STATEMENTS  (Balance Sheet / P&L / Cash Flow / Ratios)
+================================================================================
+PURPOSE: Enter or review the three statements with full multi-period support.
+TWO WAYS TO FILL:
+  a) AUTO  — upload a file (Smart Data Viewer / Import) and the matching rows
+             are pushed into these pages for you.
+  b) MANUAL— type values into the input cells per period.
+MULTI-PERIOD BAR: at the top of each statement page you can toggle which
+         periods to show and compare; charts redraw to match.
+RATIOS:  auto-calculated the moment BS + P&L data exist (liquidity, solvency,
+         profitability, efficiency, with benchmark flags).
+
+
+================================================================================
+SECTION 4  —  COMPARATIVE
+================================================================================
+PURPOSE: Side-by-side period figures with YoY % change arrows for the key
+         Balance Sheet and P&L lines. Good for board/credit-committee packs.
+
+
+================================================================================
+SECTION 5  —  AI DEEP ANALYSIS
+================================================================================
+TWO LAYERS:
+  1) COMPUTED ANALYSIS (always works, no internet needed):
+     Click "Computed Analysis" (or "Full AI Analysis"). Instantly produces:
+       - dataset summary (company, periods detected)
+       - period-by-period key line items
+       - period-over-period % change cards
+       - top expense categories
+       - a 0-100 health score with plain-language notes.
+  2) AI NARRATIVE (optional): the app then tries a free internet AI to add a
+     written commentary. If the service is busy it simply says so — your
+     computed analysis above is already complete and accurate.
+OTHER BUTTONS: Audit Inquiries, Vouching Points, Going Concern, Fraud
+     Indicators, Growth Factors — each generates a focused report.
+SAMPLE:  "Load Sample & Analyse" fills demo data and runs the analysis in one
+     click so you can see the output format immediately.
+
+
+================================================================================
+SECTION 6  —  AUDIT & VERIFICATION
+================================================================================
+PURPOSE: Audit checklist, vouching register and automated red-flag indicators.
+USE IT:  Run "Recalculate Ratios" first so the red-flag engine has figures.
+EXPORT:  Audit working can be exported to CSV.
+
+
+================================================================================
+SECTION 7  —  AI CHAT
+================================================================================
+PURPOSE: Ask free-text questions about the loaded financials ("Is this a going
+         concern?", "What drives revenue?"). Quick-pill shortcuts provided.
+
+
+================================================================================
+SECTION 8  —  POWER BI DASHBOARD
+================================================================================
+PURPOSE: Interactive visual dashboard — KPI cards, slicers (period / view),
+         six charts (trend, asset mix, health radar, P&L waterfall, liquidity,
+         debt vs equity) and ratio gauges.
+USE IT:  Pick a period slicer and a View; click Refresh to redraw.
+
+
+================================================================================
+SECTION 9  —  PRESENTATION MODE
+================================================================================
+PURPOSE: Auto-built slide deck from your data (cover, snapshot, BS, P&L,
+         ratios, comparative, AI commentary, thank-you).
+USE IT:  Use Prev/Next or Fullscreen to present. Stage-2 prompt box lets the
+         AI tailor the narrative to your instructions.
+
+
+================================================================================
+SECTION 10 —  FINANCIAL DRAFTING  (SCHEDULE III)   *** KEY MODULE ***
+================================================================================
+PURPOSE: Convert raw data into statutory Schedule III financial statements
+         (Companies Act 2013) and export them to Excel and PDF.
+
+TAB 1 — "FROM LOADED DATA"
+   1. Load a file anywhere in the app (or click "Load Sample P&L" /
+      "Load Sample Balance Sheet").
+   2. Click "Render Schedule III from Loaded Data".
+   3. The app maps your rows to the Schedule III Statement of Profit & Loss:
+        I.  Revenue from Operations
+        II. Other Income
+        III.Total Revenue (I+II)
+        IV. Expenses (Cost of Materials, Employee Benefits, Finance Costs,
+            Depreciation & Amortisation, Other Expenses) -> Total Expenses
+        V.  Profit/(Loss) before tax
+        VI. Tax Expense
+        VII.Profit/(Loss) for the period
+      All loaded periods are shown side by side.
+
+TAB 2 — "TRIAL BALANCE IMPORT"   (the full TB -> financials workflow)
+   STEP 1: Upload a Trial Balance (.xlsx/.csv) — columns:
+              Ledger Name | Account Code | Debit | Credit
+           (or paste it, or click "Load Sample Trial Balance").
+   STEP 2: Review Auto-Classification — every ledger is auto-mapped to a
+           Schedule III head (Revenue, Employee Benefit, Finance Costs, Fixed
+           Assets, Trade Receivables, Share Capital, Borrowings, Trade
+           Payables, etc.). Override any mapping from the dropdown.
+   STEP 3: Click "Generate Schedule III Financials" to produce a complete
+           Balance Sheet (Equity & Liabilities / Assets) and Statement of P&L,
+           with a tally check that Assets = Equity + Liabilities.
+
+EXPORTS (top-right of the panel):
+   - "Export Excel": a workbook with P&L, Balance Sheet, and Notes to Accounts.
+   - "Export PDF":   a multi-page PDF (cover page + statements).
+
+SHORTCUT: a green "Financial Drafting" button sits in the top toolbar for
+          one-click access from anywhere.
+
+
+================================================================================
+SECTION 11 —  SMART DATA VIEWER
+================================================================================
+PURPOSE: Drop ANY Excel/CSV (NetSuite, Tally, Zoho, QuickBooks, SAP export)
+         and the app auto-detects header row, label column, periods and
+         hierarchy, then renders it interactively.
+CONTROLS:Header-row picker, label-column picker, search filter, hide-totals.
+NEXT:    From here the data becomes the "loaded dataset" used by Analysis and
+         Financial Drafting pages.
+
+
+================================================================================
+SECTION 12 —  GLOBAL ACCOUNTING STANDARDS
+================================================================================
+PURPOSE: Reference content on accounting standards across frameworks.
+
+
+================================================================================
+SECTION 13 —  IMPORT / EXPORT
+================================================================================
+IMPORT:  Upload .xlsx/.csv/.json; auto-maps to BS/P&L rows.
+TEMPLATES: Download ready P&L, Balance Sheet, Cash Flow, Ratio and the new
+         UNIVERSAL template to fill offline.
+EXPORT:  Save your whole analysis back out (Excel/JSON) for sharing or backup.
+
+
+================================================================================
+SECTION 14 —  SETTINGS
+================================================================================
+PURPOSE: App preferences. Data is stored locally in your browser only; nothing
+         is uploaded to a server. Clearing browser data clears your work — use
+         Export to keep a copy.
+
+
+================================================================================
+TYPICAL FIRST-RUN WORKFLOW (5 minutes)
+================================================================================
+1. Unlock the suite with the password.
+2. Click "Load Sample Data" on the AI page -> see a full analysis instantly.
+3. Open Financial Drafting -> "Load Sample Trial Balance" -> Generate ->
+   Export Excel/PDF. You now understand the whole pipeline.
+4. Download the "Universal Template", replace sample numbers with your own,
+   save, and upload via Smart Data Viewer.
+5. Walk the sidebar top-to-bottom: Dashboard -> Statements -> Ratios ->
+   Comparative -> AI -> Financial Drafting. Everything reflects your data.
+
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+- "Page shows code as text / looks broken": hard refresh (Ctrl+Shift+R) and
+  make sure you opened the latest file.
+- "No data on a page": load a file or click Load Sample Data first.
+- "AI narrative didn't appear": the free AI service was busy — the Computed
+  Analysis is still complete. Try again later.
+- "Only one period detected": confirm your header row has clear period names
+  (e.g. "Current Year", "FY 2024-25", "Nov 2025") in separate columns.
+- "Figures look 100x off": check the UNIT row (Actual vs Lakhs vs Crores) and
+  the Company Profile currency unit.
+
+================================================================================
+                 End of Guide — FinAnalyser Pro
+================================================================================
