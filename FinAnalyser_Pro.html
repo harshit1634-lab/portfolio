@@ -758,6 +758,17 @@ html,body{height:100%;font-family:'DM Sans',system-ui,sans-serif;background:var(
             <button class="btn btn-gold btn-sm" onclick="renderPBI()">↻ Refresh</button>
           </div>
         </div>
+        <!-- HOW TO READ -->
+        <div class="box" style="padding:12px 16px;margin-bottom:12px">
+          <button class="btn btn-ghost btn-sm" onclick="var d=document.getElementById('pbiHowTo');d.style.display=d.style.display==='none'?'block':'none'">📖 How to read this dashboard</button>
+          <div id="pbiHowTo" style="display:none;font-size:12px;color:var(--muted);line-height:2;margin-top:10px">
+            <div>• <strong style="color:var(--text)">Slicers</strong> — the Period buttons (P1/P2/P3/All) and View dropdown filter every chart on this page at once.</div>
+            <div>• <strong style="color:var(--text)">KPI cards</strong> — green ▲ means better than the previous period, red ▼ means worse; the small grey line explains the number in plain words.</div>
+            <div>• <strong style="color:var(--text)">Trend &amp; Debt charts</strong> — bars compare periods side by side; taller green/gold = stronger performance.</div>
+            <div>• <strong style="color:var(--text)">Waterfall &amp; Doughnut</strong> — the waterfall shows how revenue becomes profit step by step; the doughnut shows what the company owns.</div>
+            <div>• <strong style="color:var(--text)">Radar &amp; Gauges</strong> — bigger radar shape = healthier; each gauge needle in its green zone = the ratio beats its benchmark.</div>
+          </div>
+        </div>
         <!-- SLICERS -->
         <div class="box" style="padding:12px 16px">
           <div class="flex" style="flex-wrap:wrap;gap:12px">
@@ -784,15 +795,15 @@ html,body{height:100%;font-family:'DM Sans',system-ui,sans-serif;background:var(
         <div class="cards" id="pbiKpis" style="grid-template-columns:repeat(auto-fill,minmax(140px,1fr))"></div>
         <!-- CHART GRID -->
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px" id="pbiChartGrid">
-          <div class="box"><div class="box-title"><span class="icon">📊</span>Revenue · EBITDA · PAT Trend</div><div class="chart-wrap"><canvas id="pbiChart1"></canvas></div></div>
-          <div class="box"><div class="box-title"><span class="icon">🥧</span>Asset Composition</div><div class="chart-wrap"><canvas id="pbiChart2"></canvas></div></div>
-          <div class="box"><div class="box-title"><span class="icon">🕸️</span>Financial Health Radar</div><div class="chart-wrap"><canvas id="pbiChart3"></canvas></div></div>
-          <div class="box"><div class="box-title"><span class="icon">🌊</span>P&L Waterfall Bridge</div><div class="chart-wrap"><canvas id="pbiChart4"></canvas></div></div>
-          <div class="box"><div class="box-title"><span class="icon">📉</span>Liquidity Trend</div><div class="chart-wrap"><canvas id="pbiChart5"></canvas></div></div>
-          <div class="box"><div class="box-title"><span class="icon">🏗️</span>Debt vs Equity Composition</div><div class="chart-wrap"><canvas id="pbiChart6"></canvas></div></div>
+          <div class="box"><div class="box-title"><span class="icon">📊</span>Revenue · EBITDA · PAT Trend</div><div class="pbi-caption" style="font-size:11px;color:var(--muted);margin:-2px 0 8px">Are we earning more each year? Bars side by side compare the three profit levels across periods.</div><div class="chart-wrap"><canvas id="pbiChart1"></canvas></div></div>
+          <div class="box"><div class="box-title"><span class="icon">🥧</span>Asset Composition</div><div class="pbi-caption" style="font-size:11px;color:var(--muted);margin:-2px 0 8px">What the company owns — each slice is a share of total assets; a big "Current Assets" slice means money is liquid.</div><div class="chart-wrap"><canvas id="pbiChart2"></canvas></div></div>
+          <div class="box"><div class="box-title"><span class="icon">🕸️</span>Financial Health Radar</div><div class="pbi-caption" style="font-size:11px;color:var(--muted);margin:-2px 0 8px">Overall financial health across 6 dimensions — the bigger the shape, the healthier the company.</div><div class="chart-wrap"><canvas id="pbiChart3"></canvas></div></div>
+          <div class="box"><div class="box-title"><span class="icon">🌊</span>P&L Waterfall Bridge</div><div class="pbi-caption" style="font-size:11px;color:var(--muted);margin:-2px 0 8px">How revenue turns into profit — each bar is money added (green) or taken away (red) on the way to PAT.</div><div class="chart-wrap"><canvas id="pbiChart4"></canvas></div></div>
+          <div class="box"><div class="box-title"><span class="icon">📉</span>Liquidity Trend</div><div class="pbi-caption" style="font-size:11px;color:var(--muted);margin:-2px 0 8px">Can short-term bills be paid? Lines above 1.0 mean current assets cover current liabilities.</div><div class="chart-wrap"><canvas id="pbiChart5"></canvas></div></div>
+          <div class="box"><div class="box-title"><span class="icon">🏗️</span>Debt vs Equity Composition</div><div class="pbi-caption" style="font-size:11px;color:var(--muted);margin:-2px 0 8px">Who funds the business — green is owners' money (equity), red/orange is borrowed money (debt).</div><div class="chart-wrap"><canvas id="pbiChart6"></canvas></div></div>
         </div>
         <!-- RATIO GAUGES -->
-        <div class="box mt16"><div class="box-title"><span class="icon">🎯</span>KPI Gauges</div><div id="pbiGauges" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:16px;padding:8px 0"></div></div>
+        <div class="box mt16"><div class="box-title"><span class="icon">🎯</span>KPI Gauges</div><div class="pbi-caption" style="font-size:11px;color:var(--muted);margin:-2px 0 8px">Each dial compares a ratio to its benchmark — a green arc means healthy, amber means fair, red means at risk.</div><div id="pbiGauges" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:16px;padding:8px 0"></div></div>
       </div>
 
       <!-- PRESENTATION MODE PANEL -->
@@ -2309,16 +2320,23 @@ function renderPBI(){
   renderPBIGauges();
 }
 
+// Small helper — emits a styled plain-English caption div (used across PBI widgets)
+function pbiCaption(txt){
+  return '<div style="font-size:10px;color:var(--muted);line-height:1.5;margin-top:4px">'+txt+'</div>';
+}
 function renderPBIKpis(){
   var p=pbiPeriod==='all'?0:pbiPeriod;
+  var clv=getBSVal('total_cl',p);
+  var crNow=clv>0?(getBSVal('total_ca',p)/clv):null;
   var kpis=[
-    {label:'Revenue',val:getBSVPL('total_rev',p),prev:getBSVPL('total_rev',p+1),color:'var(--gold)'},
-    {label:'EBITDA',val:getBSVPL('ebitda',p),prev:getBSVPL('ebitda',p+1),color:'var(--sky2)'},
-    {label:'Net Profit',val:getBSVPL('pat',p),prev:getBSVPL('pat',p+1),color:'var(--em)'},
-    {label:'Total Assets',val:getBSVal('total_assets',p),prev:getBSVal('total_assets',p+1),color:'var(--gold2)'},
-    {label:'Equity',val:getBSVal('total_equity',p),prev:getBSVal('total_equity',p+1),color:'var(--sky)'},
-    {label:'Net Debt',val:getBSVal('lt_borrowings',p)+getBSVal('st_borrowings',p)-getBSVal('cash',p),prev:0,color:'var(--amb)'},
+    {label:'Revenue',val:getBSVPL('total_rev',p),prev:getBSVPL('total_rev',p+1),color:'var(--gold)',sub:'Total money earned'},
+    {label:'EBITDA',val:getBSVPL('ebitda',p),prev:getBSVPL('ebitda',p+1),color:'var(--sky2)',sub:'Profit from operations, before interest, tax & depreciation'},
+    {label:'Net Profit',val:getBSVPL('pat',p),prev:getBSVPL('pat',p+1),color:'var(--em)',sub:'What’s left after all costs'},
+    {label:'Total Assets',val:getBSVal('total_assets',p),prev:getBSVal('total_assets',p+1),color:'var(--gold2)',sub:'Everything the company owns'},
+    {label:'Equity',val:getBSVal('total_equity',p),prev:getBSVal('total_equity',p+1),color:'var(--sky)',sub:'Owners’ stake in the business'},
+    {label:'Net Debt',val:getBSVal('lt_borrowings',p)+getBSVal('st_borrowings',p)-getBSVal('cash',p),prev:0,color:'var(--amb)',sub:'Borrowings minus cash in hand'},
   ];
+  if(crNow!==null)kpis[3].sub='Everything owned · ₹'+crNow.toFixed(2)+' of current assets per ₹1 of near-term dues';
   var el=document.getElementById('pbiKpis');
   var cards=[];
   kpis.forEach(function(k){
@@ -2330,6 +2348,7 @@ function renderPBIKpis(){
       '<div class="card-label">'+k.label+'</div>'+
       '<div class="card-value" style="color:'+k.color+';font-size:16px">'+fmt(k.val)+'</div>'+
       '<div class="card-delta '+cls+'">'+arrowTxt+'</div>'+
+      pbiCaption(k.sub)+
       '</div>'
     );
   });
@@ -2474,9 +2493,12 @@ function renderPBIGauges(){
     var v=g.valFn();
     var pct=Math.min(Math.max((v-g.min)/(g.max-g.min)*100,0),100);
     var isGood=g.inverted?v<=g.good:v>=g.good;
-    var color=isGood?'var(--em)':v<(g.inverted?g.good*1.5:g.good*0.5)?'var(--rose)':'var(--amb)';
+    var isRisk=g.inverted?v>g.good*1.5:v<g.good*0.5;
+    var color=isGood?'var(--em)':isRisk?'var(--rose)':'var(--amb)';
+    var zone=isGood?'Good':isRisk?'Risk':'Fair';
     var dispVal=isNaN(v)?'&mdash;':v.toFixed(1)+g.unit;
     var dashArr=(pct*1.57)+' 157';
+    var benchTxt='Benchmark: '+(g.inverted?'≤':'≥')+g.good.toFixed(1)+g.unit+' — currently '+(isNaN(v)?'—':v.toFixed(2)+g.unit)+' ('+zone+')';
     items.push(
       '<div style="text-align:center">'+
       '<svg width="120" height="70" viewBox="0 0 120 70">'+
@@ -2485,6 +2507,7 @@ function renderPBIGauges(){
       '<text x="60" y="55" text-anchor="middle" fill="'+color+'" font-size="14" font-weight="700" font-family="DM Sans">'+dispVal+'</text>'+
       '</svg>'+
       '<div style="font-size:11px;color:var(--muted);margin-top:-4px">'+g.label+'</div>'+
+      '<div style="font-size:9.5px;color:'+color+';margin-top:2px">'+benchTxt+'</div>'+
       '</div>'
     );
   });
@@ -2494,78 +2517,211 @@ function renderPBIGauges(){
 // ─── PRESENTATION MODE ────────────────────────────────────────────────────────
 let slides=[],curSlide=0;
 
-function buildSlides(){
-  const co=S.co.name||'Company';
-  const entity=document.getElementById('entitySelect')?.selectedOptions[0]?.text||'';
-  const sector=document.getElementById('coSector')?.selectedOptions[0]?.text||'';
-  const p=0;
-  const rev=getBSVPL('total_rev',p),pat=getBSVPL('pat',p),ebitda=getBSVPL('ebitda',p);
-  const ta=getBSVal('total_assets',p),eq=getBSVal('total_equity',p);
-  const cr_val=(getBSVal('total_cl',p)>0?(getBSVal('total_ca',p)/getBSVal('total_cl',p)).toFixed(2):'-');
-  const npm=rev>0?((pat/rev)*100).toFixed(1):'—';
-
-  slides=[
-    {title:'Cover',html:`<div style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--ink2),var(--ink3));text-align:center;padding:40px">
-      <div style="width:80px;height:80px;border-radius:18px;background:linear-gradient(135deg,var(--gold),var(--gold2));display:flex;align-items:center;justify-content:center;font-family:Playfair Display,serif;font-size:32px;font-weight:700;color:var(--ink);margin-bottom:24px">F</div>
-      <div style="font-family:Playfair Display,serif;font-size:32px;color:var(--gold2);margin-bottom:8px">${co}</div>
-      <div style="font-size:16px;color:var(--muted);margin-bottom:4px">${entity} · ${sector}</div>
-      <div style="font-size:14px;color:var(--muted)">${S.periods[0]} · Financial Analysis Report</div>
-      <div style="margin-top:32px;font-size:11px;color:var(--bdr);letter-spacing:2px;text-transform:uppercase">Prepared by FinAnalyser Pro · AI-Powered</div>
-    </div>`},
-    {title:'Financial Snapshot',html:`<div style="padding:32px">
-      <div style="font-family:Playfair Display,serif;font-size:22px;color:var(--gold2);margin-bottom:24px">Financial Snapshot — ${S.periods[0]}</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
-        ${[['Total Revenue',fmt(rev),'var(--gold)'],['EBITDA',fmt(ebitda),'var(--sky2)'],['Net Profit (PAT)',fmt(pat),'var(--em)'],['Total Assets',fmt(ta),'var(--gold2)'],['Shareholders Equity',fmt(eq),'var(--sky)'],['Net Profit Margin',npm+'%','var(--amb)']].map(([l,v,c])=>`<div style="background:var(--ink3);border:1px solid var(--bdr);border-radius:10px;padding:20px"><div style="font-size:11px;color:var(--muted);margin-bottom:6px">${l}</div><div style="font-size:22px;font-weight:700;color:${c};font-family:Playfair Display,serif">${v}</div></div>`).join('')}
-      </div>
-    </div>`},
-    {title:'Balance Sheet',html:`<div style="padding:32px">
-      <div style="font-family:Playfair Display,serif;font-size:22px;color:var(--gold2);margin-bottom:20px">Balance Sheet Summary</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
-        <div><div style="font-size:13px;font-weight:600;color:var(--sky2);margin-bottom:12px">EQUITY & LIABILITIES</div>
-          ${[['Shareholders Equity',getBSVal('total_equity',p)],['Non-Current Liabilities',getBSVal('total_ncl',p)],['Current Liabilities',getBSVal('total_cl',p)]].map(([l,v])=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--bdr);font-size:13px"><span style="color:var(--text)">${l}</span><span style="color:var(--gold2);font-weight:600">${fmt(v)}</span></div>`).join('')}
-          <div style="display:flex;justify-content:space-between;padding:10px 0;font-size:14px;font-weight:700;color:var(--gold)"><span>TOTAL</span><span>${fmt(getBSVal('total_assets',p))}</span></div>
-        </div>
-        <div><div style="font-size:13px;font-weight:600;color:var(--sky2);margin-bottom:12px">ASSETS</div>
-          ${[['Non-Current Assets',getBSVal('total_nca',p)],['Current Assets',getBSVal('total_ca',p)]].map(([l,v])=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--bdr);font-size:13px"><span style="color:var(--text)">${l}</span><span style="color:var(--gold2);font-weight:600">${fmt(v)}</span></div>`).join('')}
-          <div style="display:flex;justify-content:space-between;padding:10px 0;font-size:14px;font-weight:700;color:var(--gold)"><span>TOTAL</span><span>${fmt(getBSVal('total_assets',p))}</span></div>
-        </div>
-      </div>
-    </div>`},
-    {title:'P&L Summary',html:`<div style="padding:32px">
-      <div style="font-family:Playfair Display,serif;font-size:22px;color:var(--gold2);margin-bottom:20px">Profit & Loss Summary</div>
-      ${[['Revenue from Operations',getBSVPL('total_rev',p),'var(--em)'],['(-) Total Expenses',getBSVPL('total_exp',p),'var(--rose)'],['= EBITDA',getBSVPL('ebitda',p),'var(--gold)'],['(-) Depreciation',getPLInput('depreciation',p),'var(--amb)'],['(-) Finance Costs',getPLInput('finance_costs',p),'var(--amb)'],['= PBT',getBSVPL('pbt',p),'var(--sky2)'],['(-) Tax',getBSVPL('total_tax',p),'var(--muted)'],['= PAT (Net Profit)',getBSVPL('pat',p),'var(--em)']].map(([l,v,c],i,arr)=>{const isTot=l.startsWith('=');return `<div style="display:flex;justify-content:space-between;align-items:center;padding:${isTot?10:7}px ${isTot?12:0}px;border-radius:${isTot?6:0}px;background:${isTot?'var(--ink3)':'transparent'};border-bottom:${isTot?'none':'1px solid rgba(200,168,75,.08)'};font-size:${isTot?14:13}px"><span style="color:${isTot?c:'var(--text)'}${isTot?';font-weight:600':''}">${l}</span><span style="color:${c};font-weight:${isTot?700:400}">${fmt(v)}</span></div>`}).join('')}
-    </div>`},
-    {title:'Key Ratios',html:`<div style="padding:32px">
-      <div style="font-family:Playfair Display,serif;font-size:22px;color:var(--gold2);margin-bottom:20px">Key Financial Ratios — ${S.periods[0]}</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-        ${(()=>{const p=0;const ca=getBSVal('total_ca',p),cl=getBSVal('total_cl',p),eq=getBSVal('total_equity',p),td=getBSVal('lt_borrowings',p)+getBSVal('st_borrowings',p),rev=getBSVPL('total_rev',p),pat=getBSVPL('pat',p),ebitda=getBSVPL('ebitda',p),ebit=getBSVPL('ebit',p),fc=getPLInput('finance_costs',p),ta=getBSVal('total_assets',p);
-        const ratios=[['Current Ratio',(cl>0?ca/cl:0).toFixed(2)+'x',cl>0&&ca/cl>=2],['Debt/Equity',(eq>0?td/eq:0).toFixed(2)+'x',eq>0&&td/eq<=2],['Interest Cover',(fc>0?ebit/fc:0).toFixed(2)+'x',fc>0&&ebit/fc>=3],['Net Margin',(rev>0?(pat/rev*100):0).toFixed(1)+'%',rev>0&&pat/rev>=0.1],['EBITDA Margin',(rev>0?(ebitda/rev*100):0).toFixed(1)+'%',rev>0&&ebitda/rev>=0.15],['ROE',(eq>0?(pat/eq*100):0).toFixed(1)+'%',eq>0&&pat/eq>=0.12],['ROA',(ta>0?(pat/ta*100):0).toFixed(1)+'%',ta>0&&pat/ta>=0.06],['Asset Turnover',(ta>0?rev/ta:0).toFixed(2)+'x',ta>0&&rev/ta>=1]];
-        return ratios.map(([l,v,g])=>`<div style="background:var(--ink3);border:1px solid ${g?'rgba(52,199,123,.3)':'rgba(224,92,104,.3)'};border-radius:8px;padding:14px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:12px;color:var(--muted)">${l}</span><span style="font-size:16px;font-weight:700;color:${g?'var(--em)':'var(--rose)'}">${v}</span></div>`).join('');})()}
-      </div>
-    </div>`},
-    {title:'Comparative',html:`<div style="padding:32px">
-      <div style="font-family:Playfair Display,serif;font-size:22px;color:var(--gold2);margin-bottom:20px">3-Year Comparative Overview</div>
-      <table style="width:100%;border-collapse:collapse;font-size:13px">
-        <thead><tr style="background:var(--ink2)"><th style="padding:10px;text-align:left;color:var(--muted)">Particulars</th>${S.periods.map(p=>`<th style="padding:10px;text-align:right;color:var(--muted)">${p}</th>`).join('')}</tr></thead>
-        <tbody>
-          ${[['Revenue','total_rev',true],['EBITDA','ebitda',false],['PAT','pat',true],['Total Assets','total_assets',false],['Equity','total_equity',false]].map(([l,id,bold])=>{
-            const vals=[0,1,2].map(p=>id==='total_assets'||id==='total_equity'?getBSVal(id,p):getBSVPL(id,p));
-            return `<tr style="border-bottom:1px solid rgba(200,168,75,.08)"><td style="padding:10px;color:var(--text);${bold?'font-weight:600':''}"">${l}</td>${vals.map(v=>`<td style="padding:10px;text-align:right;color:var(--gold2)">${fmt(v)}</td>`).join('')}</tr>`;
-          }).join('')}
-        </tbody>
-      </table>
-    </div>`},
-    {title:'AI Analysis',html:`<div style="padding:32px;overflow:auto;max-height:440px">
-      <div style="font-family:Playfair Display,serif;font-size:22px;color:var(--gold2);margin-bottom:16px">AI Financial Analysis</div>
-      <div style="font-size:12.5px;line-height:1.9;color:var(--text)">${S.aiResult?markdownToHtml(S.aiResult.slice(0,2000)+'…'):'<div style="color:var(--muted);font-style:italic">Run AI Analysis first (from the AI Deep Analysis panel) to include AI commentary in this slide.</div>'}</div>
-    </div>`},
-    {title:'Thank You',html:`<div style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--ink2),var(--ink3));text-align:center;padding:40px">
-      <div style="font-family:Playfair Display,serif;font-size:28px;color:var(--gold2);margin-bottom:12px">Thank You</div>
-      <div style="font-size:14px;color:var(--muted);max-width:400px;line-height:2">This analysis was prepared using FinAnalyser Pro. All figures are as reported by the entity. This report is for informational purposes only.</div>
-      <div style="margin-top:24px;font-size:11px;color:var(--muted)">${co} · ${S.periods[0]} · FinAnalyser Pro v2.1</div>
-    </div>`},
-  ];
+function _slideShell(title,bodyHtml){
+  var h=[];
+  h.push('<div style="padding:28px 36px;height:100%">');
+  h.push('<div style="display:flex;align-items:center;gap:12px;border-bottom:2px solid var(--gold);padding-bottom:10px;margin-bottom:20px">');
+  h.push('<div style="width:8px;height:26px;background:linear-gradient(180deg,var(--gold),var(--gold2));border-radius:3px"></div>');
+  h.push('<div style="font-family:Playfair Display,serif;font-size:22px;color:var(--gold2)">'+title+'</div>');
+  h.push('</div>');
+  h.push(bodyHtml);
+  h.push('</div>');
+  return h.join('');
 }
+function _slideBar(label,val,max,color){
+  var w=max>0?Math.min(100,Math.round(Math.abs(val)/max*100)):0;
+  var h=[];
+  h.push('<div style="margin-bottom:12px">');
+  h.push('<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span style="color:var(--text)">'+label+'</span><span style="color:'+color+';font-weight:700">'+fmt(val)+'</span></div>');
+  h.push('<div style="background:var(--ink3);border-radius:4px;height:9px"><div style="width:'+Math.max(w,2)+'%;height:9px;background:'+color+';border-radius:4px"></div></div>');
+  h.push('</div>');
+  return h.join('');
+}
+function buildSlides(){
+  var co=S.co.name||'Company';
+  var entity=document.getElementById('entitySelect')?.selectedOptions[0]?.text||'';
+  var sector=document.getElementById('coSector')?.selectedOptions[0]?.text||'';
+  var p=0;
+  var rev=getBSVPL('total_rev',p),pat=getBSVPL('pat',p),ebitda=getBSVPL('ebitda',p);
+  var ta=getBSVal('total_assets',p),eq=getBSVal('total_equity',p);
+  var ca=getBSVal('total_ca',p),cl=getBSVal('total_cl',p);
+  var ncl=getBSVal('total_ncl',p),nca=getBSVal('total_nca',p);
+  var td=getBSVal('lt_borrowings',p)+getBSVal('st_borrowings',p);
+  var fc=getPLInput('finance_costs',p),ebit=getBSVPL('ebit',p);
+  var cr=cl>0?ca/cl:null,de=eq>0?td/eq:null;
+  var npm=rev>0?(pat/rev*100):null;
+  var gross=rev-(getPLInput('cost_materials',p)+getPLInput('purchases_stock',p)+getPLInput('chg_inventories',p));
+  var prevRev=getBSVPL('total_rev',1);
+  var revGrowth=prevRev?((rev-prevRev)/Math.abs(prevRev)*100):null;
+  var verdict=pat>0&&cr!==null&&cr>=1.5?'Profitable and liquid — fundamentals are sound.':pat>0?'Profitable, but liquidity deserves attention.':pat<0?'Loss-making — cost structure exceeds revenue.':'Break-even / limited data.';
+  var verdictColor=pat>0?'var(--em)':pat<0?'var(--rose)':'var(--amb)';
+  var b=[];
+
+  // 1 — Cover
+  b.length=0;
+  b.push('<div style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--ink2),var(--ink3));text-align:center;padding:40px">');
+  b.push('<div style="width:80px;height:80px;border-radius:18px;background:linear-gradient(135deg,var(--gold),var(--gold2));display:flex;align-items:center;justify-content:center;font-family:Playfair Display,serif;font-size:32px;font-weight:700;color:var(--ink);margin-bottom:24px">F</div>');
+  b.push('<div style="font-family:Playfair Display,serif;font-size:34px;color:var(--gold2);margin-bottom:8px">'+co+'</div>');
+  b.push('<div style="font-size:18px;color:var(--text);margin-bottom:6px">Financial Review</div>');
+  b.push('<div style="font-size:14px;color:var(--muted)">'+(entity?entity+' · ':'')+(sector?sector+' · ':'')+S.periods[0]+'</div>');
+  b.push('<div style="margin-top:28px;font-size:11px;color:var(--bdr);letter-spacing:2px;text-transform:uppercase">'+new Date().toLocaleDateString('en-IN',{day:'numeric',month:'long',year:'numeric'})+' · Prepared with FinAnalyser Pro</div>');
+  b.push('</div>');
+  var sCover={title:'Cover',html:b.join('')};
+
+  // 2 — Agenda
+  var agenda=['Executive Summary','Revenue Analysis','Cost & Margin Analysis','Profitability Bridge','Balance Sheet Strength','Ratios Scorecard','Risks & Watchpoints','Recommendations'];
+  b=[];
+  b.push('<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">');
+  agenda.forEach(function(a,i){
+    b.push('<div style="display:flex;align-items:center;gap:14px;background:var(--ink3);border:1px solid var(--bdr);border-radius:10px;padding:16px 18px">');
+    b.push('<div style="font-family:Playfair Display,serif;font-size:20px;color:var(--gold);min-width:28px">'+(i+1<10?'0':'')+(i+1)+'</div>');
+    b.push('<div style="font-size:14px;color:var(--text)">'+a+'</div></div>');
+  });
+  b.push('</div>');
+  var sAgenda={title:'Agenda',html:_slideShell('Agenda',b.join(''))};
+
+  // 3 — Executive summary
+  b=[];
+  b.push('<div style="background:var(--ink3);border-left:4px solid '+verdictColor+';border-radius:8px;padding:14px 18px;margin-bottom:20px;font-size:15px;color:'+verdictColor+';font-weight:600">'+verdict+'</div>');
+  b.push('<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:14px">');
+  var tiles=[['Revenue',fmt(rev),'var(--gold)'],['EBITDA',fmt(ebitda),'var(--sky2)'],['PAT'+(npm!==null?' ('+npm.toFixed(1)+'%)':''),fmt(pat),pat>=0?'var(--em)':'var(--rose)'],['Total Assets',fmt(ta),'var(--gold2)']];
+  tiles.forEach(function(t){
+    b.push('<div style="background:var(--ink3);border:1px solid var(--bdr);border-radius:10px;padding:18px"><div style="font-size:11px;color:var(--muted);margin-bottom:6px">'+t[0]+'</div><div style="font-size:20px;font-weight:700;color:'+t[2]+';font-family:Playfair Display,serif">'+t[1]+'</div></div>');
+  });
+  b.push('</div>');
+  var sExec={title:'Executive Summary',html:_slideShell('Executive Summary — '+S.periods[0],b.join(''))};
+
+  // 4 — Revenue analysis
+  b=[];
+  b.push('<div style="display:flex;gap:24px;align-items:flex-start">');
+  b.push('<div style="min-width:220px;background:var(--ink3);border:1px solid var(--bdr);border-radius:12px;padding:22px;text-align:center">');
+  b.push('<div style="font-size:11px;color:var(--muted)">Revenue from operations + other income</div>');
+  b.push('<div style="font-size:28px;font-weight:800;color:var(--gold);font-family:Playfair Display,serif;margin:8px 0">'+fmt(rev)+'</div>');
+  if(revGrowth!==null)b.push('<div style="font-size:13px;font-weight:700;color:'+(revGrowth>=0?'var(--em)':'var(--rose)')+'">'+(revGrowth>=0?'▲ +':'▼ ')+revGrowth.toFixed(1)+'% vs '+S.periods[1]+'</div>');
+  b.push('</div><div style="flex:1">');
+  var revNet=getBSVPL('rev_net',p),oi=getPLInput('other_income',p);
+  var maxR=Math.max(Math.abs(revNet),Math.abs(oi),1);
+  b.push(_slideBar('Revenue from operations (net)',revNet,maxR,'var(--gold)'));
+  b.push(_slideBar('Other income',oi,maxR,'var(--sky2)'));
+  b.push('<ul style="font-size:12.5px;color:var(--text);line-height:2;margin:10px 0 0 16px;padding:0">');
+  b.push('<li>Operating revenue forms '+(rev?Math.round(revNet/rev*100):0)+'% of total income'+(oi&&rev&&oi/rev>0.1?' — other income is material at '+Math.round(oi/rev*100)+'%':'')+'.</li>');
+  if(revGrowth!==null)b.push('<li>Topline '+(revGrowth>=0?'grew':'declined')+' '+Math.abs(revGrowth).toFixed(1)+'% year over year.</li>');
+  b.push('<li>3-year revenue path: '+fmt(getBSVPL('total_rev',2))+' → '+fmt(getBSVPL('total_rev',1))+' → '+fmt(rev)+'.</li>');
+  b.push('</ul></div></div>');
+  var sRev={title:'Revenue Analysis',html:_slideShell('Revenue Analysis',b.join(''))};
+
+  // 5 — Cost & margin analysis
+  var exp=[['Cost of materials',getPLInput('cost_materials',p)],['Purchases of stock-in-trade',getPLInput('purchases_stock',p)],['Employee benefits',getPLInput('emp_benefits',p)],['Other expenses',getPLInput('other_exp',p)],['Finance costs',fc],['Depreciation',getPLInput('depreciation',p)]];
+  exp.sort(function(a,c){return Math.abs(c[1])-Math.abs(a[1]);});
+  var top3=exp.slice(0,3);
+  b=[];
+  b.push('<div style="font-size:13px;color:var(--muted);margin-bottom:14px">Top 3 expense heads as a share of revenue ('+fmt(rev)+'):</div>');
+  top3.forEach(function(e,i){
+    var pctR=rev>0?(Math.abs(e[1])/rev*100):0;
+    b.push('<div style="margin-bottom:16px">');
+    b.push('<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px"><span style="color:var(--text)">'+(i+1)+'. '+e[0]+'</span><span style="color:var(--amb);font-weight:700">'+fmt(e[1])+' · '+pctR.toFixed(1)+'% of revenue</span></div>');
+    b.push('<div style="background:var(--ink3);border-radius:5px;height:12px"><div style="width:'+Math.min(100,Math.max(2,Math.round(pctR)))+'%;height:12px;background:linear-gradient(90deg,var(--amb),var(--rose));border-radius:5px"></div></div>');
+    b.push('</div>');
+  });
+  b.push('<div style="background:var(--ink3);border-radius:8px;padding:12px 16px;font-size:12.5px;color:var(--text);margin-top:8px">Total expenses '+fmt(getBSVPL('total_exp',p))+' against total revenue '+fmt(rev)+' — '+(rev>=getBSVPL('total_exp',p)?'a positive operating spread.':'<span style="color:var(--rose);font-weight:700">expenses exceed revenue.</span>')+'</div>');
+  var sCost={title:'Cost & Margin Analysis',html:_slideShell('Cost & Margin Analysis',b.join(''))};
+
+  // 6 — Profitability bridge
+  b=[];
+  var maxB=Math.max(Math.abs(rev),Math.abs(gross),Math.abs(ebitda),Math.abs(pat),1);
+  b.push('<div style="font-size:13px;color:var(--muted);margin-bottom:16px">How each rupee of revenue narrows down to net profit:</div>');
+  b.push(_slideBar('Revenue',rev,maxB,'var(--gold)'));
+  b.push(_slideBar('Gross Profit (after direct costs)',gross,maxB,gross>=0?'var(--sky2)':'var(--rose)'));
+  b.push(_slideBar('EBITDA (after operating costs)',ebitda,maxB,ebitda>=0?'var(--em)':'var(--rose)'));
+  b.push(_slideBar('PAT (after depreciation, interest & tax)',pat,maxB,pat>=0?'var(--em)':'var(--rose)'));
+  b.push('<div style="font-size:12px;color:var(--muted);margin-top:10px">Margins: gross '+(rev?(gross/rev*100).toFixed(1):'—')+'% · EBITDA '+(rev?(ebitda/rev*100).toFixed(1):'—')+'% · net '+(npm!==null?npm.toFixed(1):'—')+'%</div>');
+  var sBridge={title:'Profitability Bridge',html:_slideShell('Profitability Bridge',b.join(''))};
+
+  // 7 — Balance sheet strength
+  var tallyEl=document.getElementById('bsTally');
+  var tallyTxt=tallyEl?tallyEl.textContent:'';
+  var tallyOk=tallyTxt.indexOf('Balanced')!==-1;
+  b=[];
+  b.push('<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">');
+  b.push('<div><div style="font-size:13px;font-weight:600;color:var(--sky2);margin-bottom:12px">FUNDING (Equity & Liabilities)</div>');
+  var maxF=Math.max(eq,ncl,cl,nca,ca,1);
+  b.push(_slideBar('Shareholders\' equity',eq,maxF,'var(--em)'));
+  b.push(_slideBar('Non-current liabilities',ncl,maxF,'var(--amb)'));
+  b.push(_slideBar('Current liabilities',cl,maxF,'var(--rose)'));
+  b.push('</div><div><div style="font-size:13px;font-weight:600;color:var(--sky2);margin-bottom:12px">DEPLOYMENT (Assets)</div>');
+  b.push(_slideBar('Non-current assets',nca,maxF,'var(--gold)'));
+  b.push(_slideBar('Current assets',ca,maxF,'var(--sky2)'));
+  b.push('</div></div>');
+  b.push('<div style="margin-top:18px;display:flex;gap:16px;align-items:center">');
+  b.push('<div style="background:var(--ink3);border-radius:8px;padding:10px 16px;font-size:13px;color:var(--gold2);font-weight:700">Total Assets: '+fmt(ta)+'</div>');
+  b.push('<div style="padding:8px 16px;border-radius:20px;font-size:12px;font-weight:700;background:'+(tallyOk?'rgba(52,199,123,.15);color:var(--em)':'rgba(224,92,104,.15);color:var(--rose)')+'">'+(tallyTxt||'Tally not computed')+'</div>');
+  b.push('</div>');
+  var sBS={title:'Balance Sheet Strength',html:_slideShell('Balance Sheet Strength',b.join(''))};
+
+  // 8 — Ratios scorecard
+  function badge(v,good,fair,higherBetter){
+    if(v===null)return ['—','var(--muted)','rgba(255,255,255,.05)'];
+    var ok=higherBetter?v>=good:v<=good;
+    var fairOk=higherBetter?v>=fair:v<=fair;
+    if(ok)return ['Good','var(--em)','rgba(52,199,123,.15)'];
+    if(fairOk)return ['Fair','var(--amb)','rgba(232,164,53,.15)'];
+    return ['Risk','var(--rose)','rgba(224,92,104,.15)'];
+  }
+  var icov=fc>0?ebit/fc:null;
+  var roe=eq>0?pat/eq*100:null;
+  var emarg=rev>0?ebitda/rev*100:null;
+  var ratios=[
+    ['Current Ratio',cr===null?'—':cr.toFixed(2)+'x',badge(cr,2,1,true)],
+    ['Debt / Equity',de===null?'—':de.toFixed(2)+'x',badge(de,1,2,false)],
+    ['Interest Cover',icov===null?'—':icov.toFixed(2)+'x',badge(icov,3,1.5,true)],
+    ['Net Margin',npm===null?'—':npm.toFixed(1)+'%',badge(npm,10,3,true)],
+    ['EBITDA Margin',emarg===null?'—':emarg.toFixed(1)+'%',badge(emarg,20,10,true)],
+    ['ROE',roe===null?'—':roe.toFixed(1)+'%',badge(roe,15,8,true)]
+  ];
+  b=[];
+  b.push('<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">');
+  ratios.forEach(function(r){
+    b.push('<div style="background:var(--ink3);border:1px solid var(--bdr);border-radius:10px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center">');
+    b.push('<div><div style="font-size:12px;color:var(--muted)">'+r[0]+'</div><div style="font-size:18px;font-weight:700;color:var(--text)">'+r[1]+'</div></div>');
+    b.push('<span style="padding:4px 14px;border-radius:14px;font-size:11px;font-weight:800;color:'+r[2][1]+';background:'+r[2][2]+'">'+r[2][0]+'</span>');
+    b.push('</div>');
+  });
+  b.push('</div>');
+  var sRatio={title:'Ratios Scorecard',html:_slideShell('Ratios Scorecard — '+S.periods[0],b.join(''))};
+
+  // 9 — Risks & watchpoints (same engine as AI Deep Analysis risk radar)
+  var rrisks=_caRisks(_caFigures());
+  b=[];
+  rrisks.forEach(function(r){
+    var c=r[1]==='Low'?'var(--em)':r[1]==='Medium'?'var(--amb)':'var(--rose)';
+    var bg=r[1]==='Low'?'rgba(52,199,123,.15)':r[1]==='Medium'?'rgba(232,164,53,.15)':'rgba(224,92,104,.15)';
+    b.push('<div style="display:flex;align-items:flex-start;gap:14px;background:var(--ink3);border:1px solid var(--bdr);border-radius:10px;padding:12px 16px;margin-bottom:10px">');
+    b.push('<span style="min-width:64px;text-align:center;padding:3px 0;border-radius:12px;font-size:10.5px;font-weight:800;color:'+c+';background:'+bg+'">'+r[1]+'</span>');
+    b.push('<div><div style="font-size:13px;font-weight:700;color:var(--text)">'+r[0]+'</div><div style="font-size:12px;color:var(--muted);margin-top:2px">'+r[2]+'</div></div>');
+    b.push('</div>');
+  });
+  var sRisk={title:'Risks & Watchpoints',html:_slideShell('Risks & Watchpoints',b.join(''))};
+
+  // 10 — Recommendations + thank you
+  var recs=[];
+  if(pat<0)recs.push('Set a dated path to break-even — start with the top expense head ('+top3[0][0].toLowerCase()+', '+(rev?(Math.abs(top3[0][1])/rev*100).toFixed(0):'—')+'% of revenue).');
+  if(cr!==null&&cr<1.5)recs.push('Lift the current ratio above 1.5x: tighten receivable collection and stagger payables.');
+  if(de!==null&&de>1)recs.push('Reduce gearing — prioritise repayment of high-cost short-term borrowings.');
+  if(pat>0&&npm!==null&&npm<10)recs.push('Push net margin towards 10% via pricing and mix review.');
+  if(pat>0&&(cr===null||cr>=1.5))recs.push('Deploy surplus liquidity into yield or disciplined growth.');
+  recs.push('Re-run this review quarterly and track movement against the ratio scorecard.');
+  b=[];
+  b.push('<ul style="font-size:13.5px;color:var(--text);line-height:2.2;margin:0 0 28px 18px;padding:0">');
+  recs.slice(0,5).forEach(function(r){b.push('<li>'+r+'</li>');});
+  b.push('</ul>');
+  b.push('<div style="text-align:center;border-top:1px solid var(--bdr);padding-top:24px">');
+  b.push('<div style="font-family:Playfair Display,serif;font-size:26px;color:var(--gold2);margin-bottom:8px">Thank You</div>');
+  b.push('<div style="font-size:12px;color:var(--muted)">'+co+' · '+S.periods[0]+' · Prepared with FinAnalyser Pro. Figures as reported by the entity; for information only.</div>');
+  b.push('</div>');
+  var sRec={title:'Recommendations',html:_slideShell('Recommendations',b.join(''))};
+
+  slides=[sCover,sAgenda,sExec,sRev,sCost,sBridge,sBS,sRatio,sRisk,sRec];
+  }
 
 function renderSlide(idx){
   const viewer=document.getElementById('slideViewer');
@@ -5193,11 +5349,187 @@ function refreshAllMPDash(){
 }
 
 // ─── COMPUTED AI ANALYSIS ────────────────────────────────────────────────────
+function _caFmtIN(v){
+  if(v===null||v===undefined||isNaN(v))return '—';
+  var abs=Math.abs(v),neg=v<0,sgn=neg?'-':'';
+  if(abs>=10000000)return sgn+'₹'+(abs/10000000).toFixed(2)+' Cr';
+  if(abs>=100000)return sgn+'₹'+(abs/100000).toFixed(2)+' L';
+  return sgn+'₹'+abs.toLocaleString('en-IN',{maximumFractionDigits:0});
+}
+// Collect core figures from manual inputs, falling back to window._dynParsed rows
+function _caFigures(){
+  var f={rev:getBSVPL('total_rev',0),pat:getBSVPL('pat',0),ebitda:getBSVPL('ebitda',0),
+    ta:getBSVal('total_assets',0),ca:getBSVal('total_ca',0),cl:getBSVal('total_cl',0),
+    eq:getBSVal('total_equity',0),td:getBSVal('lt_borrowings',0)+getBSVal('st_borrowings',0),
+    source:'manual'};
+  var p=window._dynParsed;
+  if((!f.rev&&!f.pat)&&p&&p.rows&&p.rows.length){
+    var nonTotal=p.periodCols.filter(function(pc){return !pc.isTotal;});
+    function find(kws){
+      for(var i=0;i<p.rows.length;i++){var lbl=p.rows[i].label.toLowerCase();
+        for(var j=0;j<kws.length;j++){if(lbl.indexOf(kws[j])!==-1&&p.rows[i].hasValues)return p.rows[i];}}
+      return null;
+    }
+    function tot(row){if(!row)return 0;var t=0;nonTotal.forEach(function(pc){var v=row.values[pc.label];if(v)t+=v;});return t;}
+    f.rev=tot(find(['total - sales','total - income','total revenue','revenue from operations']));
+    f.pat=tot(find(['net profit','net loss','net profit/(loss)']));
+    f.ebitda=tot(find(['operating profit','ebitda']));
+    f.source='parsed';
+  }
+  f.cr=f.cl>0?f.ca/f.cl:null;
+  f.de=f.eq>0?f.td/f.eq:null;
+  return f;
+}
+function _caRisks(f){
+  var risks=[];
+  function R(name,sev,why){risks.push([name,sev,why]);}
+  if(f.cr===null)R('Liquidity','Medium','Current ratio not computable — balance sheet incomplete.');
+  else if(f.cr>=1.5)R('Liquidity','Low','Current ratio '+f.cr.toFixed(2)+'x — comfortable buffer over near-term obligations.');
+  else if(f.cr>=1)R('Liquidity','Medium','Current ratio '+f.cr.toFixed(2)+'x — thin cushion; monitor working capital.');
+  else R('Liquidity','High','Current ratio '+f.cr.toFixed(2)+'x — current liabilities exceed current assets.');
+  if(f.de===null)R('Leverage','Medium','Debt/Equity not computable (equity zero or negative inputs missing).');
+  else if(f.de<=1)R('Leverage','Low','D/E '+f.de.toFixed(2)+'x — conservative capital structure.');
+  else if(f.de<=2)R('Leverage','Medium','D/E '+f.de.toFixed(2)+'x — moderate gearing; watch interest cover.');
+  else R('Leverage','High','D/E '+f.de.toFixed(2)+'x — heavily geared balance sheet.');
+  if(f.pat>0)R('Profitability','Low','Positive PAT of '+_caFmtIN(f.pat)+(f.rev?' ('+(f.pat/f.rev*100).toFixed(1)+'% margin)':'')+'.');
+  else if(f.pat===0)R('Profitability','Medium','Break-even — no margin of safety against cost shocks.');
+  else R('Profitability','High','Net loss of '+_caFmtIN(f.pat)+' — cost structure exceeds revenue.');
+  // Concentration & volatility — from parsed monthlies if available
+  var p=window._dynParsed;var conc=null,vol=null;
+  if(p&&p.rows&&p.rows.length){
+    var nonTotal=p.periodCols.filter(function(pc){return !pc.isTotal;});
+    var revRow=null;
+    for(var i=0;i<p.rows.length;i++){var lbl=p.rows[i].label.toLowerCase();
+      if(p.rows[i].hasValues&&(lbl.indexOf('total - sales')!==-1||lbl.indexOf('total - income')!==-1||lbl.indexOf('total revenue')!==-1)){revRow=p.rows[i];break;}}
+    if(revRow&&nonTotal.length>=3){
+      var vals=nonTotal.map(function(pc){return revRow.values[pc.label]||0;});
+      var mx=Math.max.apply(null,vals),mn=Math.min.apply(null,vals);
+      var avg=vals.reduce(function(a,b){return a+b;},0)/vals.length;
+      if(avg!==0){var swing=(mx-mn)/Math.abs(avg)*100;
+        vol=[swing>80?'High':swing>40?'Medium':'Low','Revenue swings '+swing.toFixed(0)+'% of average across '+nonTotal.length+' periods.'];}
+    }
+    var leaf=p.rows.filter(function(r){return r.hasValues&&r.type!=='section'&&r.label.toLowerCase().indexOf('total')!==0;});
+    var sums=leaf.map(function(r){var t=0;nonTotal.forEach(function(pc){var v=r.values[pc.label];if(v>0)t+=v;});return t;});
+    var grand=sums.reduce(function(a,b){return a+b;},0);
+    if(grand>0){var top=Math.max.apply(null,sums);var share=top/grand*100;
+      conc=[share>50?'High':share>30?'Medium':'Low','Largest line item is '+share.toFixed(0)+'% of all positive flows.'];}
+  }
+  R('Concentration',conc?conc[0]:'Medium',conc?conc[1]:'Load detailed data (Smart Data Viewer) to assess revenue concentration.');
+  R('Volatility',vol?vol[0]:'Medium',vol?vol[1]:'Multi-period data not loaded — volatility cannot be measured.');
+  return risks;
+}
 function buildComputedAnalysisHTML(){
   var p=window._dynParsed;
   var parts=[];
+  var f=_caFigures();
+  // ── Health score & verdict ──
+  var score=50;
+  if(f.pat>0)score+=25;else if(f.pat<0)score-=15;
+  if(f.cr!==null){if(f.cr>=1.5)score+=15;else if(f.cr>=1)score+=5;else score-=10;}
+  if(f.de!==null){if(f.de<=1)score+=10;else if(f.de>2)score-=10;}
+  if(f.rev>0&&f.ebitda/f.rev>0.15)score+=5;
+  score=Math.max(0,Math.min(100,score));
+  var grad=score>=70?'linear-gradient(90deg,#0d9f6e,#34c77b)':score>=40?'linear-gradient(90deg,#b07d1a,#e8a435)':'linear-gradient(90deg,#b03a48,#e05c68)';
+  var verdict;
+  if(f.pat>0&&f.cr!==null&&f.cr>=1.5)verdict='Profitable and liquid — fundamentals are sound.';
+  else if(f.pat>0)verdict='Profitable, but liquidity deserves attention.';
+  else if(f.pat<0&&f.cr!==null&&f.cr<1)verdict='Loss-making with stretched liquidity — act on costs and working capital.';
+  else if(f.pat<0)verdict='Loss-making — cost structure exceeds revenue.';
+  else verdict='Neutral position — limited data or break-even performance.';
   parts.push('<div style="background:linear-gradient(135deg,rgba(0,212,170,.08),rgba(56,189,248,.06));border:1px solid rgba(0,212,170,.2);border-radius:12px;padding:18px;margin-bottom:16px">');
-  parts.push('<div style="font-family:\'Playfair Display\',serif;font-size:16px;color:var(--teal2);margin-bottom:14px">📋 Computed Financial Analysis</div>');
+  parts.push('<div style="font-family:\'Playfair Display\',serif;font-size:16px;color:var(--teal2);margin-bottom:14px">📋 Computed Deep Analysis</div>');
+  parts.push('<div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap;background:rgba(0,0,0,.25);border-radius:12px;padding:16px 20px;margin-bottom:18px">');
+  parts.push('<div style="min-width:110px;text-align:center;padding:14px 18px;border-radius:50px;background:'+grad+';color:#0b1320;font-weight:800;font-size:30px;box-shadow:0 4px 18px rgba(0,0,0,.35)">'+score+'<span style="font-size:13px;font-weight:600">/100</span></div>');
+  parts.push('<div><div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px">'+verdict+'</div>');
+  parts.push('<div style="font-size:11px;color:var(--muted)">Health score blends profitability (PAT sign &amp; margin), liquidity (current ratio) and leverage (D/E).</div></div>');
+  parts.push('</div>');
+  // ── Executive Snapshot ──
+  var mag=Math.max(Math.abs(f.rev),Math.abs(f.ebitda),Math.abs(f.pat),Math.abs(f.ta),1);
+  function bar(v,color){
+    var w=Math.min(100,Math.round(Math.abs(v)/mag*100));
+    return '<div style="background:rgba(255,255,255,.06);border-radius:3px;height:5px;margin-top:7px"><div style="width:'+Math.max(w,2)+'%;height:5px;background:'+color+';border-radius:3px"></div></div>';
+  }
+  var npm=f.rev?(f.pat/f.rev*100):null,em=f.rev?(f.ebitda/f.rev*100):null;
+  var cards=[
+    ['Revenue',_caFmtIN(f.rev),'💰','var(--gold2)',f.rev],
+    ['PAT'+(npm!==null?' · '+npm.toFixed(1)+'%':''),_caFmtIN(f.pat),f.pat>=0?'✅':'🔻',f.pat>=0?'var(--teal)':'var(--coral)',f.pat],
+    ['EBITDA'+(em!==null?' · '+em.toFixed(1)+'%':''),_caFmtIN(f.ebitda),f.ebitda>=0?'⚙️':'⚠️',f.ebitda>=0?'var(--sky2)':'var(--coral)',f.ebitda],
+    ['Total Assets',_caFmtIN(f.ta),'🏛️','var(--gold)',f.ta],
+    ['Current Ratio',f.cr===null?'—':f.cr.toFixed(2)+'x',f.cr!==null&&f.cr>=1.5?'🟢':f.cr!==null&&f.cr>=1?'🟡':'🔴',f.cr!==null&&f.cr>=1.5?'var(--teal)':'var(--amb)',f.cr===null?0:f.cr*mag/4],
+    ['Debt / Equity',f.de===null?'—':f.de.toFixed(2)+'x',f.de!==null&&f.de<=1?'🟢':f.de!==null&&f.de<=2?'🟡':'🔴',f.de!==null&&f.de<=1?'var(--teal)':'var(--amb)',f.de===null?0:f.de*mag/4]
+  ];
+  parts.push('<div style="font-size:13px;font-weight:700;color:var(--gold2);margin-bottom:8px">📌 Executive Snapshot</div>');
+  parts.push('<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;margin-bottom:18px">');
+  cards.forEach(function(c){
+    parts.push('<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:12px 14px">');
+    parts.push('<div style="font-size:10.5px;color:var(--muted)">'+c[2]+' '+c[0]+'</div>');
+    parts.push('<div style="font-size:18px;font-weight:800;color:'+c[3]+';margin-top:3px">'+c[1]+'</div>');
+    parts.push(bar(c[4],c[3]));
+    parts.push('</div>');
+  });
+  parts.push('</div>');
+  // ── What the numbers say ──
+  var insights=[];
+  if(f.rev>0)insights.push('Topline of <strong style="color:var(--gold2)">'+_caFmtIN(f.rev)+'</strong> with EBITDA of '+_caFmtIN(f.ebitda)+(em!==null?' ('+em.toFixed(1)+'% margin)':'')+'.');
+  if(f.pat<0&&f.rev>0)insights.push('Every ₹100 of revenue currently produces a net loss of <strong style="color:var(--coral)">₹'+Math.abs(f.pat/f.rev*100).toFixed(1)+'</strong> — pricing or cost base needs intervention.');
+  var expIds=[['Cost of materials','cost_materials'],['Purchases of stock','purchases_stock'],['Employee benefits','emp_benefits'],['Finance costs','finance_costs'],['Depreciation','depreciation'],['Other expenses','other_exp']];
+  var biggest=null;
+  expIds.forEach(function(e){var v=getPLInput(e[1],0);if(v&&(!biggest||v>biggest[1]))biggest=[e[0],v];});
+  if(biggest&&f.rev>0)insights.push('Largest expense head is <strong style="color:var(--amb)">'+biggest[0]+'</strong> at '+_caFmtIN(biggest[1])+' — '+(biggest[1]/f.rev*100).toFixed(1)+'% of revenue.');
+  if(f.cr!==null)insights.push('The company holds <strong style="color:var(--sky2)">₹'+f.cr.toFixed(2)+'</strong> of current assets for every ₹1 of near-term dues.');
+  if(p&&p.rows&&p.rows.length){
+    var nonTotal=p.periodCols.filter(function(pc){return !pc.isTotal;});
+    function findR(kws){for(var i=0;i<p.rows.length;i++){var lbl=p.rows[i].label.toLowerCase();for(var j=0;j<kws.length;j++){if(lbl.indexOf(kws[j])!==-1&&p.rows[i].hasValues)return p.rows[i];}}return null;}
+    var revR=findR(['total - sales','total - income','total revenue','revenue from operations']);
+    var netR=findR(['net profit','net loss','net profit/(loss)']);
+    if(revR&&nonTotal.length>=2){
+      var vals=nonTotal.map(function(pc){return revR.values[pc.label]||0;});
+      var bi=0,wi=0;vals.forEach(function(v,i){if(v>vals[bi])bi=i;if(v<vals[wi])wi=i;});
+      insights.push('Best period for revenue: <strong style="color:var(--teal)">'+nonTotal[bi].label+'</strong> ('+_caFmtIN(vals[bi])+'); weakest: <strong style="color:var(--coral)">'+nonTotal[wi].label+'</strong> ('+_caFmtIN(vals[wi])+') — a swing of '+_caFmtIN(vals[bi]-vals[wi])+'.');
+      var grandRev=vals.reduce(function(a,b){return a+b;},0);
+      if(grandRev&&vals[bi]/grandRev>0.25)insights.push(nonTotal[bi].label+' alone contributed <strong style="color:var(--gold2)">'+(vals[bi]/grandRev*100).toFixed(0)+'%</strong> of total revenue across the loaded periods — revenue is concentrated, not evenly spread.');
+    }
+    if(netR&&nonTotal.length>=2){
+      var nvals=nonTotal.map(function(pc){return netR.values[pc.label]||0;});
+      var flips=[];
+      for(var fi=1;fi<nvals.length;fi++){if((nvals[fi-1]<0)!==(nvals[fi]<0)&&(nvals[fi-1]!==0||nvals[fi]!==0))flips.push(nonTotal[fi].label);}
+      if(flips.length)insights.push('Net profit changed sign in: <strong style="color:var(--amb)">'+flips.join(', ')+'</strong> — profitability turning points worth investigating.');
+      var totNet=nvals.reduce(function(a,b){return a+b;},0);
+      if(totNet<0)insights.push('Cumulative loss of <strong style="color:var(--coral)">'+_caFmtIN(totNet)+'</strong> over '+nonTotal.length+' periods — an average burn of '+_caFmtIN(totNet/nonTotal.length)+' per period.');
+    }
+  } else if(f.pat<0){
+    insights.push('At an annualised loss of '+_caFmtIN(f.pat)+', the monthly cash burn approximates <strong style="color:var(--coral)">'+_caFmtIN(f.pat/12)+'</strong>.');
+  }
+  if(!insights.length)insights.push('Load data (P&L / Balance Sheet inputs or a NetSuite/Excel file via Smart Data Viewer) to generate insights.');
+  parts.push('<div style="font-size:13px;font-weight:700;color:var(--gold2);margin-bottom:8px">🔍 What the numbers say</div>');
+  parts.push('<ul style="font-size:12px;color:var(--text);line-height:1.9;margin:0 0 18px 18px;padding:0">');
+  insights.slice(0,8).forEach(function(s){parts.push('<li style="margin-bottom:4px">'+s+'</li>');});
+  parts.push('</ul>');
+  // ── Risk Radar ──
+  var risks=_caRisks(f);
+  parts.push('<div style="font-size:13px;font-weight:700;color:var(--gold2);margin-bottom:8px">🛰️ Risk Radar</div>');
+  parts.push('<table style="width:100%;border-collapse:collapse;font-size:11.5px;margin-bottom:18px">');
+  parts.push('<thead><tr style="background:rgba(15,27,45,.9)"><th style="text-align:left;padding:7px 10px;color:var(--muted)">Risk</th><th style="text-align:left;padding:7px 10px;color:var(--muted)">Severity</th><th style="text-align:left;padding:7px 10px;color:var(--muted)">Rationale</th></tr></thead><tbody>');
+  risks.forEach(function(r){
+    var bc=r[1]==='Low'?'rgba(52,199,123,.18);color:var(--teal)':r[1]==='Medium'?'rgba(232,164,53,.18);color:var(--amb)':'rgba(224,92,104,.18);color:var(--coral)';
+    parts.push('<tr style="border-bottom:1px solid rgba(255,255,255,.04)"><td style="padding:7px 10px;color:var(--text);font-weight:600">'+r[0]+'</td>');
+    parts.push('<td style="padding:7px 10px"><span style="padding:2px 10px;border-radius:10px;font-weight:700;font-size:10px;background:'+bc+'">'+r[1]+'</span></td>');
+    parts.push('<td style="padding:7px 10px;color:var(--muted)">'+r[2]+'</td></tr>');
+  });
+  parts.push('</tbody></table>');
+  // ── Recommended actions ──
+  var recs=[];
+  if(f.pat<0)recs.push('Rebuild the cost base: target the largest expense heads first'+(biggest?' (start with '+biggest[0].toLowerCase()+')':'')+' and set a dated path to break-even.');
+  if(f.cr!==null&&f.cr<1.5)recs.push('Strengthen working capital — accelerate receivable collections and renegotiate supplier terms to lift the current ratio above 1.5x.');
+  if(f.de!==null&&f.de>1)recs.push('Deleverage gradually: prioritise repayment of high-cost short-term borrowings before fresh capex.');
+  if(f.pat>0&&f.rev>0&&npm<10)recs.push('Margins are thin ('+npm.toFixed(1)+'%): review pricing and product mix to push net margin towards the 10% benchmark.');
+  if(p&&p.rows&&p.rows.length)recs.push('Use the monthly trend to set rolling forecasts — repeat the weakest months\' root-cause review each quarter.');
+  if(f.pat>0&&(f.cr===null||f.cr>=1.5))recs.push('Position is healthy — channel surplus cash into yield or growth, and lock in current cost discipline.');
+  if(!recs.length)recs.push('Complete the P&L and Balance Sheet inputs to receive tailored recommendations.');
+  parts.push('<div style="font-size:13px;font-weight:700;color:var(--gold2);margin-bottom:8px">✅ Recommended actions</div>');
+  parts.push('<ul style="font-size:12px;color:var(--text);line-height:1.9;margin:0 0 4px 18px;padding:0">');
+  recs.slice(0,5).forEach(function(s){parts.push('<li style="margin-bottom:4px">'+s+'</li>');});
+  parts.push('</ul>');
 
   if(p&&p.rows&&p.rows.length){
     var nonTotal=p.periodCols.filter(function(pc){return!pc.isTotal;});
@@ -5346,54 +5678,6 @@ function buildComputedAnalysisHTML(){
       parts.push('</div>');
     }
 
-    // Health check
-    var netLastVal=netRow?rowVal(netRow,lastPeriod):null;
-    var netFirstVal=netRow?rowVal(netRow,firstPeriod):null;
-    var isProfitable=netLastVal!==null&&netLastVal>0;
-    var isTrending=netLastVal!==null&&netFirstVal!==null&&netLastVal>netFirstVal;
-    var healthScore=50;
-    if(isProfitable)healthScore+=20;
-    if(isTrending)healthScore+=15;
-    var gpVal=gpRow?rowVal(gpRow,lastPeriod):null;
-    var revVal=revRow?rowVal(revRow,lastPeriod):null;
-    var gpMargin=(gpVal&&revVal&&revVal!==0)?(gpVal/revVal*100):null;
-    if(gpMargin&&gpMargin>20)healthScore+=15;
-    healthScore=Math.min(100,Math.max(0,healthScore));
-
-    var healthColor=healthScore>=70?'var(--teal)':healthScore>=40?'var(--amb)':'var(--coral)';
-    var healthLabel=healthScore>=70?'Healthy':'';
-    if(!healthLabel)healthLabel=healthScore>=40?'Moderate':'Stressed';
-
-    var summaryLines=[];
-    summaryLines.push(isProfitable?('Company is <strong style="color:var(--teal)">profitable</strong> in the latest period ('+fmtIN(netLastVal)+').'):'Company reported a <strong style="color:var(--coral)">net loss</strong> in the latest period ('+fmtIN(netLastVal)+').');
-    if(isTrending!==null)summaryLines.push('Net P/L trend is <strong style="color:'+(isTrending?'var(--teal)':'var(--coral))')+'">'+(isTrending?'improving':'declining')+'</strong> from '+firstPeriod+' to '+lastPeriod+'.');
-    if(gpMargin!==null)summaryLines.push('Gross Profit Margin: <strong style="color:var(--gold2)">'+gpMargin.toFixed(1)+'%</strong>'+(gpMargin>30?' — strong margin':gpMargin>15?' — acceptable margin':' — tight margin')+' in '+lastPeriod+'.');
-    if(revRow&&nonTotal.length>=2){
-      var revFirst=rowVal(revRow,firstPeriod);var revLast=rowVal(revRow,lastPeriod);
-      var rc=pctChg(revFirst,revLast);
-      if(rc)summaryLines.push('Revenue '+(parseFloat(rc)>=0?'grew':'declined')+' by <strong style="color:'+(parseFloat(rc)>=0?'var(--teal)':'var(--coral)')+'">'+Math.abs(parseFloat(rc))+'%</strong> from '+firstPeriod+' to '+lastPeriod+'.');
-    }
-
-    parts.push('<div style="margin-bottom:8px">');
-    parts.push('<div style="font-size:13px;font-weight:700;color:var(--gold2);margin-bottom:10px">🩺 Computed Health Check</div>');
-    parts.push('<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">');
-    parts.push('<div style="font-size:32px;font-weight:800;color:'+healthColor+'">'+healthScore+'</div>');
-    parts.push('<div><div style="font-size:13px;font-weight:700;color:'+healthColor+'">'+healthLabel+'</div><div style="font-size:11px;color:var(--muted)">Computed Score /100</div></div>');
-    parts.push('<div style="flex:1;height:10px;background:var(--ink3);border-radius:5px;overflow:hidden;margin-left:10px"><div style="width:'+healthScore+'%;height:100%;background:'+healthColor+';border-radius:5px;transition:width .8s"></div></div>');
-    parts.push('</div>');
-    parts.push('<div style="font-size:12px;color:var(--text);line-height:1.9">');
-    for(var si=0;si<summaryLines.length;si++){
-      parts.push('<div style="margin-bottom:4px">'+summaryLines[si]+'</div>');
-    }
-    parts.push('</div></div>');
-
-  } else {
-    // No _dynParsed — use manual inputs
-    var ctx=getFinancialContext();
-    parts.push('<div style="font-size:12px;color:var(--text);line-height:1.8">');
-    parts.push('<div style="margin-bottom:8px"><strong style="color:var(--sky2)">Manual Financial Data</strong></div>');
-    parts.push('<pre style="font-size:11px;color:var(--muted);white-space:pre-wrap;background:rgba(0,0,0,.3);padding:12px;border-radius:8px">'+ctx+'</pre>');
-    parts.push('</div>');
   }
 
   parts.push('<div style="font-size:10px;color:var(--muted);margin-top:14px;padding-top:10px;border-top:1px solid rgba(255,255,255,.05)">⚡ Computed instantly from parsed data — no AI or internet required. Generated: '+new Date().toLocaleString('en-IN')+'</div>');
@@ -5862,84 +6146,277 @@ function generateSched3FromTB(){
 }
 
 // ─── EXPORT SCHED3 ────────────────────────────────────────────────────────────
+// ─── SCHEDULE III STATUTORY EXPORT HELPERS ───────────────────────────────────
+function inr(n){
+  if(n===null||n===undefined||isNaN(n))return '-';
+  var neg=n<0;var v=Math.round(Math.abs(n)).toLocaleString('en-IN',{maximumFractionDigits:0});
+  return neg?'('+v+')':v;
+}
+function _s3Company(){
+  var el=document.getElementById('coName');
+  return (el&&el.value)||(S.co&&S.co.name)||((window._dynParsed&&window._dynParsed.meta&&window._dynParsed.meta.company))||'Company';
+}
+function _s3Auditor(){
+  var el=document.getElementById('coAuditor');
+  return (el&&el.value)||(S.co&&S.co.auditor)||'____________________';
+}
+// Statutory Balance Sheet skeleton: [label, noteNo, valueFn|null, kind]
+// kind: 'sec' = bold section, 'item' = line item, 'tot' = total row, 'blank'
+function _s3BSSkeleton(){
+  var tp=function(p){return getBSVal('trade_pay_msme',p)+getBSVal('trade_pay_others',p);};
+  var g=function(id){return function(p){return getBSVal(id,p);};};
+  var totEL=function(p){return getBSVal('total_equity',p)+getBSVal('share_application',p)+getBSVal('total_ncl',p)+getBSVal('total_cl',p);};
+  var totA=function(p){return getBSVal('total_assets',p);};
+  return [
+    ['I. EQUITY AND LIABILITIES','',null,'sec'],
+    ['(1) Shareholders\' funds','',null,'sec'],
+    ['   (a) Share capital','1',g('share_capital'),'item'],
+    ['   (b) Reserves and surplus','2',g('reserves_surplus'),'item'],
+    ['   (c) Money received against share warrants','',g('money_warrants'),'item'],
+    ['(2) Share application money pending allotment','',g('share_application'),'item'],
+    ['(3) Non-current liabilities','',null,'sec'],
+    ['   (a) Long-term borrowings','3',g('lt_borrowings'),'item'],
+    ['   (b) Deferred tax liabilities (Net)','',g('dtl'),'item'],
+    ['   (c) Other long-term liabilities','',g('other_ltl'),'item'],
+    ['   (d) Long-term provisions','',g('lt_provisions'),'item'],
+    ['(4) Current liabilities','',null,'sec'],
+    ['   (a) Short-term borrowings','4',g('st_borrowings'),'item'],
+    ['   (b) Trade payables','5',tp,'item'],
+    ['   (c) Other current liabilities','',g('other_cl'),'item'],
+    ['   (d) Short-term provisions','',g('st_provisions'),'item'],
+    ['TOTAL','',totEL,'tot'],
+    ['II. ASSETS','',null,'sec'],
+    ['(1) Non-current assets','',null,'sec'],
+    ['   (a) Fixed assets','',null,'sec'],
+    ['      (i) Tangible assets','6',g('tangible'),'item'],
+    ['      (ii) Intangible assets','7',g('intangible'),'item'],
+    ['      (iii) Capital work-in-progress','',g('cwip'),'item'],
+    ['      (iv) Intangible assets under development','',g('intangible_dev'),'item'],
+    ['   (b) Non-current investments','8',g('nc_investments'),'item'],
+    ['   (c) Deferred tax assets (net)','',g('dta'),'item'],
+    ['   (d) Long-term loans and advances','9',g('lt_loans'),'item'],
+    ['   (e) Other non-current assets','',g('other_nca'),'item'],
+    ['(2) Current assets','',null,'sec'],
+    ['   (a) Current investments','10',g('cur_investments'),'item'],
+    ['   (b) Inventories','11',g('inventories'),'item'],
+    ['   (c) Trade receivables','12',g('trade_rec'),'item'],
+    ['   (d) Cash and cash equivalents','13',g('cash'),'item'],
+    ['   (e) Short-term loans and advances','14',g('st_loans'),'item'],
+    ['   (f) Other current assets','',g('other_ca'),'item'],
+    ['TOTAL','',totA,'tot']
+  ];
+}
+// Statutory Statement of P&L skeleton
+function _s3PLSkeleton(){
+  var gi=function(id){return function(p){return getPLInput(id,p);};};
+  var gc=function(id){return function(p){return getBSVPL(id,p);};};
+  return [
+    ['I. Revenue from operations','15',gc('rev_net'),'item'],
+    ['II. Other income','16',gi('other_income'),'item'],
+    ['III. Total Revenue (I + II)','',gc('total_rev'),'tot'],
+    ['IV. Expenses:','',null,'sec'],
+    ['   Cost of materials consumed','17',gi('cost_materials'),'item'],
+    ['   Purchases of Stock-in-Trade','',gi('purchases_stock'),'item'],
+    ['   Changes in inventories of finished goods, work-in-progress and Stock-in-Trade','',gi('chg_inventories'),'item'],
+    ['   Employee benefits expense','18',gi('emp_benefits'),'item'],
+    ['   Finance costs','19',gi('finance_costs'),'item'],
+    ['   Depreciation and amortisation expense','20',gi('depreciation'),'item'],
+    ['   Other expenses','21',gi('other_exp'),'item'],
+    ['   Total expenses','',gc('total_exp'),'tot'],
+    ['V. Profit before exceptional and extraordinary items and tax (III - IV)','',function(p){return getBSVPL('total_rev',p)-getBSVPL('total_exp',p);},'item'],
+    ['VI. Exceptional items','',gi('exceptional'),'item'],
+    ['VII. Profit before extraordinary items and tax (V - VI)','',function(p){return getBSVPL('total_rev',p)-getBSVPL('total_exp',p)+getPLInput('exceptional',p);},'item'],
+    ['VIII. Extraordinary items','',function(){return 0;},'item'],
+    ['IX. Profit before tax (VII - VIII)','',gc('pbt'),'tot'],
+    ['X. Tax expense:','',null,'sec'],
+    ['   (1) Current tax','',gi('current_tax'),'item'],
+    ['   (2) Deferred tax','',gi('deferred_tax'),'item'],
+    ['XI. Profit (Loss) for the period from continuing operations (IX - X)','',gc('pat'),'item'],
+    ['XV. Profit (Loss) for the period','',gc('pat'),'tot'],
+    ['XVI. Earnings per equity share:','',null,'sec'],
+    ['   (1) Basic','',gi('eps_basic'),'item'],
+    ['   (2) Diluted','',gi('eps_diluted'),'item']
+  ];
+}
+function _s3RowsToAOA(skel){
+  var aoa=[];
+  skel.forEach(function(r){
+    if(r[3]==='sec'){aoa.push([r[0].toUpperCase(),'',null,null]);return;}
+    var c=r[2]?r[2](0):null;
+    var pv=r[2]?r[2](1):null;
+    aoa.push([r[3]==='tot'?r[0].toUpperCase():r[0],r[1],(c===null||isNaN(c))?null:c,(pv===null||isNaN(pv))?null:pv]);
+  });
+  return aoa;
+}
 function exportSched3Excel(){
   if(!window.XLSX){alert('SheetJS library not loaded');return;}
-  var p=window._dynParsed;
   var wb=XLSX.utils.book_new();
-  // P&L sheet from DOM table if available
-  var plTable=document.querySelector('#sched3LoadedOutput .fin-table')||document.querySelector('#tbSched3Output .fin-table');
-  if(plTable){
-    var rows=[];
-    plTable.querySelectorAll('tr').forEach(function(tr){
-      var row=[];
-      tr.querySelectorAll('th,td').forEach(function(td){row.push(td.textContent.trim());});
-      if(row.some(function(c){return c;}))rows.push(row);
-    });
-    var ws=XLSX.utils.aoa_to_sheet(rows);
-    XLSX.utils.book_append_sheet(wb,ws,'P&L Statement');
-  } else {
-    var ws2=XLSX.utils.aoa_to_sheet([['No data — render Schedule III first']]);
-    XLSX.utils.book_append_sheet(wb,ws2,'P&L Statement');
-  }
-  // BS sheet
-  var bsTbls=document.querySelectorAll('#sched3LoadedOutput .fin-table, #tbSched3Output .fin-table');
-  if(bsTbls.length>1){
-    var bsRows=[];
-    bsTbls[1].querySelectorAll('tr').forEach(function(tr){
-      var row=[];
-      tr.querySelectorAll('th,td').forEach(function(td){row.push(td.textContent.trim());});
-      if(row.some(function(c){return c;}))bsRows.push(row);
-    });
-    var ws3=XLSX.utils.aoa_to_sheet(bsRows);
-    XLSX.utils.book_append_sheet(wb,ws3,'Balance Sheet');
-  }
-  // Notes stub
-  var notesData=[
-    ['Notes to Accounts (Stub)',''],
-    ['Generated by FinAnalyser Pro',''],
-    ['Date',new Date().toLocaleDateString('en-IN')],
-    [''],
-    ['Note 1 — Significant Accounting Policies','(To be filled by management)'],
-    ['Note 2 — Revenue Recognition','(Schedule III disclosure)'],
-    ['Note 3 — Fixed Assets','(See fixed asset schedule)'],
-    ['Note 4 — Related Party Transactions','(As per AS-18 / Ind AS 24)'],
+  var co=_s3Company();
+  var cols=[{wch:52},{wch:8},{wch:20},{wch:20}];
+  var merges=[
+    {s:{r:0,c:0},e:{r:0,c:3}},
+    {s:{r:1,c:0},e:{r:1,c:3}},
+    {s:{r:2,c:0},e:{r:2,c:3}}
   ];
-  var ws4=XLSX.utils.aoa_to_sheet(notesData);
-  XLSX.utils.book_append_sheet(wb,ws4,'Notes to Accounts');
+  var hdrBS=['Particulars','Note No.','Figures as at the end of current reporting period','Figures as at the end of previous reporting period'];
+  var hdrPL=['Particulars','Note No.','Figures for the current reporting period','Figures for the previous reporting period'];
+
+  // ── Sheet 1: Balance Sheet ──
+  var bsAoa=[[co],['Balance Sheet as at '+S.periods[0]],['(All amounts in ₹ unless otherwise stated)'],hdrBS];
+  bsAoa=bsAoa.concat(_s3RowsToAOA(_s3BSSkeleton()));
+  var ws1=XLSX.utils.aoa_to_sheet(bsAoa);
+  ws1['!cols']=cols;ws1['!merges']=merges;
+  XLSX.utils.book_append_sheet(wb,ws1,'Balance Sheet');
+
+  // ── Sheet 2: Statement of P&L ──
+  var plAoa=[[co],['Statement of Profit and Loss for the period ended '+S.periods[0]],['(All amounts in ₹ unless otherwise stated)'],hdrPL];
+  plAoa=plAoa.concat(_s3RowsToAOA(_s3PLSkeleton()));
+  var ws2=XLSX.utils.aoa_to_sheet(plAoa);
+  ws2['!cols']=cols;ws2['!merges']=merges.map(function(m){return {s:{r:m.s.r,c:0},e:{r:m.e.r,c:3}};});
+  XLSX.utils.book_append_sheet(wb,ws2,'Statement of P&L');
+
+  // ── Sheet 3: Notes index ──
+  var notes=[
+    [co],
+    ['Notes forming part of the Financial Statements'],
+    ['(All amounts in ₹ unless otherwise stated)'],
+    ['Note No.','Particulars','Current period','Previous period'],
+    [1,'Share Capital',getBSVal('share_capital',0),getBSVal('share_capital',1)],
+    [2,'Reserves and Surplus',getBSVal('reserves_surplus',0),getBSVal('reserves_surplus',1)],
+    [3,'Long-term Borrowings',getBSVal('lt_borrowings',0),getBSVal('lt_borrowings',1)],
+    [4,'Short-term Borrowings',getBSVal('st_borrowings',0),getBSVal('st_borrowings',1)],
+    [5,'Trade Payables (incl. MSME disclosure)',getBSVal('trade_pay_msme',0)+getBSVal('trade_pay_others',0),getBSVal('trade_pay_msme',1)+getBSVal('trade_pay_others',1)],
+    [6,'Tangible Assets',getBSVal('tangible',0),getBSVal('tangible',1)],
+    [7,'Intangible Assets',getBSVal('intangible',0),getBSVal('intangible',1)],
+    [8,'Non-current Investments',getBSVal('nc_investments',0),getBSVal('nc_investments',1)],
+    [9,'Long-term Loans and Advances',getBSVal('lt_loans',0),getBSVal('lt_loans',1)],
+    [10,'Current Investments',getBSVal('cur_investments',0),getBSVal('cur_investments',1)],
+    [11,'Inventories',getBSVal('inventories',0),getBSVal('inventories',1)],
+    [12,'Trade Receivables',getBSVal('trade_rec',0),getBSVal('trade_rec',1)],
+    [13,'Cash and Cash Equivalents',getBSVal('cash',0),getBSVal('cash',1)],
+    [14,'Short-term Loans and Advances',getBSVal('st_loans',0),getBSVal('st_loans',1)],
+    [15,'Revenue from Operations',getBSVPL('rev_net',0),getBSVPL('rev_net',1)],
+    [16,'Other Income',getPLInput('other_income',0),getPLInput('other_income',1)],
+    [17,'Cost of Materials Consumed',getPLInput('cost_materials',0),getPLInput('cost_materials',1)],
+    [18,'Employee Benefits Expense',getPLInput('emp_benefits',0),getPLInput('emp_benefits',1)],
+    [19,'Finance Costs',getPLInput('finance_costs',0),getPLInput('finance_costs',1)],
+    [20,'Depreciation and Amortisation',getPLInput('depreciation',0),getPLInput('depreciation',1)],
+    [21,'Other Expenses',getPLInput('other_exp',0),getPLInput('other_exp',1)]
+  ];
+  var ws3=XLSX.utils.aoa_to_sheet(notes);
+  ws3['!cols']=[{wch:10},{wch:48},{wch:18},{wch:18}];
+  ws3['!merges']=merges;
+  XLSX.utils.book_append_sheet(wb,ws3,'Notes');
   XLSX.writeFile(wb,'ScheduleIII_Financial_Statements.xlsx');
 }
 
+// Generic ruled-table drawer for jsPDF. rows: array of arrays of cell strings.
+// opts: {header:bool, sectionRows:[indices], totalRows:[indices], numericCols:[indices], fontSize, onNewPage:fn(doc)->startY}
+function drawTable(doc,x,y,colWidths,rows,opts){
+  opts=opts||{};
+  var fs=opts.fontSize||8;
+  var pad=1.6;
+  var totalW=0;colWidths.forEach(function(w){totalW+=w;});
+  var numeric=opts.numericCols||[];
+  var sections=opts.sectionRows||[];
+  var totals=opts.totalRows||[];
+  doc.setLineWidth(0.15);
+  for(var ri=0;ri<rows.length;ri++){
+    var isHeader=opts.header&&ri===0;
+    var isSec=sections.indexOf(ri)!==-1;
+    var isTot=totals.indexOf(ri)!==-1;
+    doc.setFontSize(fs);
+    doc.setFont('helvetica',(isHeader||isSec||isTot)?'bold':'normal');
+    // wrap first column
+    var lines=doc.splitTextToSize(String(rows[ri][0]||''),colWidths[0]-2*pad);
+    var rh=Math.max(lines.length*(fs*0.42)+2*pad,6);
+    // page break
+    if(y+rh>275){
+      doc.addPage();
+      y=opts.onNewPage?opts.onNewPage(doc):20;
+      doc.setFontSize(fs);
+      doc.setFont('helvetica',(isHeader||isSec||isTot)?'bold':'normal');
+    }
+    // fill
+    if(isHeader){doc.setFillColor(210,210,210);doc.rect(x,y,totalW,rh,'F');}
+    else if(isSec||isTot){doc.setFillColor(235,235,235);doc.rect(x,y,totalW,rh,'F');}
+    // cell borders
+    var cx=x;
+    doc.setDrawColor(120,120,120);
+    for(var ci=0;ci<colWidths.length;ci++){
+      doc.rect(cx,y,colWidths[ci],rh);
+      cx+=colWidths[ci];
+    }
+    // text
+    doc.setTextColor(20,20,20);
+    cx=x;
+    for(var ci2=0;ci2<colWidths.length;ci2++){
+      var txt=String(rows[ri][ci2]===null||rows[ri][ci2]===undefined?'':rows[ri][ci2]);
+      if(ci2===0){
+        doc.text(lines,cx+pad,y+pad+fs*0.35);
+      }else if(txt){
+        var cellLines=doc.splitTextToSize(txt,colWidths[ci2]-2*pad);
+        if(!isHeader&&numeric.indexOf(ci2)!==-1){
+          doc.text(cellLines,cx+colWidths[ci2]-pad,y+pad+fs*0.35,{align:'right'});
+        }else{
+          doc.text(cellLines,cx+pad,y+pad+fs*0.35);
+        }
+      }
+      cx+=colWidths[ci2];
+    }
+    y+=rh;
+  }
+  return y;
+}
+function _s3PdfFooter(doc,pageNo){
+  doc.setFontSize(7.5);doc.setFont('helvetica','italic');doc.setTextColor(90,90,90);
+  doc.text('As per our report of even date  |  For '+_s3Auditor()+'  |  Chartered Accountants',14,288);
+  doc.setFont('helvetica','normal');
+  doc.text('Page '+pageNo,196,288,{align:'right'});
+}
 function exportSched3PDF(){
   if(!window.jspdf&&!window.jsPDF){alert('jsPDF library not loaded');return;}
   var jsPDF=window.jspdf?window.jspdf.jsPDF:window.jsPDF;
   var doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-  var company=(window._dynParsed&&window._dynParsed.meta)?window._dynParsed.meta.company:'Company';
-  var y=20;
-  // Cover page
-  doc.setFontSize(20);doc.setTextColor(240,192,64);
-  doc.text('Financial Statements',105,y,{align:'center'});y+=10;
-  doc.setFontSize(14);doc.setTextColor(200,220,240);
-  doc.text(company,105,y,{align:'center'});y+=8;
-  doc.setFontSize(10);doc.setTextColor(100,140,170);
-  doc.text('Schedule III — Companies Act 2013',105,y,{align:'center'});y+=6;
-  doc.text('Generated by FinAnalyser Pro · '+new Date().toLocaleDateString('en-IN'),105,y,{align:'center'});y+=20;
-  // Content note
-  doc.setFontSize(12);doc.setTextColor(200,220,240);
-  doc.text('Statement of Profit and Loss',20,y);y+=8;
-  doc.setFontSize(9);doc.setTextColor(100,140,170);
-  // Extract table rows from DOM
-  var tableEl=document.querySelector('#sched3LoadedOutput .fin-table')||document.querySelector('#tbSched3Output .fin-table');
-  if(tableEl){
-    tableEl.querySelectorAll('tr').forEach(function(tr){
-      if(y>270){doc.addPage();y=20;}
-      var cells=[];
-      tr.querySelectorAll('th,td').forEach(function(td){cells.push(td.textContent.trim());});
-      var line=cells.join('   ');
-      doc.text(line.substring(0,100),20,y);y+=6;
-    });
-  } else {
-    doc.text('Render Schedule III first, then export.',20,y);
+  var co=_s3Company();
+  var pageNo=1;
+  var colW=[95,15,35,35];
+  function newPageY(d){
+    pageNo++;
+    _s3PdfFooter(d,pageNo);
+    return 18;
   }
+  function titleBlock(t1,t2){
+    doc.setFont('helvetica','bold');doc.setFontSize(13);doc.setTextColor(20,20,20);
+    doc.text(co,105,16,{align:'center'});
+    doc.setFontSize(10.5);
+    doc.text(t1,105,23,{align:'center'});
+    doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(80,80,80);
+    doc.text(t2,105,28.5,{align:'center'});
+    return 33;
+  }
+  function buildRows(skel,hdr){
+    var rows=[hdr];var secIdx=[],totIdx=[];
+    skel.forEach(function(r,i){
+      var idx=i+1;
+      if(r[3]==='sec'){secIdx.push(idx);rows.push([r[0],'','','']);return;}
+      if(r[3]==='tot')totIdx.push(idx);
+      var c=r[2]?r[2](0):null;var pv=r[2]?r[2](1):null;
+      rows.push([r[0],r[1],(c===null||isNaN(c))?'-':inr(c),(pv===null||isNaN(pv))?'-':inr(pv)]);
+    });
+    return {rows:rows,sec:secIdx,tot:totIdx};
+  }
+  // Page 1: Balance Sheet
+  var y=titleBlock('Balance Sheet as at '+S.periods[0],'(All amounts in INR unless otherwise stated)');
+  _s3PdfFooter(doc,pageNo);
+  var bs=buildRows(_s3BSSkeleton(),['Particulars','Note No.','Figures as at the end of current reporting period','Figures as at the end of previous reporting period']);
+  y=drawTable(doc,14,y,colW,bs.rows,{header:true,sectionRows:bs.sec,totalRows:bs.tot,numericCols:[2,3],fontSize:8,onNewPage:newPageY});
+  // P&L — new page
+  doc.addPage();pageNo++;
+  y=titleBlock('Statement of Profit and Loss for the period ended '+S.periods[0],'(All amounts in INR unless otherwise stated)');
+  _s3PdfFooter(doc,pageNo);
+  var pl=buildRows(_s3PLSkeleton(),['Particulars','Note No.','Figures for the current reporting period','Figures for the previous reporting period']);
+  y=drawTable(doc,14,y,colW,pl.rows,{header:true,sectionRows:pl.sec,totalRows:pl.tot,numericCols:[2,3],fontSize:8,onNewPage:newPageY});
   doc.save('ScheduleIII_Financials.pdf');
 }
 
@@ -6075,15 +6552,10 @@ function exportBoardroomPDF() {
   doc.setTextColor(148, 163, 184);
   doc.text('Generated: ' + new Date().toLocaleDateString('en-IN'), 105, 132, {align:'center'});
   doc.addPage();
-  doc.setFillColor(15, 23, 42);
-  doc.rect(0, 0, 210, 297, 'F');
-  doc.setTextColor(56, 189, 248);
+  doc.setTextColor(20, 20, 20);
   doc.setFontSize(16);
   doc.setFont('helvetica','bold');
   doc.text('KEY PERFORMANCE INDICATORS', 20, 25);
-  doc.setTextColor(241, 245, 249);
-  doc.setFontSize(11);
-  doc.setFont('helvetica','normal');
   var revEl = document.getElementById('plRevenue');
   var npEl = document.getElementById('plNetProfit');
   var taEl = document.getElementById('bsTotalAssets');
@@ -6095,62 +6567,44 @@ function exportBoardroomPDF() {
   var cr2 = crEl ? (crEl.value || crEl.innerText || crEl.textContent || '—') : '—';
   var de2 = deEl ? (deEl.value || deEl.innerText || deEl.textContent || '—') : '—';
   var ebitdaMarginVal = '—';
-  var kpiData = [['Revenue', rev2], ['Net Profit', np2], ['Total Assets', ta2], ['Current Ratio', cr2], ['D/E Ratio', de2], ['EBITDA Margin', ebitdaMarginVal]];
-  var y = 40;
-  kpiData.forEach(function(k) {
-    doc.setTextColor(148, 163, 184);
-    doc.text(k[0], 30, y);
-    doc.setTextColor(241, 245, 249);
-    doc.setFont('helvetica','bold');
-    doc.text(String(k[1]), 120, y);
-    doc.setFont('helvetica','normal');
-    y += 12;
-  });
+  var kpiRows = [['Metric','Value'],['Revenue', String(rev2)], ['Net Profit', String(np2)], ['Total Assets', String(ta2)], ['Current Ratio', String(cr2)], ['D/E Ratio', String(de2)], ['EBITDA Margin', String(ebitdaMarginVal)]];
+  drawTable(doc, 20, 35, [80, 80], kpiRows, {header:true, numericCols:[1], fontSize:10});
+  // P&L page — ruled table
   doc.addPage();
-  doc.setFillColor(15, 23, 42);
-  doc.rect(0, 0, 210, 297, 'F');
-  doc.setTextColor(56, 189, 248);
+  doc.setTextColor(20, 20, 20);
   doc.setFontSize(14);
   doc.setFont('helvetica','bold');
   doc.text('PROFIT & LOSS', 20, 20);
-  doc.setFontSize(9);
-  doc.setFont('helvetica','normal');
-  var py = 32;
-  rows.forEach(function(r) {
-    if (py > 275) { doc.addPage(); doc.setFillColor(15,23,42); doc.rect(0,0,210,297,'F'); py = 20; }
-    if (r.type === 'section') { doc.setTextColor(56,189,248); doc.setFont('helvetica','bold'); }
-    else if (r.type === 'total') { doc.setTextColor(248,210,100); doc.setFont('helvetica','bold'); doc.setDrawColor(100,116,139); doc.line(20, py-3, 190, py-3); }
-    else { doc.setTextColor(203,213,225); doc.setFont('helvetica','normal'); }
-    var label = (r.label || '').substring(0, 50);
-    doc.text(label, 20, py);
-    var cx = 130;
-    periodCols.forEach(function(p) {
-      var v = r.values && r.values[p] != null ? String(r.values[p]) : '';
-      doc.text(v.substring(0,14), cx, py, {align:'right'});
-      cx += 30;
+  var plCols = periodCols.slice(0, 3);
+  var colW2 = [170 - plCols.length * 32];
+  plCols.forEach(function(){ colW2.push(32); });
+  var plRowsT = [['Particulars'].concat(plCols.map(String))];
+  var secIdx2 = [], totIdx2 = [];
+  rows.forEach(function(r, i) {
+    if (r.type === 'section') secIdx2.push(i + 1);
+    if (r.type === 'total') totIdx2.push(i + 1);
+    var row = [(r.label || '')];
+    plCols.forEach(function(p) {
+      var v = r.values && r.values[p] != null ? Number(r.values[p]) : null;
+      row.push(v === null || isNaN(v) ? '' : inr(v));
     });
-    py += 7;
+    plRowsT.push(row);
   });
+  var numCols2 = plCols.map(function(_, i){ return i + 1; });
+  drawTable(doc, 20, 28, colW2, plRowsT, {header:true, sectionRows:secIdx2, totalRows:totIdx2, numericCols:numCols2, fontSize:7.5});
+  // Balance sheet page — ruled table
   doc.addPage();
-  doc.setFillColor(15, 23, 42);
-  doc.rect(0, 0, 210, 297, 'F');
-  doc.setTextColor(56, 189, 248);
+  doc.setTextColor(20, 20, 20);
   doc.setFontSize(14);
   doc.setFont('helvetica','bold');
   doc.text('BALANCE SHEET SUMMARY', 20, 20);
-  doc.setFontSize(10);
-  doc.setFont('helvetica','normal');
   var bsFields2 = [['Equity Capital','bsEquityCapital'],['Reserves','bsReserves'],['LT Borrowings','bsLTBorrowings'],['ST Borrowings','bsSTBorrowings'],['Trade Payables','bsTradePayables'],['Fixed Assets','bsFixedAssets'],['Inventory','bsInventory'],['Trade Receivables','bsTradeReceivables'],['Cash','bsCash']];
-  var by = 35;
+  var bsRowsT = [['Item','Value']];
   bsFields2.forEach(function(f) {
     var el = document.getElementById(f[1]);
-    var val = el ? (el.value || '—') : '—';
-    doc.setTextColor(148,163,184);
-    doc.text(f[0], 30, by);
-    doc.setTextColor(241,245,249);
-    doc.text(String(val), 150, by, {align:'right'});
-    by += 10;
+    bsRowsT.push([f[0], el ? (el.value || '-') : '-']);
   });
+  drawTable(doc, 20, 28, [100, 60], bsRowsT, {header:true, numericCols:[1], fontSize:10});
   doc.save('Boardroom_Pack.pdf');
 }
 
@@ -6170,22 +6624,35 @@ function exportBoardroomExcel() {
   var ta2 = taEl ? (taEl.value || taEl.innerText || taEl.textContent || '') : '';
   var cr2 = crEl ? (crEl.value || crEl.innerText || crEl.textContent || '') : '';
   var de2 = deEl ? (deEl.value || deEl.innerText || deEl.textContent || '') : '';
-  var kpiSheet = [['Metric','Value'],['Revenue',rev2],['Net Profit',np2],['Total Assets',ta2],['Current Ratio',cr2],['D/E Ratio',de2],['EBITDA Margin','—']];
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(kpiSheet), 'KPIs');
-  var plSheet = [['Particulars'].concat(periodCols)];
+  var coNameX = _s3Company();
+  var titleMerge = function(nCols){ return [{s:{r:0,c:0},e:{r:0,c:nCols-1}},{s:{r:1,c:0},e:{r:1,c:nCols-1}}]; };
+  var kpiSheet = [[coNameX],['Boardroom Pack — Key Performance Indicators'],['Metric','Value'],['Revenue',rev2],['Net Profit',np2],['Total Assets',ta2],['Current Ratio',cr2],['D/E Ratio',de2],['EBITDA Margin','—']];
+  var wsK = XLSX.utils.aoa_to_sheet(kpiSheet);
+  wsK['!cols'] = [{wch:24},{wch:24}];
+  wsK['!merges'] = titleMerge(2);
+  XLSX.utils.book_append_sheet(wb, wsK, 'KPIs');
+  var plSheet = [[coNameX],['Profit & Loss'],['Particulars'].concat(periodCols)];
   rows.forEach(function(r) {
     var row = [r.label || ''];
     periodCols.forEach(function(p) { row.push(r.values && r.values[p] != null ? r.values[p] : ''); });
     plSheet.push(row);
   });
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(plSheet), 'P&L');
+  var wsP = XLSX.utils.aoa_to_sheet(plSheet);
+  var pCols = [{wch:48}];
+  periodCols.forEach(function(){ pCols.push({wch:16}); });
+  wsP['!cols'] = pCols;
+  wsP['!merges'] = titleMerge(Math.max(2, periodCols.length + 1));
+  XLSX.utils.book_append_sheet(wb, wsP, 'P&L');
   var bsFields3 = [['Equity Capital','bsEquityCapital'],['Reserves','bsReserves'],['LT Borrowings','bsLTBorrowings'],['ST Borrowings','bsSTBorrowings'],['Trade Payables','bsTradePayables'],['Fixed Assets','bsFixedAssets'],['Inventory','bsInventory'],['Trade Receivables','bsTradeReceivables'],['Cash','bsCash']];
-  var bsSheet = [['Item','Value']];
+  var bsSheet = [[coNameX],['Balance Sheet Summary'],['Item','Value']];
   bsFields3.forEach(function(f) {
     var el = document.getElementById(f[1]);
     bsSheet.push([f[0], el ? (el.value || '') : '']);
   });
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(bsSheet), 'Balance Sheet');
+  var wsB = XLSX.utils.aoa_to_sheet(bsSheet);
+  wsB['!cols'] = [{wch:28},{wch:20}];
+  wsB['!merges'] = titleMerge(2);
+  XLSX.utils.book_append_sheet(wb, wsB, 'Balance Sheet');
   var aiText = document.getElementById('ai-output') ? (document.getElementById('ai-output').innerText || 'Run AI Analysis first.') : 'Run AI Analysis first.';
   var aiSheet = [['AI Commentary'],[aiText]];
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aiSheet), 'AI Commentary');
