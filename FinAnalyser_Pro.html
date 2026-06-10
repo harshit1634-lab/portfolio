@@ -387,6 +387,10 @@ html,body{height:100%;font-family:'DM Sans',system-ui,sans-serif;background:var(
   <div class="layout">
     <!-- SIDEBAR -->
     <div class="sidebar" id="sidebar">
+      <div class="side-group" style="border-left:3px solid var(--gold);padding-left:8px">
+        <div class="side-title" style="color:var(--gold2)">Statutory Reports</div>
+        <div class="side-item" onclick="nav('sched3')"><span class="side-icon">📋</span>Schedule III Drafting</div>
+      </div>
       <div class="side-group">
         <div class="side-title">Overview</div>
         <div class="side-item active" onclick="nav('dashboard')"><span class="side-icon">📊</span>Dashboard</div>
@@ -409,9 +413,8 @@ html,body{height:100%;font-family:'DM Sans',system-ui,sans-serif;background:var(
         <div class="side-item" onclick="nav('present')"><span class="side-icon">🖥️</span>Presentation Mode</div>
       </div>
       <div class="side-group">
-        <div class="side-title">Data</div>
-        <div class="side-item" onclick="nav('sched3')"><span class="side-icon">📄</span>Financial Drafting <span class="side-badge-new">NEW</span></div>
-        <div class="side-item" onclick="nav('standards')"><span class="side-icon">🌍</span>Global Accounting Std<span class="side-badge-new">NEW</span></div>
+        <div class="side-title">Data &amp; Settings</div>
+        <div class="side-item" onclick="nav('standards')"><span class="side-icon">🌍</span>Global Accounting Std</div>
         <div class="side-item" onclick="nav('importexport')"><span class="side-icon">🔄</span>Import / Export</div>
         <div class="side-item" onclick="nav('settings')"><span class="side-icon">⚙️</span>Settings</div>
       </div>
@@ -433,6 +436,15 @@ html,body{height:100%;font-family:'DM Sans',system-ui,sans-serif;background:var(
           <div class="card" style="--card-accent:var(--grad-purple)"><div class="card-label">EBITDA Margin</div><div class="card-value" id="dc-ebitda">—</div><div class="card-sub">vs Revenue</div></div>
           <div class="card" style="--card-accent:var(--grad-coral)"><div class="card-label">Current Ratio</div><div class="card-value" id="dc-cr">—</div><div class="card-sub">Benchmark ≥ 2</div></div>
           <div class="card" style="--card-accent:var(--grad-teal)"><div class="card-label">Debt : Equity</div><div class="card-value" id="dc-de">—</div><div class="card-sub">Benchmark ≤ 2</div></div>
+        </div>
+        <!-- Workflow Guide -->
+        <div style="background:linear-gradient(135deg,rgba(200,168,75,.08),rgba(56,189,248,.06));border:1px solid rgba(200,168,75,.15);border-radius:10px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+          <div style="flex:1;min-width:200px">
+            <div style="font-size:12px;font-weight:700;color:var(--gold2);margin-bottom:4px">&#9654; Quick Start — Prepare Financial Statements</div>
+            <div style="font-size:11px;color:var(--muted)">Start from Trial Balance &#10142; auto-generate Notes &#10142; Schedule III Balance Sheet, P&amp;L, Cash Flow &#10142; Export formula-linked Excel or PDF</div>
+          </div>
+          <button class="btn btn-gold" onclick="nav('sched3')" style="white-space:nowrap">&#128203; Schedule III Drafting</button>
+          <button class="btn btn-teal btn-sm" onclick="nav('importexport')" style="white-space:nowrap">&#128228; Import Data</button>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
           <div class="box"><div class="box-title"><span class="icon">📊</span>Revenue · EBITDA · PAT Trend</div><div class="chart-wrap"><canvas id="chartTrend"></canvas></div></div>
@@ -993,6 +1005,22 @@ html,body{height:100%;font-family:'DM Sans',system-ui,sans-serif;background:var(
         <div class="page-header flex-between">
           <div><div class="page-title">📄 Financial Drafting</div><div class="page-sub">Schedule III — Companies Act 2013 | AS &amp; Ind AS Frameworks</div></div>
         </div>
+        <!-- Workflow Banner -->
+        <div style="background:linear-gradient(135deg,rgba(200,168,75,.12),rgba(0,212,170,.08));border:1px solid rgba(200,168,75,.25);border-radius:10px;padding:14px 18px;margin-bottom:14px">
+          <div style="font-size:11px;font-weight:700;color:var(--gold2);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px">&#9654; Single Data Flow — How to Use</div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--text)">
+            <span style="background:rgba(200,168,75,.15);border:1px solid rgba(200,168,75,.3);border-radius:6px;padding:5px 10px">1&#65039;&#8419; Company Profile</span>
+            <span style="color:var(--muted)">&#10142;</span>
+            <span style="background:rgba(200,168,75,.25);border:1px solid rgba(200,168,75,.5);border-radius:6px;padding:5px 10px;font-weight:700;color:var(--gold2)">2&#65039;&#8419; Trial Balance (this page)</span>
+            <span style="color:var(--muted)">&#10142;</span>
+            <span style="background:rgba(200,168,75,.15);border:1px solid rgba(200,168,75,.3);border-radius:6px;padding:5px 10px">3&#65039;&#8419; Notes to Accounts</span>
+            <span style="color:var(--muted)">&#10142;</span>
+            <span style="background:rgba(200,168,75,.15);border:1px solid rgba(200,168,75,.3);border-radius:6px;padding:5px 10px">4&#65039;&#8419; BS / P&amp;L / CF</span>
+            <span style="color:var(--muted)">&#10142;</span>
+            <span style="background:rgba(200,168,75,.15);border:1px solid rgba(200,168,75,.3);border-radius:6px;padding:5px 10px">5&#65039;&#8419; Export Excel / PDF</span>
+          </div>
+          <div style="font-size:11px;color:var(--muted);margin-top:8px">Enter your Trial Balance below. The system auto-generates all 20 Notes to Accounts, Balance Sheet, P&amp;L, and Cash Flow — then export as fully formula-linked Excel or Schedule III PDF.</div>
+        </div>
         <!-- Framework Toggle -->
         <div class="box" style="padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
           <span style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:1px">Framework:</span>
@@ -1021,11 +1049,11 @@ html,body{height:100%;font-family:'DM Sans',system-ui,sans-serif;background:var(
           <button class="btn btn-ghost" onclick="exportSched3PDF(document.getElementById('exportFramework').value, document.getElementById('exportUnit').value)">&#128196; Export PDF</button>
         </div>
         <div class="tabs" id="sched3Tabs">
-          <div class="tab active" onclick="sched3Tab('loaded',this)">📂 From Loaded Data</div>
-          <div class="tab" onclick="sched3Tab('tb',this)">📋 Trial Balance Import</div>
+          <div class="tab" onclick="sched3Tab('loaded',this)">📂 From Loaded Data</div>
+          <div class="tab active" onclick="sched3Tab('tb',this)">📋 Trial Balance Import</div>
         </div>
         <!-- Tab: From Loaded Data -->
-        <div id="sched3Pane-loaded">
+        <div id="sched3Pane-loaded" style="display:none">
           <div class="box sky" style="padding:12px 16px;margin-bottom:12px">
             <div style="font-size:12px;color:var(--muted)">Reads <strong style="color:var(--sky2)">window._dynParsed</strong> — load any NetSuite/Excel file via Smart Data Viewer or Import, then return here. Auto-maps to Schedule III format.</div>
             <button class="btn btn-sky btn-sm mt8" onclick="renderSched3FromData()">&#8635; Render Schedule III from Loaded Data</button>
@@ -1035,7 +1063,7 @@ html,body{height:100%;font-family:'DM Sans',system-ui,sans-serif;background:var(
           <div id="sched3LoadedOutput"></div>
         </div>
         <!-- Tab: Trial Balance Import -->
-        <div id="sched3Pane-tb" style="display:none">
+        <div id="sched3Pane-tb">
           <!-- Step 1 -->
           <div class="box">
             <div class="box-title"><span class="icon">1&#65039;&#8419;</span>Upload Trial Balance</div>
@@ -8081,6 +8109,15 @@ function tourPrev() { if (_tourIdx > 0) _tourStep(_tourIdx - 1); }
 function tourEnd() { var el = document.getElementById('tour-overlay'); if (el) el.parentNode.removeChild(el); }
 
 function exportBoardroomPDF() {
+  showToast('Redirecting to Schedule III PDF — full Schedule III format with all Notes to Accounts.');
+  nav('sched3');
+  setTimeout(function(){
+    var fw = document.getElementById('exportFramework');
+    var unit = document.getElementById('exportUnit');
+    exportSched3PDF(fw ? fw.value : 'AS', unit ? unit.value : 'lakhs');
+  }, 400);
+}
+function exportBoardroomPDF_OLD_UNUSED() {
   var d = window._dynParsed;
   if (!d || !d.rows || !d.rows.length) { showToast('No data loaded. Please load data first.'); return; }
   var doc = new window.jspdf.jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
@@ -8158,6 +8195,15 @@ function exportBoardroomPDF() {
 }
 
 function exportBoardroomExcel() {
+  showToast('Redirecting to Schedule III Export — use the Export Linked Excel button for full formula-linked financials with 20 Notes.');
+  nav('sched3');
+  setTimeout(function(){
+    var fw = document.getElementById('exportFramework');
+    var unit = document.getElementById('exportUnit');
+    exportSched3Excel(fw ? fw.value : 'AS', unit ? unit.value : 'lakhs');
+  }, 400);
+}
+function exportBoardroomExcel_OLD_UNUSED() {
   var d = window._dynParsed;
   if (!d || !d.rows || !d.rows.length) { showToast('No data loaded. Please load data first.'); return; }
   var periodCols = d.periodCols || [];
