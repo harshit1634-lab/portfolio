@@ -991,11 +991,34 @@ html,body{height:100%;font-family:'DM Sans',system-ui,sans-serif;background:var(
       <!-- FINANCIAL DRAFTING (SCHEDULE III) PANEL -->
       <div class="panel" id="panel-sched3">
         <div class="page-header flex-between">
-          <div><div class="page-title">📄 Financial Drafting</div><div class="page-sub">Schedule III — Statement of Profit &amp; Loss and Balance Sheet (Companies Act 2013)</div></div>
-          <div class="flex">
-            <button class="btn btn-teal btn-sm" onclick="exportSched3Excel()">⬇ Export Excel</button>
-            <button class="btn btn-ghost btn-sm" onclick="exportSched3PDF()">⬇ Export PDF</button>
-          </div>
+          <div><div class="page-title">📄 Financial Drafting</div><div class="page-sub">Schedule III — Companies Act 2013 | AS &amp; Ind AS Frameworks</div></div>
+        </div>
+        <!-- Framework Toggle -->
+        <div class="box" style="padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <span style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:1px">Framework:</span>
+          <button id="btnFwAS" class="btn btn-gold btn-sm" onclick="setFinFramework('AS')">AS Framework (Companies Act 2013)</button>
+          <button id="btnFwINDAS" class="btn btn-ghost btn-sm" onclick="setFinFramework('INDAS')">Ind AS Framework (MCA Rules)</button>
+          <span style="font-size:11px;color:var(--muted)" id="fwLabel">Active: AS Framework</span>
+          <span style="flex:1"></span>
+          <button class="btn btn-teal btn-sm" onclick="loadASDemoData()">▶ Load AS Demo</button>
+          <button class="btn btn-purple btn-sm" onclick="loadIndasDemoData()">▶ Load Ind AS Demo</button>
+        </div>
+        <!-- Export Controls -->
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px;padding:10px 14px;background:rgba(15,27,45,.6);border-radius:8px;border:1px solid rgba(240,192,64,.1)">
+          <span style="font-size:11px;color:var(--muted)">Export unit:</span>
+          <select id="exportUnit" class="tb-select">
+            <option value="actual">&#8377; Actual Numbers</option>
+            <option value="thousands">&#8377; Thousands</option>
+            <option value="lakhs" selected>&#8377; Lakhs</option>
+            <option value="crores">&#8377; Crores</option>
+          </select>
+          <span style="font-size:11px;color:var(--muted)">Framework:</span>
+          <select id="exportFramework" class="tb-select">
+            <option value="AS">AS (Companies Act 2013)</option>
+            <option value="INDAS">Ind AS</option>
+          </select>
+          <button class="btn btn-gold" onclick="exportSched3Excel(document.getElementById('exportFramework').value, document.getElementById('exportUnit').value)">&#128202; Export Linked Excel</button>
+          <button class="btn btn-ghost" onclick="exportSched3PDF(document.getElementById('exportFramework').value, document.getElementById('exportUnit').value)">&#128196; Export PDF</button>
         </div>
         <div class="tabs" id="sched3Tabs">
           <div class="tab active" onclick="sched3Tab('loaded',this)">📂 From Loaded Data</div>
@@ -1005,9 +1028,9 @@ html,body{height:100%;font-family:'DM Sans',system-ui,sans-serif;background:var(
         <div id="sched3Pane-loaded">
           <div class="box sky" style="padding:12px 16px;margin-bottom:12px">
             <div style="font-size:12px;color:var(--muted)">Reads <strong style="color:var(--sky2)">window._dynParsed</strong> — load any NetSuite/Excel file via Smart Data Viewer or Import, then return here. Auto-maps to Schedule III format.</div>
-            <button class="btn btn-sky btn-sm mt8" onclick="renderSched3FromData()">↻ Render Schedule III from Loaded Data</button>
-            <button class="btn btn-teal btn-sm mt8" onclick="loadSampleData('all')">▶ Load Complete Sample</button>
-            <button class="btn btn-ghost btn-sm mt8" onclick="downloadUniversalTemplate('pl')">⬇ Template</button>
+            <button class="btn btn-sky btn-sm mt8" onclick="renderSched3FromData()">&#8635; Render Schedule III from Loaded Data</button>
+            <button class="btn btn-teal btn-sm mt8" onclick="loadSampleData('all')">&#9654; Load Complete Sample</button>
+            <button class="btn btn-ghost btn-sm mt8" onclick="downloadUniversalTemplate('pl')">&#8595; Template</button>
           </div>
           <div id="sched3LoadedOutput"></div>
         </div>
@@ -1015,14 +1038,14 @@ html,body{height:100%;font-family:'DM Sans',system-ui,sans-serif;background:var(
         <div id="sched3Pane-tb" style="display:none">
           <!-- Step 1 -->
           <div class="box">
-            <div class="box-title"><span class="icon">1️⃣</span>Upload Trial Balance</div>
-            <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Expected: Column A = Ledger/Account Name, Column B = Debit (closing), Column C = Credit (closing). Or single net column (Dr positive, Cr negative).</div>
+            <div class="box-title"><span class="icon">1&#65039;&#8419;</span>Upload Trial Balance</div>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Expected: Col A = Ledger Name, Col B = Account Code (optional), Col C = Opening Balance, Col D = Debit, Col E = Credit. Or simple 3-col (Name, Dr, Cr).</div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
               <div>
                 <input type="file" id="tbFile" accept=".xlsx,.csv,.xls" style="display:none" onchange="handleTBFile(this.files[0])">
                 <button class="btn btn-teal" onclick="document.getElementById('tbFile').click()">📂 Upload Trial Balance (.xlsx/.csv)</button>
-                <button class="btn btn-teal btn-sm" onclick="loadSampleData('tb')">▶ Load Sample Trial Balance</button>
-                <button class="btn btn-ghost btn-sm" onclick="downloadUniversalTemplate('tb')">⬇ TB Template</button>
+                <button class="btn btn-gold btn-sm" onclick="loadFullSampleTB()">&#9654; Load 35-Ledger Sample TB</button>
+                <button class="btn btn-ghost btn-sm" onclick="downloadUniversalTemplate('tb')">&#8595; TB Template</button>
               </div>
               <div>
                 <textarea id="tbPasteArea" style="width:100%;height:80px;background:var(--ink);border:1px solid var(--bdr);color:var(--text);padding:8px;border-radius:6px;font-family:monospace;font-size:11px;resize:vertical" placeholder="Or paste: LedgerName[tab]Debit[tab]Credit" onpaste="setTimeout(parseTBPaste,100)"></textarea>
@@ -1031,14 +1054,27 @@ html,body{height:100%;font-family:'DM Sans',system-ui,sans-serif;background:var(
           </div>
           <!-- Step 2 -->
           <div class="box" id="tbMappingBox" style="display:none">
-            <div class="box-title"><span class="icon">2️⃣</span>Review Auto-Classification</div>
+            <div class="box-title"><span class="icon">2&#65039;&#8419;</span>Review &amp; Map Ledgers — 9-Column Mapping</div>
+            <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Map each ledger to its Financial Statement Line and Note No. Closing Balance = Opening + Dr - Cr.</div>
             <div id="tbMappingTable"></div>
+            <!-- Notes Preview -->
+            <div style="margin-top:16px">
+              <div style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 0" onclick="toggleNotesPreview()">
+                <span style="font-size:13px">📋</span>
+                <span style="font-size:12px;font-weight:700;color:var(--gold2)">Notes Preview (auto-populated from mapping)</span>
+                <span id="notesPreviewArrow" style="color:var(--muted);font-size:11px">&#9660; Show</span>
+              </div>
+              <div id="notesPreviewSection" style="display:none">
+                <div id="notesPreviewContent"></div>
+              </div>
+            </div>
           </div>
           <!-- Step 3 -->
           <div id="tbGenerateRow" style="display:none;margin-bottom:16px">
-            <button class="btn btn-gold" onclick="generateSched3FromTB()" style="padding:10px 20px;font-size:13px">📄 Generate Schedule III Financials</button>
+            <button class="btn btn-gold" onclick="generateSched3FromTB()" style="padding:10px 20px;font-size:13px">📄 Generate Schedule III Financials + All 20 Notes</button>
           </div>
           <div id="tbSched3Output"></div>
+          <div id="tbNotesOutput"></div>
         </div>
       </div>
 
@@ -6286,8 +6322,224 @@ function renderSched3FromData(){
   out.innerHTML=html.join('');
 }
 
+// ─── SCHEDULE III — FRAMEWORK + ROWS ────────────────────────────────────────
+window._finFramework = 'AS';
+window._notesData = {};
+
+function setFinFramework(fw){
+  window._finFramework = fw;
+  var lb = document.getElementById('fwLabel');
+  if(lb) lb.textContent = 'Active: ' + (fw === 'AS' ? 'AS Framework' : 'Ind AS Framework');
+  var btnAS = document.getElementById('btnFwAS');
+  var btnI = document.getElementById('btnFwINDAS');
+  var ef = document.getElementById('exportFramework');
+  if(btnAS){ btnAS.className = fw==='AS' ? 'btn btn-gold btn-sm' : 'btn btn-ghost btn-sm'; }
+  if(btnI){ btnI.className = fw==='INDAS' ? 'btn btn-purple btn-sm' : 'btn btn-ghost btn-sm'; }
+  if(ef) ef.value = fw;
+}
+
+// Ind AS BS rows (Ind AS 1 structure)
+var _INDAS_BS_ROWS = [
+  {type:'section',label:'EQUITY AND LIABILITIES'},
+  {type:'head',label:'I. Equity'},
+  {id:'share_capital',label:'(a) Equity Share Capital',indent:1},
+  {id:'other_equity',label:'(b) Other Equity (Reserves & OCI)',indent:1},
+  {type:'total',id:'total_equity',label:'Total Equity',calcFn:null},
+  {type:'head',label:'II. Non-Current Liabilities'},
+  {id:'lt_borrowings',label:'(a) Financial Liabilities — Borrowings',indent:1},
+  {id:'lease_liab_nc',label:'(b) Financial Liabilities — Lease Liabilities',indent:1},
+  {id:'dtl',label:'(c) Deferred Tax Liabilities (Net)',indent:1},
+  {id:'lt_provisions',label:'(d) Provisions',indent:1},
+  {id:'other_ltl',label:'(e) Other Non-current Liabilities',indent:1},
+  {type:'total',id:'total_ncl',label:'Total Non-Current Liabilities',calcFn:null},
+  {type:'head',label:'III. Current Liabilities'},
+  {id:'st_borrowings',label:'(a) Financial Liabilities — Borrowings',indent:1},
+  {id:'lease_liab_c',label:'(b) Financial Liabilities — Lease Liabilities',indent:1},
+  {id:'trade_pay_msme',label:'(c) Trade Payables (MSME)',indent:1},
+  {id:'trade_pay_others',label:'(d) Trade Payables (Others)',indent:1},
+  {id:'other_cl',label:'(e) Other Current Liabilities',indent:1},
+  {id:'st_provisions',label:'(f) Provisions',indent:1},
+  {type:'total',id:'total_cl',label:'Total Current Liabilities',calcFn:null},
+  {type:'grand',id:'total_el',label:'TOTAL EQUITY AND LIABILITIES',calcFn:null},
+  {type:'section',label:'ASSETS'},
+  {type:'head',label:'I. Non-Current Assets'},
+  {id:'tangible',label:'(a) Property, Plant and Equipment',indent:1},
+  {id:'rou_assets',label:'(b) Right-of-Use Assets',indent:1},
+  {id:'intangible',label:'(c) Intangible Assets',indent:1},
+  {id:'cwip',label:'(d) Capital Work-in-Progress',indent:1},
+  {id:'nc_investments',label:'(e) Financial Assets — Investments',indent:1},
+  {id:'dta',label:'(f) Deferred Tax Assets (Net)',indent:1},
+  {id:'lt_loans',label:'(g) Other Non-current Assets',indent:1},
+  {type:'total',id:'total_nca',label:'Total Non-Current Assets',calcFn:null},
+  {type:'head',label:'II. Current Assets'},
+  {id:'inventories',label:'(a) Inventories',indent:1},
+  {id:'trade_rec',label:'(b) Financial Assets — Trade Receivables',indent:1},
+  {id:'cash',label:'(c) Financial Assets — Cash & Equivalents',indent:1},
+  {id:'st_loans',label:'(d) Other Financial Assets',indent:1},
+  {id:'other_ca',label:'(e) Other Current Assets',indent:1},
+  {type:'total',id:'total_ca',label:'Total Current Assets',calcFn:null},
+  {type:'grand',id:'total_assets',label:'TOTAL ASSETS',calcFn:null}
+];
+
+var _INDAS_PL_ROWS = [
+  {type:'section',label:'REVENUE'},
+  {id:'rev_gross',label:'I. Revenue from Contracts with Customers (Gross)'},
+  {id:'excise_adj',label:'   Less: Discounts / GST Adjustment'},
+  {type:'calc',id:'rev_net',label:'   Revenue from Operations (Net)'},
+  {id:'other_income',label:'II. Other Income'},
+  {type:'total',id:'total_rev',label:'III. TOTAL INCOME (I+II)'},
+  {type:'section',label:'EXPENSES'},
+  {id:'cost_materials',label:'IV. Cost of Materials Consumed'},
+  {id:'purchases_stock',label:'V. Purchases of Stock-in-Trade'},
+  {id:'chg_inventories',label:'VI. Changes in Inventories'},
+  {id:'emp_benefits',label:'VII. Employee Benefits Expense'},
+  {id:'finance_costs',label:'VIII. Finance Costs (incl. interest on lease liabilities)'},
+  {id:'depreciation',label:'IX. Depreciation, Amortisation & Impairment'},
+  {id:'other_exp',label:'X. Other Expenses'},
+  {type:'total',id:'total_exp',label:'XI. TOTAL EXPENSES'},
+  {type:'section',label:'PROFITABILITY'},
+  {type:'calc',id:'pbt',label:'XII. PROFIT BEFORE TAX'},
+  {id:'current_tax',label:'XIII. Tax Expense — Current Tax',indent:1},
+  {id:'deferred_tax',label:'        Deferred Tax (Ind AS 12)',indent:2},
+  {type:'total',id:'total_tax',label:'        Total Tax'},
+  {type:'grand',id:'pat',label:'XIV. PROFIT FOR THE PERIOD (PAT)'},
+  {type:'section',label:'OTHER COMPREHENSIVE INCOME (Ind AS 1)'},
+  {id:'oci_reclass',label:'XV(a). Items that will be reclassified to P&L'},
+  {id:'oci_noreclass',label:'XV(b). Items that will not be reclassified (e.g. actuarial gains, Ind AS 19)'},
+  {type:'total',id:'oci',label:'XV. Total Other Comprehensive Income'},
+  {type:'grand',id:'total_comp',label:'XVI. TOTAL COMPREHENSIVE INCOME'},
+  {id:'eps_basic',label:'XVII. EPS — Basic (Rs.)'},
+  {id:'eps_diluted',label:'XVIII. EPS — Diluted (Rs.)'}
+];
+
+function getActiveRows(type){
+  var fw = window._finFramework || 'AS';
+  if(type === 'bs') return fw === 'INDAS' ? _INDAS_BS_ROWS : BS_ROWS;
+  if(type === 'pl') return fw === 'INDAS' ? _INDAS_PL_ROWS : PL_ROWS;
+  return [];
+}
+
 // ─── SCHEDULE III — TRIAL BALANCE ────────────────────────────────────────────
 var _tbData=[];
+
+// FS Line options (id -> label) for mapping dropdown
+var FS_LINES = [
+  {id:'',label:'-- Select FS Line --'},
+  {id:'__BS__',label:'=== BALANCE SHEET ===',disabled:true},
+  {id:'share_capital',label:'Share Capital'},
+  {id:'reserves_surplus',label:'Reserves & Surplus / Other Equity'},
+  {id:'lt_borrowings',label:'Long-term Borrowings'},
+  {id:'st_borrowings',label:'Short-term Borrowings'},
+  {id:'trade_pay_msme',label:'Trade Payables (MSME)'},
+  {id:'trade_pay_others',label:'Trade Payables (Others)'},
+  {id:'other_cl',label:'Other Current Liabilities'},
+  {id:'st_provisions',label:'Short-term Provisions'},
+  {id:'lt_provisions',label:'Long-term Provisions'},
+  {id:'dtl',label:'Deferred Tax Liability'},
+  {id:'other_ltl',label:'Other Long-term Liabilities'},
+  {id:'tangible',label:'Tangible Assets / PPE'},
+  {id:'intangible',label:'Intangible Assets'},
+  {id:'cwip',label:'Capital WIP'},
+  {id:'rou_assets',label:'Right-of-Use Assets (Ind AS)'},
+  {id:'nc_investments',label:'Non-current Investments'},
+  {id:'dta',label:'Deferred Tax Asset'},
+  {id:'lt_loans',label:'Long-term Loans & Advances'},
+  {id:'other_nca',label:'Other Non-current Assets'},
+  {id:'inventories',label:'Inventories'},
+  {id:'trade_rec',label:'Trade Receivables'},
+  {id:'cash',label:'Cash & Cash Equivalents'},
+  {id:'st_loans',label:'Short-term Loans & Advances'},
+  {id:'other_ca',label:'Other Current Assets'},
+  {id:'cur_investments',label:'Current Investments'},
+  {id:'__PL__',label:'=== P&L STATEMENT ===',disabled:true},
+  {id:'rev_gross',label:'Revenue from Operations'},
+  {id:'other_income',label:'Other Income'},
+  {id:'cost_materials',label:'Cost of Materials Consumed'},
+  {id:'purchases_stock',label:'Purchases of Stock-in-Trade'},
+  {id:'chg_inventories',label:'Changes in Inventories'},
+  {id:'emp_benefits',label:'Employee Benefits Expense'},
+  {id:'finance_costs',label:'Finance Costs'},
+  {id:'depreciation',label:'Depreciation & Amortisation'},
+  {id:'other_exp',label:'Other Expenses'},
+  {id:'current_tax',label:'Current Tax'},
+  {id:'deferred_tax',label:'Deferred Tax'},
+  {id:'exceptional',label:'Exceptional Items'}
+];
+
+var TB_NOTE_OPTIONS = ['','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19','20'];
+var TB_CLASSIFICATIONS = ['','Current','Non-Current','Within 12 months','After 12 months','Capital','Revenue','Secured','Unsecured','MSME','Others'];
+
+var TB_CLASSES=[
+  'Revenue from Operations','Other Income',
+  'Cost of Materials Consumed','Employee Benefit Expense','Finance Costs','Depreciation & Amortisation','Other Expenses','Tax Expense',
+  'Property Plant & Equipment','Capital WIP','Intangible Assets',
+  'Non-current Investments','Long-term Loans & Advances',
+  'Inventories','Trade Receivables','Cash & Cash Equivalents','Short-term Loans & Advances','Other Current Assets',
+  'Share Capital','Reserves & Surplus',
+  'Long Term Borrowings','Short Term Borrowings',
+  'Trade Payables','Other Current Liabilities','Provisions'
+];
+
+function autoClassifyLedger(name){
+  var n=name.toLowerCase();
+  if(/sale|revenue|turnover|income from op/i.test(n))return'Revenue from Operations';
+  if(/interest income|dividend|profit on sale|misc income|other income/i.test(n))return'Other Income';
+  if(/purchase|raw mat|direct cost|cogs/i.test(n))return'Cost of Materials Consumed';
+  if(/salary|wage|pf|gratuity|esi|staff|employee|hr dept/i.test(n))return'Employee Benefit Expense';
+  if(/interest.*exp|bank charge|loan charge|finance cost/i.test(n))return'Finance Costs';
+  if(/depreciation|amortis|amortiz/i.test(n))return'Depreciation & Amortisation';
+  if(/admin|rent|insurance|utilities|legal|audit|travel|printing|software|repair|maintenance/i.test(n))return'Other Expenses';
+  if(/income tax|tax exp|provision for tax/i.test(n))return'Tax Expense';
+  if(/plant|machiner|building|vehicle|furniture|computer|equipment/i.test(n))return'Property Plant & Equipment';
+  if(/intangible/i.test(n))return'Intangible Assets';
+  if(/capital wip|cwip|work.in.progress/i.test(n))return'Capital WIP';
+  if(/investment/i.test(n))return'Non-current Investments';
+  if(/cash|bank|current account/i.test(n))return'Cash & Cash Equivalents';
+  if(/debtor|trade receiv|accounts receiv/i.test(n))return'Trade Receivables';
+  if(/inventor|stock in trade/i.test(n))return'Inventories';
+  if(/loans given|advance|deposit/i.test(n))return'Short-term Loans & Advances';
+  if(/share capital|equity share/i.test(n))return'Share Capital';
+  if(/retain|surplus|general reserve|p&l approp|profit.*loss.*approp|securities premium|capital reserve/i.test(n))return'Reserves & Surplus';
+  if(/term loan|debenture|long.term loan/i.test(n))return'Long Term Borrowings';
+  if(/working capital|cc account|od account|short.term loan/i.test(n))return'Short Term Borrowings';
+  if(/creditor|trade pay|accounts pay/i.test(n))return'Trade Payables';
+  if(/outstanding|accrued|provision.*curr/i.test(n))return'Other Current Liabilities';
+  if(/provision/i.test(n))return'Provisions';
+  if(/gst|tds/i.test(n))return'Other Current Liabilities';
+  if(/stock/i.test(n))return'Inventories';
+  return'Other Expenses';
+}
+
+function autoFsLine(cls){
+  var m={
+    'Revenue from Operations':'rev_gross','Other Income':'other_income',
+    'Cost of Materials Consumed':'cost_materials','Employee Benefit Expense':'emp_benefits',
+    'Finance Costs':'finance_costs','Depreciation & Amortisation':'depreciation',
+    'Other Expenses':'other_exp','Tax Expense':'current_tax',
+    'Property Plant & Equipment':'tangible','Capital WIP':'cwip','Intangible Assets':'intangible',
+    'Non-current Investments':'nc_investments','Long-term Loans & Advances':'lt_loans',
+    'Inventories':'inventories','Trade Receivables':'trade_rec',
+    'Cash & Cash Equivalents':'cash','Short-term Loans & Advances':'st_loans',
+    'Other Current Assets':'other_ca','Share Capital':'share_capital',
+    'Reserves & Surplus':'reserves_surplus','Long Term Borrowings':'lt_borrowings',
+    'Short Term Borrowings':'st_borrowings','Trade Payables':'trade_pay_others',
+    'Other Current Liabilities':'other_cl','Provisions':'st_provisions'
+  };
+  return m[cls]||'';
+}
+
+function autoNoteNo(fsLine){
+  var m={
+    'share_capital':'1','reserves_surplus':'2','lt_borrowings':'3','st_borrowings':'4',
+    'trade_pay_msme':'5','trade_pay_others':'5','tangible':'6','intangible':'6',
+    'cwip':'6','nc_investments':'7','trade_rec':'8','cash':'9','st_loans':'10',
+    'inventories':'13','rev_gross':'11','other_income':'12','emp_benefits':'14',
+    'finance_costs':'15','depreciation':'6','other_exp':'16','current_tax':'17',
+    'deferred_tax':'17','other_nca':'','other_ca':'','other_cl':'',
+    'lt_provisions':'','st_provisions':'','dta':'17','dtl':'17'
+  };
+  return m[fsLine]||'';
+}
 
 function handleTBFile(file){
   if(!file)return;
@@ -6297,7 +6549,6 @@ function handleTBFile(file){
     var wb=XLSX.read(e.target.result,{type:'array'});
     var ws=wb.Sheets[wb.SheetNames[0]];
     var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
-    // Skip header row if it looks like a header
     var start=0;
     if(rows[0]&&typeof rows[0][0]==='string'&&isNaN(parseFloat(rows[0][0]))){start=1;}
     _tbData=[];
@@ -6306,13 +6557,22 @@ function handleTBFile(file){
       if(!r||!r[0])continue;
       var ledger=String(r[0]).trim();
       if(!ledger)continue;
-      var dr=parseFloat(r[1])||0;
-      var cr=parseFloat(r[2])||0;
-      // If only 2 cols, treat col B as net (Dr positive, Cr negative)
-      if(r[2]===null||r[2]===undefined){dr=Math.max(0,parseFloat(r[1])||0);cr=Math.max(0,-(parseFloat(r[1])||0));}
-      var net=dr-cr;
+      // Support 5-col format: Name, Code, Opening, Dr, Cr
+      var code='', opening=0, dr=0, cr=0;
+      if(r[4]!==null&&r[4]!==undefined){
+        code=String(r[1]||'');
+        opening=parseFloat(r[2])||0;
+        dr=parseFloat(r[3])||0;
+        cr=parseFloat(r[4])||0;
+      } else {
+        dr=parseFloat(r[1])||0;
+        cr=parseFloat(r[2])||0;
+        if(r[2]===null||r[2]===undefined){dr=Math.max(0,parseFloat(r[1])||0);cr=Math.max(0,-(parseFloat(r[1])||0));}
+      }
       var cls=autoClassifyLedger(ledger);
-      _tbData.push({ledger:ledger,dr:dr,cr:cr,net:net,cls:cls});
+      var fsLine=autoFsLine(cls);
+      var noteNo=autoNoteNo(fsLine);
+      _tbData.push({ledger:ledger,code:code,opening:opening,dr:dr,cr:cr,cls:cls,fsLine:fsLine,noteNo:noteNo,classification:''});
     }
     renderTBMapping();
   };
@@ -6332,49 +6592,12 @@ function parseTBPaste(){
     var dr=parseFloat(parts[1])||0;
     var cr=parseFloat(parts[2])||0;
     if(!parts[2]){dr=Math.max(0,parseFloat(parts[1])||0);cr=Math.max(0,-(parseFloat(parts[1])||0));}
-    var net=dr-cr;
-    _tbData.push({ledger:ledger,dr:dr,cr:cr,net:net,cls:autoClassifyLedger(ledger)});
+    var cls=autoClassifyLedger(ledger);
+    var fsLine=autoFsLine(cls);
+    var noteNo=autoNoteNo(fsLine);
+    _tbData.push({ledger:ledger,code:'',opening:0,dr:dr,cr:cr,cls:cls,fsLine:fsLine,noteNo:noteNo,classification:''});
   });
   renderTBMapping();
-}
-
-var TB_CLASSES=[
-  'Revenue from Operations','Other Income',
-  'Cost of Materials Consumed','Employee Benefit Expense','Finance Costs','Depreciation & Amortisation','Other Expenses','Tax Expense',
-  'Property Plant & Equipment','Capital WIP','Intangible Assets',
-  'Non-current Investments','Long-term Loans & Advances',
-  'Inventories','Trade Receivables','Cash & Cash Equivalents','Short-term Loans & Advances','Other Current Assets',
-  'Share Capital','Reserves & Surplus',
-  'Long Term Borrowings','Short Term Borrowings',
-  'Trade Payables','Other Current Liabilities','Provisions'
-];
-
-function autoClassifyLedger(name){
-  var n=name.toLowerCase();
-  if(/sale|revenue|turnover|income from op/i.test(n))return'Revenue from Operations';
-  if(/interest income|dividend|profit on sale|misc income|other income/i.test(n))return'Other Income';
-  if(/purchase|raw mat|stock|direct cost|cogs/i.test(n))return'Cost of Materials Consumed';
-  if(/salary|wage|pf|gratuity|esi|staff|employee|hr dept/i.test(n))return'Employee Benefit Expense';
-  if(/interest|bank charge|loan charge|finance cost|borrowing/i.test(n))return'Finance Costs';
-  if(/depreciation|amortis|amortiz/i.test(n))return'Depreciation & Amortisation';
-  if(/admin|rent|insurance|utilities|legal|audit|travel|printing|software|repair|maintenance/i.test(n))return'Other Expenses';
-  if(/income tax|tax exp|provision for tax/i.test(n))return'Tax Expense';
-  if(/plant|machiner|building|vehicle|furniture|computer|intangible|equipment/i.test(n))return'Property Plant & Equipment';
-  if(/capital wip|cwip|work.in.progress/i.test(n))return'Capital WIP';
-  if(/investment/i.test(n))return'Non-current Investments';
-  if(/cash|bank|current account/i.test(n))return'Cash & Cash Equivalents';
-  if(/debtor|trade receiv|accounts receiv/i.test(n))return'Trade Receivables';
-  if(/inventor|stock/i.test(n))return'Inventories';
-  if(/loans given|advance|deposit/i.test(n))return'Short-term Loans & Advances';
-  if(/share capital|equity share/i.test(n))return'Share Capital';
-  if(/retain|surplus|general reserve|p&l approp|profit.*loss.*approp/i.test(n))return'Reserves & Surplus';
-  if(/term loan|debenture|long.term loan/i.test(n))return'Long Term Borrowings';
-  if(/working capital|cc account|od account|short.term loan/i.test(n))return'Short Term Borrowings';
-  if(/creditor|trade pay|accounts pay/i.test(n))return'Trade Payables';
-  if(/outstanding|accrued|provision.*curr/i.test(n))return'Other Current Liabilities';
-  if(/provision/i.test(n))return'Provisions';
-  if(/gst|tds/i.test(n))return'Other Current Liabilities';
-  return'Other Expenses';
 }
 
 function renderTBMapping(){
@@ -6384,23 +6607,60 @@ function renderTBMapping(){
   var gen=document.getElementById('tbGenerateRow');
   if(box)box.style.display='';
   if(gen)gen.style.display='';
-  var optionsHTML='';
-  TB_CLASSES.forEach(function(c){optionsHTML+='<option value="'+c+'">'+c+'</option>';});
-  var rows=['<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px"><thead><tr style="background:rgba(15,27,45,.9)">'];
-  rows.push('<th style="text-align:left;padding:8px 10px;color:var(--muted);font-weight:700">Ledger Name</th>');
-  rows.push('<th style="text-align:right;padding:8px 10px;color:var(--muted);font-weight:700">Dr Balance</th>');
-  rows.push('<th style="text-align:right;padding:8px 10px;color:var(--muted);font-weight:700">Cr Balance</th>');
-  rows.push('<th style="text-align:right;padding:8px 10px;color:var(--muted);font-weight:700">Net</th>');
-  rows.push('<th style="text-align:left;padding:8px 10px;color:var(--muted);font-weight:700">Schedule III Group</th>');
+
+  // Build FS Line options HTML once
+  var fsOptHtml='';
+  FS_LINES.forEach(function(f){
+    if(f.disabled){fsOptHtml+='<option value="" disabled>'+f.label+'</option>';}
+    else{fsOptHtml+='<option value="'+f.id+'">'+f.label+'</option>';}
+  });
+
+  // Build Note options HTML
+  var noteOptHtml='';
+  TB_NOTE_OPTIONS.forEach(function(n){noteOptHtml+='<option value="'+n+'">'+(n===''?'--':n)+'</option>';});
+
+  // Build Classification options HTML
+  var clsOptHtml='';
+  TB_CLASSIFICATIONS.forEach(function(c){clsOptHtml+='<option value="'+c+'">'+(c===''?'-- Select --':c)+'</option>';});
+
+  var TH='style="text-align:left;padding:7px 8px;color:var(--muted);font-weight:700;font-size:10px;white-space:nowrap;border-bottom:1px solid rgba(240,192,64,.15)"';
+  var rows=['<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px">'];
+  rows.push('<thead><tr style="background:rgba(15,27,45,.95)">');
+  rows.push('<th '+TH+'>Ledger Name</th>');
+  rows.push('<th '+TH+'>Acct Code</th>');
+  rows.push('<th '+TH+' style="text-align:right">Opening Bal</th>');
+  rows.push('<th '+TH+' style="text-align:right">Dr</th>');
+  rows.push('<th '+TH+' style="text-align:right">Cr</th>');
+  rows.push('<th '+TH+' style="text-align:right">Closing Bal</th>');
+  rows.push('<th '+TH+'>FS Line</th>');
+  rows.push('<th '+TH+'>Note No.</th>');
+  rows.push('<th '+TH+'>Classification</th>');
   rows.push('</tr></thead><tbody>');
+
   _tbData.forEach(function(item,idx){
+    var closing = (item.opening||0) + (item.dr||0) - (item.cr||0);
+    var clsColor = closing < 0 ? 'color:var(--coral)' : 'color:var(--text)';
     rows.push('<tr style="border-bottom:1px solid rgba(255,255,255,.03)">');
-    rows.push('<td style="padding:6px 10px;color:var(--text)">'+(item.ledger||'')+'</td>');
-    rows.push('<td style="padding:6px 10px;text-align:right;color:var(--teal)">'+item.dr.toLocaleString('en-IN',{maximumFractionDigits:2})+'</td>');
-    rows.push('<td style="padding:6px 10px;text-align:right;color:var(--coral)">'+item.cr.toLocaleString('en-IN',{maximumFractionDigits:2})+'</td>');
-    rows.push('<td style="padding:6px 10px;text-align:right;color:'+(item.net<0?'var(--coral)':'var(--text)')+'">'+item.net.toLocaleString('en-IN',{maximumFractionDigits:2})+'</td>');
-    rows.push('<td style="padding:4px 10px"><select class="audit-select" style="width:100%;font-size:10px" onchange="_tbData['+idx+'].cls=this.value">');
-    TB_CLASSES.forEach(function(c){rows.push('<option value="'+c+'"'+(c===item.cls?' selected':'')+'>'+c+'</option>');});
+    rows.push('<td style="padding:5px 8px;color:var(--text);min-width:150px">'+(item.ledger||'')+'</td>');
+    rows.push('<td style="padding:5px 8px;color:var(--muted)">'+(item.code||'')+'</td>');
+    rows.push('<td style="padding:5px 8px;text-align:right"><input type="number" value="'+(item.opening||0)+'" style="background:transparent;border:none;border-bottom:1px solid rgba(240,192,64,.2);color:var(--text);font-family:inherit;font-size:11px;text-align:right;width:90px;outline:none" oninput="_tbData['+idx+'].opening=parseFloat(this.value)||0;updateClosingCell('+idx+')" /></td>');
+    rows.push('<td style="padding:5px 8px;text-align:right;color:var(--teal)">'+nfmt(item.dr)+'</td>');
+    rows.push('<td style="padding:5px 8px;text-align:right;color:var(--coral)">'+nfmt(item.cr)+'</td>');
+    rows.push('<td id="tbclosing_'+idx+'" style="padding:5px 8px;text-align:right;font-weight:600;'+clsColor+'">'+nfmt(closing)+'</td>');
+    // FS Line dropdown
+    rows.push('<td style="padding:4px 6px;min-width:180px"><select class="audit-select" style="width:100%;font-size:10px" onchange="_tbData['+idx+'].fsLine=this.value;_tbData['+idx+'].noteNo=autoNoteNo(this.value);rerenderNoteCell('+idx+')">');
+    FS_LINES.forEach(function(f){
+      if(f.disabled){rows.push('<option value="" disabled>'+f.label+'</option>');}
+      else{rows.push('<option value="'+f.id+'"'+(f.id===item.fsLine?' selected':'')+'>'+f.label+'</option>');}
+    });
+    rows.push('</select></td>');
+    // Note No dropdown
+    rows.push('<td style="padding:4px 6px"><select id="tbnote_'+idx+'" class="audit-select" style="width:55px;font-size:10px" onchange="_tbData['+idx+'].noteNo=this.value">');
+    TB_NOTE_OPTIONS.forEach(function(n){rows.push('<option value="'+n+'"'+(n===item.noteNo?' selected':'')+'>'+((n==='')?'--':n)+'</option>');});
+    rows.push('</select></td>');
+    // Classification dropdown
+    rows.push('<td style="padding:4px 6px"><select class="audit-select" style="width:100%;font-size:10px;min-width:110px" onchange="_tbData['+idx+'].classification=this.value">');
+    TB_CLASSIFICATIONS.forEach(function(c){rows.push('<option value="'+c+'"'+(c===item.classification?' selected':'')+'>'+((c==='')?'-- Select --':c)+'</option>');});
     rows.push('</select></td>');
     rows.push('</tr>');
   });
@@ -6408,120 +6668,242 @@ function renderTBMapping(){
   if(tbl)tbl.innerHTML=rows.join('');
 }
 
+function nfmt(v){return (parseFloat(v)||0).toLocaleString('en-IN',{maximumFractionDigits:2});}
+
+function updateClosingCell(idx){
+  var item=_tbData[idx];
+  var closing=(item.opening||0)+(item.dr||0)-(item.cr||0);
+  var el=document.getElementById('tbclosing_'+idx);
+  if(el){el.textContent=nfmt(closing);el.style.color=closing<0?'var(--coral)':'var(--text)';}
+}
+
+function rerenderNoteCell(idx){
+  var item=_tbData[idx];
+  var el=document.getElementById('tbnote_'+idx);
+  if(el){el.value=item.noteNo||'';}
+}
+
+function toggleNotesPreview(){
+  var sec=document.getElementById('notesPreviewSection');
+  var arr=document.getElementById('notesPreviewArrow');
+  if(!sec)return;
+  if(sec.style.display==='none'){
+    sec.style.display='';
+    if(arr)arr.textContent='▲ Hide';
+    buildNotesPreview();
+  } else {
+    sec.style.display='none';
+    if(arr)arr.textContent='▼ Show';
+  }
+}
+
+function buildNotesPreview(){
+  var cont=document.getElementById('notesPreviewContent');
+  if(!cont)return;
+  if(!_tbData.length){cont.innerHTML='<div style="color:var(--muted);padding:8px">No TB data loaded.</div>';return;}
+  var html=[];
+  for(var n=1;n<=20;n++){
+    var items=_tbData.filter(function(d){return String(d.noteNo)===String(n);});
+    if(!items.length)continue;
+    html.push('<div style="margin-bottom:12px;padding:10px;background:rgba(15,27,45,.5);border-radius:6px;border:1px solid rgba(240,192,64,.1)">');
+    html.push('<div style="font-size:11px;font-weight:700;color:var(--gold2);margin-bottom:6px">Note '+n+' — '+getNoteTitle(n)+'</div>');
+    html.push('<table style="width:100%;border-collapse:collapse;font-size:10px">');
+    html.push('<tr><th style="text-align:left;padding:3px 6px;color:var(--muted)">Ledger</th><th style="text-align:right;padding:3px 6px;color:var(--muted)">Closing Bal</th><th style="text-align:left;padding:3px 6px;color:var(--muted)">Classification</th></tr>');
+    var total=0;
+    items.forEach(function(d){
+      var cl=(d.opening||0)+(d.dr||0)-(d.cr||0);
+      total+=cl;
+      html.push('<tr><td style="padding:2px 6px;color:var(--text)">'+d.ledger+'</td><td style="padding:2px 6px;text-align:right;color:'+(cl<0?'var(--coral)':'var(--teal)')+'">'+nfmt(cl)+'</td><td style="padding:2px 6px;color:var(--muted)">'+(d.classification||'')+'</td></tr>');
+    });
+    html.push('<tr style="border-top:1px solid rgba(240,192,64,.2)"><td style="padding:3px 6px;font-weight:700;color:var(--gold2)">TOTAL</td><td style="padding:3px 6px;text-align:right;font-weight:700;color:var(--gold)">'+nfmt(total)+'</td><td></td></tr>');
+    html.push('</table></div>');
+  }
+  cont.innerHTML=html.join('');
+}
+
+function getNoteTitle(n){
+  var titles={1:'Share Capital',2:'Reserves & Surplus',3:'Long-term Borrowings',4:'Short-term Borrowings',5:'Trade Payables',6:'Fixed Assets (PPE)',7:'Non-current Investments',8:'Trade Receivables',9:'Cash & Cash Equivalents',10:'Short-term Loans & Advances',11:'Revenue from Operations',12:'Other Income',13:'Inventories',14:'Employee Benefits Expense',15:'Finance Costs',16:'Other Expenses',17:'Tax Expense / Deferred Tax',18:'Related Party Disclosures',19:'Contingent Liabilities',20:'Significant Accounting Policies'};
+  return titles[n]||('Note '+n);
+}
+
 function generateSched3FromTB(){
   if(!_tbData.length){alert('No trial balance data loaded');return;}
   var out=document.getElementById('tbSched3Output');
-  // Group by classification
-  var groups={};
-  TB_CLASSES.forEach(function(c){groups[c]=0;});
-  _tbData.forEach(function(item){if(groups[item.cls]!==undefined)groups[item.cls]+=item.net;else groups[item.cls]=item.net;});
+  var notesOut=document.getElementById('tbNotesOutput');
+  var co=_s3Company();
+
+  // Aggregate closing balances by fsLine
+  var byFsLine={};
+  _tbData.forEach(function(item){
+    var cl=(item.opening||0)+(item.dr||0)-(item.cr||0);
+    var fl=item.fsLine||'';
+    if(fl){byFsLine[fl]=(byFsLine[fl]||0)+cl;}
+  });
+
+  function gv(id){return byFsLine[id]||0;}
 
   // Determine auto-unit
   var maxAbs=0;
-  Object.values(groups).forEach(function(v){if(Math.abs(v)>maxAbs)maxAbs=Math.abs(v);});
-  var unit=maxAbs>=10000000?'crores':maxAbs>=100000?'lakhs':'actual';
-  var unitLabel=unit==='crores'?'₹ Crores':unit==='lakhs'?'₹ Lakhs':'₹';
+  Object.values(byFsLine).forEach(function(v){if(Math.abs(v)>maxAbs)maxAbs=Math.abs(v);});
+  var exportUnitEl=document.getElementById('exportUnit');
+  var unitChoice=exportUnitEl?exportUnitEl.value:'lakhs';
+  var unitDivisors={actual:1,thousands:1000,lakhs:100000,crores:10000000};
+  var unitDiv=unitDivisors[unitChoice]||100000;
+  var unitLabels={actual:'Rs.',thousands:'Rs. Thousands',lakhs:'Rs. Lakhs',crores:'Rs. Crores'};
+  var unitLabel=unitLabels[unitChoice]||'Rs. Lakhs';
 
   function fmtTB(v){
-    if(!v&&v!==0)return'—';
-    return fmtSched3(v,unit);
+    if(v===null||v===undefined)return'—';
+    var n=parseFloat(v);
+    if(isNaN(n))return'—';
+    return (n/unitDiv).toFixed(2);
   }
-  function r(label,cls,bold,roman,indent){
-    var v=groups[cls]||0;
-    var col=bold?'var(--teal2)':(v<0?'var(--coral)':'var(--text)');
+
+  function secRow(label){
+    return '<tr class="section-head"><td colspan="3" style="font-size:11px">'+label+'</td></tr>';
+  }
+  function subHead(label){
+    return '<tr class="sub-head"><td colspan="3" style="padding-left:20px;font-size:11.5px;font-weight:600;color:var(--sky2)">'+label+'</td></tr>';
+  }
+  function itemRow(label,noteNo,val,indent){
     var pad=(indent||0)*16+12;
-    return '<tr class="'+(bold?'total-row':'')+'"><td style="padding:7px '+pad+'px;color:'+col+';font-weight:'+(bold?'700':'400')+';font-size:12px">'+(roman?roman+'. ':'')+label+'</td><td class="num" style="color:var(--muted);font-size:10px">—</td><td class="num" style="color:'+col+';font-weight:'+(bold?'700':'400')+'">'+fmtTB(v)+'</td></tr>';
+    var col=val<0?'var(--coral)':'var(--text)';
+    return '<tr><td style="padding:6px '+pad+'px;font-size:12px">'+label+'</td>'+
+      '<td class="num" style="font-size:10px;color:var(--muted);text-align:center">'+(noteNo||'')+'</td>'+
+      '<td class="num" style="color:'+col+'">'+fmtTB(val)+'</td></tr>';
   }
-  function calc(label,val,bold,roman,grand){
-    var col=bold?'var(--gold)':'var(--teal2)';
-    if(val<0)col='var(--coral)';
-    return '<tr class="'+(grand?'grand-total':'total-row')+'"><td style="padding:8px 12px;font-weight:'+(grand?'800':'700')+';font-size:'+(grand?'13':'12')+'px;color:'+col+'">'+(roman?roman+'. ':'')+label+'</td><td class="num" style="color:var(--muted);font-size:10px">—</td><td class="num" style="color:'+col+';font-weight:'+(grand?'800':'700')+'">'+fmtTB(val)+'</td></tr>';
+  function totalRow(label,val,grand){
+    var cls=grand?'grand-total':'total-row';
+    var col=grand?'var(--gold)':(val<0?'var(--coral)':'var(--teal2)');
+    return '<tr class="'+cls+'"><td style="font-weight:'+(grand?'800':'700')+';font-size:'+(grand?'13':'12')+'px">'+label+'</td>'+
+      '<td></td>'+
+      '<td class="num" style="color:'+col+';font-weight:'+(grand?'800':'700')+'">'+fmtTB(val)+'</td></tr>';
   }
 
-  var totalRev=groups['Revenue from Operations']+(groups['Other Income']||0);
-  var totalExp=(groups['Cost of Materials Consumed']||0)+(groups['Employee Benefit Expense']||0)+(groups['Finance Costs']||0)+(groups['Depreciation & Amortisation']||0)+(groups['Other Expenses']||0);
-  var pbt=totalRev-totalExp;
-  var tax=groups['Tax Expense']||0;
-  var pat=pbt-tax;
+  // Calculate derived P&L values
+  var revNet=gv('rev_gross')-gv('excise_adj');
+  var totalRev=revNet+gv('other_income');
+  var totalExp=gv('cost_materials')+gv('purchases_stock')+gv('chg_inventories')+gv('emp_benefits')+gv('finance_costs')+gv('depreciation')+gv('other_exp');
+  var pbt=totalRev-totalExp+gv('exceptional');
+  var totalTax=gv('current_tax')+gv('deferred_tax');
+  var pat=pbt-totalTax;
 
-  // P&L
+  // P&L HTML
   var plHTML=['<div class="fin-table-wrap"><table class="fin-table">'];
-  plHTML.push('<thead><tr><th colspan="3" style="text-align:left;background:linear-gradient(90deg,rgba(240,192,64,.15),rgba(240,192,64,.05));padding:12px 14px;font-size:13px;color:var(--gold2);font-family:\'Playfair Display\',serif">Statement of Profit and Loss</th></tr>');
-  plHTML.push('<tr><th style="text-align:left;width:50%">Particulars</th><th style="width:60px;text-align:center">Note</th><th>('+unitLabel+')</th></tr></thead><tbody>');
-  plHTML.push(r('Revenue from Operations','Revenue from Operations',false,'I',0));
-  plHTML.push(r('Other Income','Other Income',false,'II',0));
-  plHTML.push(calc('Total Revenue (I + II)',totalRev,false,'III'));
-  plHTML.push('<tr class="section-head"><td colspan="3">IV. Expenses</td></tr>');
-  plHTML.push(r('Cost of Materials Consumed','Cost of Materials Consumed',false,'a',1));
-  plHTML.push(r('Employee Benefit Expense','Employee Benefit Expense',false,'b',1));
-  plHTML.push(r('Finance Costs','Finance Costs',false,'c',1));
-  plHTML.push(r('Depreciation & Amortisation','Depreciation & Amortisation',false,'d',1));
-  plHTML.push(r('Other Expenses','Other Expenses',false,'e',1));
-  plHTML.push(calc('Total Expenses (IV)',totalExp,false,''));
-  plHTML.push(calc('Profit / (Loss) Before Tax (III - IV)',pbt,false,'V'));
-  plHTML.push(r('Tax Expense','Tax Expense',false,'VI',0));
-  plHTML.push(calc('Profit / (Loss) for the Period (V - VI)',pat,true,'VII',true));
+  plHTML.push('<thead>');
+  plHTML.push('<tr><th colspan="3" style="text-align:left;background:linear-gradient(90deg,rgba(240,192,64,.15),rgba(240,192,64,.05));padding:12px 14px;font-size:13px;color:var(--gold2);font-family:Playfair Display,serif">'+co+' — Statement of Profit and Loss</th></tr>');
+  plHTML.push('<tr><th style="text-align:left;width:52%">Particulars</th><th style="width:50px;text-align:center">Note</th><th>('+unitLabel+')</th></tr>');
+  plHTML.push('</thead><tbody>');
+  plHTML.push(secRow('REVENUE'));
+  plHTML.push(itemRow('I. Revenue from Operations',11,gv('rev_gross'),0));
+  plHTML.push(itemRow('II. Other Income',12,gv('other_income'),0));
+  plHTML.push(totalRow('III. TOTAL INCOME (I+II)',totalRev,false));
+  plHTML.push(secRow('IV. EXPENSES'));
+  plHTML.push(itemRow('Cost of Materials Consumed','',gv('cost_materials'),1));
+  plHTML.push(itemRow('Purchases of Stock-in-Trade','',gv('purchases_stock'),1));
+  plHTML.push(itemRow('Changes in Inventories','',gv('chg_inventories'),1));
+  plHTML.push(itemRow('Employee Benefits Expense',14,gv('emp_benefits'),1));
+  plHTML.push(itemRow('Finance Costs',15,gv('finance_costs'),1));
+  plHTML.push(itemRow('Depreciation &amp; Amortisation',6,gv('depreciation'),1));
+  plHTML.push(itemRow('Other Expenses',16,gv('other_exp'),1));
+  plHTML.push(totalRow('Total Expenses',totalExp,false));
+  plHTML.push(totalRow('V. PROFIT BEFORE TAX (III-IV)',pbt,false));
+  plHTML.push(secRow('VI. TAX EXPENSE'));
+  plHTML.push(itemRow('Current Tax','',gv('current_tax'),1));
+  plHTML.push(itemRow('Deferred Tax','',gv('deferred_tax'),1));
+  plHTML.push(totalRow('Total Tax Expense',totalTax,false));
+  plHTML.push(totalRow('VII. PROFIT FOR THE PERIOD (PAT)',pat,true));
   plHTML.push('</tbody></table></div>');
 
-  // Balance Sheet
-  var equity=(groups['Share Capital']||0)+(groups['Reserves & Surplus']||0)+pat;
-  var ltBorrow=groups['Long Term Borrowings']||0;
-  var stBorrow=groups['Short Term Borrowings']||0;
-  var tradePay=groups['Trade Payables']||0;
-  var otherCL=groups['Other Current Liabilities']||0;
-  var provisions=groups['Provisions']||0;
-  var totalLiab=equity+ltBorrow+stBorrow+tradePay+otherCL+provisions;
-  var ppe=groups['Property Plant & Equipment']||0;
-  var cwip=groups['Capital WIP']||0;
-  var intang=groups['Intangible Assets']||0;
-  var ncInv=groups['Non-current Investments']||0;
-  var ltLA=groups['Long-term Loans & Advances']||0;
-  var inv=groups['Inventories']||0;
-  var tradeRec=groups['Trade Receivables']||0;
-  var cash=groups['Cash & Cash Equivalents']||0;
-  var stLA=groups['Short-term Loans & Advances']||0;
-  var otherCA=groups['Other Current Assets']||0;
-  var totalAssets=ppe+cwip+intang+ncInv+ltLA+inv+tradeRec+cash+stLA+otherCA;
+  // BS calculations
+  var shareCap=gv('share_capital');
+  var reserves=gv('reserves_surplus')+pat;
+  var equity=shareCap+reserves;
+  var ltBorrow=gv('lt_borrowings');
+  var stBorrow=gv('st_borrowings');
+  var tradeMSME=gv('trade_pay_msme');
+  var tradeOth=gv('trade_pay_others');
+  var otherCL=gv('other_cl');
+  var prov=gv('st_provisions');
+  var dtl=gv('dtl');
+  var ltProv=gv('lt_provisions');
+  var otherLTL=gv('other_ltl');
+  var totalNCL=ltBorrow+dtl+otherLTL+ltProv;
+  var totalCL=stBorrow+tradeMSME+tradeOth+otherCL+prov;
+  var totalEL=equity+totalNCL+totalCL;
 
-  var bsHTML=['<div class="fin-table-wrap mt16"><table class="fin-table">'];
-  bsHTML.push('<thead><tr><th colspan="3" style="text-align:left;background:linear-gradient(90deg,rgba(0,212,170,.12),rgba(0,212,170,.04));padding:12px 14px;font-size:13px;color:var(--teal2);font-family:\'Playfair Display\',serif">Balance Sheet (Schedule III — Part I)</th></tr>');
-  bsHTML.push('<tr><th style="text-align:left;width:50%">Particulars</th><th style="width:60px;text-align:center">Note</th><th>('+unitLabel+')</th></tr></thead><tbody>');
-  // Equity & Liabilities
-  bsHTML.push('<tr class="section-head"><td colspan="3">I. EQUITY AND LIABILITIES</td></tr>');
-  bsHTML.push(r('Share Capital','Share Capital',false,'1',1));
-  bsHTML.push(r('Reserves &amp; Surplus','Reserves & Surplus',false,'2',1));
-  bsHTML.push(calc('Sub-total — Shareholders\' Funds',equity,false,''));
-  bsHTML.push('<tr class="sub-head"><td style="padding-left:20px;font-size:11.5px;font-weight:600;color:var(--sky2)">Non-Current Liabilities</td><td></td><td></td></tr>');
-  bsHTML.push(r('Long Term Borrowings','Long Term Borrowings',false,'3',2));
-  bsHTML.push('<tr class="sub-head"><td style="padding-left:20px;font-size:11.5px;font-weight:600;color:var(--sky2)">Current Liabilities</td><td></td><td></td></tr>');
-  bsHTML.push(r('Short Term Borrowings','Short Term Borrowings',false,'4',2));
-  bsHTML.push(r('Trade Payables','Trade Payables',false,'5',2));
-  bsHTML.push(r('Other Current Liabilities','Other Current Liabilities',false,'6',2));
-  bsHTML.push(r('Provisions','Provisions',false,'7',2));
-  bsHTML.push(calc('Total Equity &amp; Liabilities',totalLiab,true,'',true));
-  // Assets
-  bsHTML.push('<tr class="section-head"><td colspan="3">II. ASSETS</td></tr>');
-  bsHTML.push('<tr class="sub-head"><td style="padding-left:20px;font-size:11.5px;font-weight:600;color:var(--sky2)">Non-Current Assets</td><td></td><td></td></tr>');
-  bsHTML.push(r('Property Plant &amp; Equipment','Property Plant & Equipment',false,'8',2));
-  bsHTML.push(r('Capital Work-in-Progress','Capital WIP',false,'9',2));
-  bsHTML.push(r('Intangible Assets','Intangible Assets',false,'10',2));
-  bsHTML.push(r('Non-current Investments','Non-current Investments',false,'11',2));
-  bsHTML.push(r('Long-term Loans &amp; Advances','Long-term Loans & Advances',false,'12',2));
-  bsHTML.push('<tr class="sub-head"><td style="padding-left:20px;font-size:11.5px;font-weight:600;color:var(--sky2)">Current Assets</td><td></td><td></td></tr>');
-  bsHTML.push(r('Inventories','Inventories',false,'13',2));
-  bsHTML.push(r('Trade Receivables','Trade Receivables',false,'14',2));
-  bsHTML.push(r('Cash &amp; Cash Equivalents','Cash & Cash Equivalents',false,'15',2));
-  bsHTML.push(r('Short-term Loans &amp; Advances','Short-term Loans & Advances',false,'16',2));
-  bsHTML.push(r('Other Current Assets','Other Current Assets',false,'17',2));
-  bsHTML.push(calc('Total Assets',totalAssets,true,'',true));
-  // Tally check
-  var diff=totalLiab-totalAssets;
+  var tang=gv('tangible');
+  var intang=gv('intangible');
+  var cwip=gv('cwip');
+  var ncInv=gv('nc_investments');
+  var dta=gv('dta');
+  var ltLA=gv('lt_loans');
+  var otherNCA=gv('other_nca');
+  var totalNCA=tang+intang+cwip+ncInv+dta+ltLA+otherNCA;
+  var inv=gv('inventories');
+  var tradeRec=gv('trade_rec');
+  var cash=gv('cash');
+  var stLA=gv('st_loans');
+  var otherCA=gv('other_ca');
+  var curInv=gv('cur_investments');
+  var totalCA=curInv+inv+tradeRec+cash+stLA+otherCA;
+  var totalAssets=totalNCA+totalCA;
+
+  var bsHTML=['<div class="fin-table-wrap" style="margin-top:16px"><table class="fin-table">'];
+  bsHTML.push('<thead>');
+  bsHTML.push('<tr><th colspan="3" style="text-align:left;background:linear-gradient(90deg,rgba(0,212,170,.12),rgba(0,212,170,.04));padding:12px 14px;font-size:13px;color:var(--teal2);font-family:Playfair Display,serif">'+co+' — Balance Sheet (Schedule III — Part I)</th></tr>');
+  bsHTML.push('<tr><th style="text-align:left;width:52%">Particulars</th><th style="width:50px;text-align:center">Note</th><th>('+unitLabel+')</th></tr>');
+  bsHTML.push('</thead><tbody>');
+  bsHTML.push(secRow('I. EQUITY AND LIABILITIES'));
+  bsHTML.push(subHead('(1) Shareholders Funds'));
+  bsHTML.push(itemRow('(a) Share Capital',1,shareCap,1));
+  bsHTML.push(itemRow('(b) Reserves &amp; Surplus',2,reserves,1));
+  bsHTML.push(totalRow('Sub-total — Shareholders Funds',equity,false));
+  bsHTML.push(subHead('(3) Non-Current Liabilities'));
+  bsHTML.push(itemRow('(a) Long-term Borrowings',3,ltBorrow,1));
+  bsHTML.push(itemRow('(b) Deferred Tax Liabilities (Net)','',dtl,1));
+  bsHTML.push(itemRow('(c) Long-term Provisions','',ltProv,1));
+  bsHTML.push(totalRow('Sub-total — Non-Current Liabilities',totalNCL,false));
+  bsHTML.push(subHead('(4) Current Liabilities'));
+  bsHTML.push(itemRow('(a) Short-term Borrowings',4,stBorrow,1));
+  bsHTML.push(itemRow('(b) Trade Payables — MSME',5,tradeMSME,1));
+  bsHTML.push(itemRow('(c) Trade Payables — Others',5,tradeOth,1));
+  bsHTML.push(itemRow('(d) Other Current Liabilities','',otherCL,1));
+  bsHTML.push(itemRow('(e) Short-term Provisions','',prov,1));
+  bsHTML.push(totalRow('Sub-total — Current Liabilities',totalCL,false));
+  bsHTML.push(totalRow('TOTAL EQUITY AND LIABILITIES',totalEL,true));
+  bsHTML.push(secRow('II. ASSETS'));
+  bsHTML.push(subHead('(1) Non-Current Assets'));
+  bsHTML.push(itemRow('(a) Tangible Assets (PPE)',6,tang,1));
+  bsHTML.push(itemRow('(b) Intangible Assets',6,intang,1));
+  bsHTML.push(itemRow('(c) Capital Work-in-Progress',6,cwip,1));
+  bsHTML.push(itemRow('(d) Non-current Investments',7,ncInv,1));
+  bsHTML.push(itemRow('(e) Deferred Tax Assets','',dta,1));
+  bsHTML.push(itemRow('(f) Long-term Loans &amp; Advances','',ltLA,1));
+  bsHTML.push(itemRow('(g) Other Non-current Assets','',otherNCA,1));
+  bsHTML.push(totalRow('Sub-total — Non-Current Assets',totalNCA,false));
+  bsHTML.push(subHead('(2) Current Assets'));
+  bsHTML.push(itemRow('(a) Current Investments','',curInv,1));
+  bsHTML.push(itemRow('(b) Inventories',13,inv,1));
+  bsHTML.push(itemRow('(c) Trade Receivables',8,tradeRec,1));
+  bsHTML.push(itemRow('(d) Cash &amp; Cash Equivalents',9,cash,1));
+  bsHTML.push(itemRow('(e) Short-term Loans &amp; Advances',10,stLA,1));
+  bsHTML.push(itemRow('(f) Other Current Assets','',otherCA,1));
+  bsHTML.push(totalRow('Sub-total — Current Assets',totalCA,false));
+  bsHTML.push(totalRow('TOTAL ASSETS',totalAssets,true));
+  var diff=totalEL-totalAssets;
   var tallyColor=Math.abs(diff)<1?'var(--teal)':'var(--coral)';
-  var tallyMsg=Math.abs(diff)<1?'✓ Balance Sheet Tallies':'⚠ Difference: '+fmtTB(diff)+' (check unclassified ledgers)';
+  var tallyMsg=Math.abs(diff)<1?'&#10003; Balance Sheet Tallies':'&#9888; Difference: '+fmtTB(diff)+' (check unclassified ledgers)';
   bsHTML.push('<tr><td colspan="3" style="padding:8px 12px;font-size:11px;color:'+tallyColor+';font-weight:700">'+tallyMsg+'</td></tr>');
   bsHTML.push('</tbody></table></div>');
 
   out.innerHTML=plHTML.join('')+bsHTML.join('');
+
+  // Render all notes
+  if(notesOut){
+    var notesHTML=renderAllNotes(_tbData,unitDiv,unitLabel);
+    notesOut.innerHTML=notesHTML;
+  }
 }
 
 // ─── EXPORT SCHED3 ────────────────────────────────────────────────────────────
@@ -6627,66 +7009,498 @@ function _s3RowsToAOA(skel){
   });
   return aoa;
 }
-function exportSched3Excel(){
+// Helper: XLSX cell address
+function _xCell(col,row){
+  // col is 0-based, row is 0-based
+  var c='';var n=col;
+  do{c=String.fromCharCode(65+(n%26))+c;n=Math.floor(n/26)-1;}while(n>=0);
+  return c+String(row+1);
+}
+
+function exportSched3Excel(fw, unitChoice){
   if(!window.XLSX){alert('SheetJS library not loaded');return;}
-  var wb=XLSX.utils.book_new();
-  var co=_s3Company();
-  var cols=[{wch:52},{wch:8},{wch:20},{wch:20}];
-  var merges=[
-    {s:{r:0,c:0},e:{r:0,c:3}},
-    {s:{r:1,c:0},e:{r:1,c:3}},
-    {s:{r:2,c:0},e:{r:2,c:3}}
-  ];
-  var hdrBS=['Particulars','Note No.','Figures as at the end of current reporting period','Figures as at the end of previous reporting period'];
-  var hdrPL=['Particulars','Note No.','Figures for the current reporting period','Figures for the previous reporting period'];
+  fw = fw || window._finFramework || 'AS';
+  unitChoice = unitChoice || 'lakhs';
+  var unitDivisors = {actual:1, thousands:1000, lakhs:100000, crores:10000000};
+  var unitDiv = unitDivisors[unitChoice] || 100000;
+  var unitNames = {actual:'Actual Numbers (Rs.)', thousands:'Rs. Thousands', lakhs:'Rs. Lakhs', crores:'Rs. Crores'};
+  var wb = XLSX.utils.book_new();
+  var co = _s3Company();
+  var period0 = S.periods[0] || 'FY 2024-25';
+  var period1 = S.periods[1] || 'FY 2023-24';
 
-  // ── Sheet 1: Balance Sheet ──
-  var bsAoa=[[co],['Balance Sheet as at '+S.periods[0]],['(All amounts in ₹ unless otherwise stated)'],hdrBS];
-  bsAoa=bsAoa.concat(_s3RowsToAOA(_s3BSSkeleton()));
-  var ws1=XLSX.utils.aoa_to_sheet(bsAoa);
-  ws1['!cols']=cols;ws1['!merges']=merges;
-  XLSX.utils.book_append_sheet(wb,ws1,'Balance Sheet');
+  // ── Sheet: Unit ──
+  var wsU = XLSX.utils.aoa_to_sheet([
+    ['Unit divisor (change this to convert all figures)', unitDiv],
+    ['Unit label', unitNames[unitChoice]],
+    ['Framework', fw]
+  ]);
+  wsU['!cols'] = [{wch:48},{wch:20}];
+  XLSX.utils.book_append_sheet(wb, wsU, 'Unit');
 
-  // ── Sheet 2: Statement of P&L ──
-  var plAoa=[[co],['Statement of Profit and Loss for the period ended '+S.periods[0]],['(All amounts in ₹ unless otherwise stated)'],hdrPL];
-  plAoa=plAoa.concat(_s3RowsToAOA(_s3PLSkeleton()));
-  var ws2=XLSX.utils.aoa_to_sheet(plAoa);
-  ws2['!cols']=cols;ws2['!merges']=merges.map(function(m){return {s:{r:m.s.r,c:0},e:{r:m.e.r,c:3}};});
-  XLSX.utils.book_append_sheet(wb,ws2,'Statement of P&L');
-
-  // ── Sheet 3: Notes index ──
-  var notes=[
+  // ── Sheet: Trial Balance ──
+  var tbAoa = [
     [co],
-    ['Notes forming part of the Financial Statements'],
-    ['(All amounts in ₹ unless otherwise stated)'],
-    ['Note No.','Particulars','Current period','Previous period'],
-    [1,'Share Capital',getBSVal('share_capital',0),getBSVal('share_capital',1)],
-    [2,'Reserves and Surplus',getBSVal('reserves_surplus',0),getBSVal('reserves_surplus',1)],
-    [3,'Long-term Borrowings',getBSVal('lt_borrowings',0),getBSVal('lt_borrowings',1)],
-    [4,'Short-term Borrowings',getBSVal('st_borrowings',0),getBSVal('st_borrowings',1)],
-    [5,'Trade Payables (incl. MSME disclosure)',getBSVal('trade_pay_msme',0)+getBSVal('trade_pay_others',0),getBSVal('trade_pay_msme',1)+getBSVal('trade_pay_others',1)],
-    [6,'Tangible Assets',getBSVal('tangible',0),getBSVal('tangible',1)],
-    [7,'Intangible Assets',getBSVal('intangible',0),getBSVal('intangible',1)],
-    [8,'Non-current Investments',getBSVal('nc_investments',0),getBSVal('nc_investments',1)],
-    [9,'Long-term Loans and Advances',getBSVal('lt_loans',0),getBSVal('lt_loans',1)],
-    [10,'Current Investments',getBSVal('cur_investments',0),getBSVal('cur_investments',1)],
-    [11,'Inventories',getBSVal('inventories',0),getBSVal('inventories',1)],
-    [12,'Trade Receivables',getBSVal('trade_rec',0),getBSVal('trade_rec',1)],
-    [13,'Cash and Cash Equivalents',getBSVal('cash',0),getBSVal('cash',1)],
-    [14,'Short-term Loans and Advances',getBSVal('st_loans',0),getBSVal('st_loans',1)],
-    [15,'Revenue from Operations',getBSVPL('rev_net',0),getBSVPL('rev_net',1)],
-    [16,'Other Income',getPLInput('other_income',0),getPLInput('other_income',1)],
-    [17,'Cost of Materials Consumed',getPLInput('cost_materials',0),getPLInput('cost_materials',1)],
-    [18,'Employee Benefits Expense',getPLInput('emp_benefits',0),getPLInput('emp_benefits',1)],
-    [19,'Finance Costs',getPLInput('finance_costs',0),getPLInput('finance_costs',1)],
-    [20,'Depreciation and Amortisation',getPLInput('depreciation',0),getPLInput('depreciation',1)],
-    [21,'Other Expenses',getPLInput('other_exp',0),getPLInput('other_exp',1)]
+    ['Trial Balance — mapped to Schedule III'],
+    ['Ledger Name','Account Code','Opening Balance','Debit','Credit','Closing Balance (=C+D-E)','FS Line','Note No.','Classification']
   ];
-  var ws3=XLSX.utils.aoa_to_sheet(notes);
-  ws3['!cols']=[{wch:10},{wch:48},{wch:18},{wch:18}];
-  ws3['!merges']=merges;
-  XLSX.utils.book_append_sheet(wb,ws3,'Notes');
-  XLSX.writeFile(wb,'ScheduleIII_Financial_Statements.xlsx');
+  _tbData.forEach(function(item){
+    var row = [item.ledger||'', item.code||'', item.opening||0, item.dr||0, item.cr||0, null, item.fsLine||'', item.noteNo||'', item.classification||''];
+    tbAoa.push(row);
+  });
+  var wsTB = XLSX.utils.aoa_to_sheet(tbAoa);
+  // Add Closing Balance formula for each data row
+  for(var ri=3;ri<tbAoa.length;ri++){
+    var cellRef = 'F'+(ri+1);
+    wsTB[cellRef] = {t:'n', f:"C"+(ri+1)+"+D"+(ri+1)+"-E"+(ri+1)};
+  }
+  wsTB['!cols'] = [{wch:36},{wch:12},{wch:14},{wch:14},{wch:14},{wch:18},{wch:22},{wch:8},{wch:16}];
+  XLSX.utils.book_append_sheet(wb, wsTB, 'Trial Balance');
+
+  // Helper: SUMIF from TB for a given noteNo
+  function sumifNote(noteNo){
+    return "SUMIF('Trial Balance'!$H:$H," + noteNo + ",'Trial Balance'!$F:$F)/Unit!$B$1";
+  }
+  // Helper: SUMIFS from TB for noteNo + classification
+  function sumifs(noteNo, cls){
+    return "SUMIFS('Trial Balance'!$F:$F,'Trial Balance'!$H:$H," + noteNo + ",'Trial Balance'!$I:$I,\"" + cls + "\")/Unit!$B$1";
+  }
+  // Helper: SUMIF from TB for a given fsLine (col G)
+  function sumifFsLine(fsLine){
+    return "SUMIF('Trial Balance'!$G:$G,\"" + fsLine + "\",'Trial Balance'!$F:$F)/Unit!$B$1";
+  }
+
+  function makeNoteSheet(noteNo, title, rows){
+    // rows: array of {label, formula|value, isTotal, isSec}
+    var aoa = [
+      [co],
+      ['Note ' + noteNo + ' — ' + title],
+      ['(All amounts in ' + unitNames[unitChoice] + ')'],
+      ['Particulars','Current Year','Previous Year']
+    ];
+    var ws = XLSX.utils.aoa_to_sheet(aoa);
+    var r = 4; // 0-based row index
+    rows.forEach(function(row){
+      ws['A'+(r+1)] = {t:'s', v: row.label||''};
+      if(row.formula){
+        ws['B'+(r+1)] = {t:'n', f: row.formula};
+        ws['C'+(r+1)] = {t:'n', v: 0}; // Prior year placeholder
+      } else if(row.value !== undefined){
+        ws['B'+(r+1)] = {t:'n', v: row.value/unitDiv};
+        ws['C'+(r+1)] = {t:'n', v: 0};
+      } else {
+        ws['A'+(r+1)] = {t:'s', v: row.label||''};
+      }
+      r++;
+    });
+    ws['!ref'] = 'A1:C'+(r+1);
+    ws['!cols'] = [{wch:44},{wch:18},{wch:18}];
+    ws['!merges'] = [{s:{r:0,c:0},e:{r:0,c:2}},{s:{r:1,c:0},e:{r:1,c:2}},{s:{r:2,c:0},e:{r:2,c:2}}];
+    return ws;
+  }
+
+  // ── Note 01: Share Capital ──
+  var wsN1 = makeNoteSheet(1,'Share Capital',[
+    {label:'Authorised Capital', formula:sumifs(1,'Capital')},
+    {label:'Issued, Subscribed & Paid-up Capital', formula:sumifNote(1)},
+    {label:'TOTAL', formula:sumifNote(1)}
+  ]);
+  XLSX.utils.book_append_sheet(wb, wsN1, 'Note 01');
+
+  // ── Note 02: Reserves & Surplus ──
+  var wsN2 = makeNoteSheet(2,'Reserves and Surplus',[
+    {label:'Capital Reserve', formula:sumifs(2,'Capital')},
+    {label:'Securities Premium Reserve', formula:sumifs(2,'Revenue')},
+    {label:'General Reserve', formula:sumifs(2,'Others')},
+    {label:'Retained Earnings (Opening)', formula:sumifs(2,'Non-Current')},
+    {label:'Add: Profit for the year (from P&L)', formula:"SUMIF('Trial Balance'!$G:$G,\"pat\",'Trial Balance'!$F:$F)/Unit!$B$1"},
+    {label:'Less: Dividends paid', formula:"0"},
+    {label:'TOTAL', formula:sumifNote(2)}
+  ]);
+  XLSX.utils.book_append_sheet(wb, wsN2, 'Note 02');
+
+  // ── Note 03: Long-term Borrowings ──
+  var wsN3 = makeNoteSheet(3,'Long-term Borrowings',[
+    {label:'Secured — Term Loans from Banks', formula:sumifs(3,'Secured')},
+    {label:'Secured — Term Loans from Financial Institutions', formula:sumifs(3,'Non-Current')},
+    {label:'Unsecured — Debentures', formula:sumifs(3,'Unsecured')},
+    {label:'Unsecured — Loans from Directors', formula:sumifs(3,'Others')},
+    {label:'TOTAL', formula:sumifNote(3)}
+  ]);
+  XLSX.utils.book_append_sheet(wb, wsN3, 'Note 03');
+
+  // ── Note 04: Short-term Borrowings ──
+  var wsN4 = makeNoteSheet(4,'Short-term Borrowings',[
+    {label:'Secured — Working Capital Loans from Banks', formula:sumifs(4,'Secured')},
+    {label:'Unsecured — Loans from Directors / Related Parties', formula:sumifs(4,'Unsecured')},
+    {label:'Others', formula:sumifs(4,'Others')},
+    {label:'TOTAL', formula:sumifNote(4)}
+  ]);
+  XLSX.utils.book_append_sheet(wb, wsN4, 'Note 04');
+
+  // ── Note 05: Trade Payables ──
+  var wsN5 = makeNoteSheet(5,'Trade Payables',[
+    {label:'(i) Total outstanding dues of MSME suppliers', formula:sumifs(5,'MSME')},
+    {label:'(ii) Total outstanding dues of creditors other than MSME', formula:sumifs(5,'Others')},
+    {label:'TOTAL', formula:sumifNote(5)}
+  ]);
+  XLSX.utils.book_append_sheet(wb, wsN5, 'Note 05');
+
+  // ── Note 06: Fixed Assets (PPE) ──
+  var wsN6 = makeNoteSheet(6,'Fixed Assets — Property, Plant & Equipment',[
+    {label:'--- GROSS BLOCK ---'},
+    {label:'Land & Building', formula:sumifFsLine('tangible')},
+    {label:'Plant & Machinery', formula:"0"},
+    {label:'Furniture & Fixtures', formula:"0"},
+    {label:'Vehicles', formula:"0"},
+    {label:'Computer Equipment', formula:"0"},
+    {label:'Total Gross Block', formula:sumifFsLine('tangible')},
+    {label:'--- ACCUMULATED DEPRECIATION ---'},
+    {label:'Total Accumulated Depreciation', formula:"0"},
+    {label:'NET BLOCK (Gross - Depreciation)', formula:sumifFsLine('tangible')},
+    {label:'Capital Work-in-Progress', formula:sumifFsLine('cwip')},
+    {label:'Intangible Assets', formula:sumifFsLine('intangible')},
+    {label:'TOTAL NOTE 6', formula:sumifNote(6)}
+  ]);
+  XLSX.utils.book_append_sheet(wb, wsN6, 'Note 06');
+
+  // ── Note 07: Investments ──
+  var wsN7 = makeNoteSheet(7,'Non-current Investments',[
+    {label:'Investment in Equity Shares (Quoted)', formula:sumifs(7,'Current')},
+    {label:'Investment in Equity Shares (Unquoted)', formula:sumifs(7,'Non-Current')},
+    {label:'Investment in Mutual Funds', formula:sumifs(7,'Others')},
+    {label:'TOTAL', formula:sumifNote(7)}
+  ]);
+  XLSX.utils.book_append_sheet(wb, wsN7, 'Note 07');
+
+  // ── Note 08: Trade Receivables ──
+  var wsN8 = makeNoteSheet(8,'Trade Receivables',[
+    {label:'Outstanding for more than 6 months — Unsecured, Considered Good', formula:sumifs(8,'Non-Current')},
+    {label:'Outstanding for more than 6 months — Doubtful', formula:"0"},
+    {label:'Other Receivables — Unsecured, Considered Good', formula:sumifs(8,'Current')},
+    {label:'Less: Provision for doubtful debts', formula:"0"},
+    {label:'TOTAL', formula:sumifNote(8)}
+  ]);
+  XLSX.utils.book_append_sheet(wb, wsN8, 'Note 08');
+
+  // ── Note 09: Cash & Cash Equivalents ──
+  var wsN9 = makeNoteSheet(9,'Cash and Cash Equivalents',[
+    {label:'Cash in hand', formula:sumifs(9,'Current')},
+    {label:'Balances with banks — Current Account', formula:sumifs(9,'Non-Current')},
+    {label:'Balances with banks — FD (maturity < 3 months)', formula:sumifs(9,'Others')},
+    {label:'TOTAL', formula:sumifNote(9)}
+  ]);
+  XLSX.utils.book_append_sheet(wb, wsN9, 'Note 09');
+
+  // ── Note 10: Short-term Loans & Advances ──
+  var wsN10 = makeNoteSheet(10,'Short-term Loans and Advances',[
+    {label:'Loans to related parties — Unsecured, Considered Good', formula:sumifs(10,'Unsecured')},
+    {label:'Advance to suppliers', formula:sumifs(10,'Current')},
+    {label:'Prepaid expenses', formula:sumifs(10,'Others')},
+    {label:'TOTAL', formula:sumifNote(10)}
+  ]);
+  XLSX.utils.book_append_sheet(wb, wsN10, 'Note 10');
+
+  // ── Note 11: Revenue from Operations ──
+  var wsN11 = makeNoteSheet(11,'Revenue from Operations',[
+    {label:'Sale of Products', formula:sumifs(11,'Revenue')},
+    {label:'Sale of Services', formula:sumifs(11,'Current')},
+    {label:'Other Operating Revenue', formula:sumifs(11,'Others')},
+    {label:'TOTAL REVENUE FROM OPERATIONS', formula:sumifNote(11)}
+  ]);
+  XLSX.utils.book_append_sheet(wb, wsN11, 'Note 11');
+
+  // ── Note 12: Other Income ──
+  var wsN12 = makeNoteSheet(12,'Other Income',[
+    {label:'Interest Income', formula:sumifs(12,'Current')},
+    {label:'Dividend Income', formula:sumifs(12,'Others')},
+    {label:'Gain on sale of assets', formula:sumifs(12,'Capital')},
+    {label:'Miscellaneous Income', formula:sumifs(12,'Revenue')},
+    {label:'TOTAL', formula:sumifNote(12)}
+  ]);
+  XLSX.utils.book_append_sheet(wb, wsN12, 'Note 12');
+
+  // ── Note 13: Inventories ──
+  var wsN13 = makeNoteSheet(13,'Inventories',[
+    {label:'Raw Materials', formula:sumifs(13,'Current')},
+    {label:'Work-in-Progress', formula:sumifs(13,'Others')},
+    {label:'Finished Goods', formula:sumifs(13,'Revenue')},
+    {label:'Stock-in-Trade', formula:sumifs(13,'Non-Current')},
+    {label:'Stores & Spares', formula:sumifs(13,'Capital')},
+    {label:'TOTAL', formula:sumifNote(13)}
+  ]);
+  XLSX.utils.book_append_sheet(wb, wsN13, 'Note 13');
+
+  // ── Note 14: Employee Benefits Expense ──
+  var wsN14 = makeNoteSheet(14,'Employee Benefits Expense',[
+    {label:'Salaries, Wages and Bonus', formula:sumifs(14,'Revenue')},
+    {label:'Contribution to PF and ESI', formula:sumifs(14,'Current')},
+    {label:'Gratuity (Defined Benefit — AS 15)', formula:sumifs(14,'Non-Current')},
+    {label:'Leave Encashment', formula:sumifs(14,'Others')},
+    {label:'Staff Welfare Expenses', formula:sumifs(14,'Capital')},
+    {label:'TOTAL', formula:sumifNote(14)}
+  ]);
+  XLSX.utils.book_append_sheet(wb, wsN14, 'Note 14');
+
+  // ── Note 15: Finance Costs ──
+  var wsN15 = makeNoteSheet(15,'Finance Costs',[
+    {label:'Interest on Term Loans', formula:sumifs(15,'Secured')},
+    {label:'Interest on Working Capital Loans', formula:sumifs(15,'Current')},
+    {label:'Interest on Debentures', formula:sumifs(15,'Non-Current')},
+    {label:'Bank Charges & Processing Fees', formula:sumifs(15,'Others')},
+    {label:'TOTAL', formula:sumifNote(15)}
+  ]);
+  XLSX.utils.book_append_sheet(wb, wsN15, 'Note 15');
+
+  // ── Note 16: Other Expenses ──
+  var wsN16 = makeNoteSheet(16,'Other Expenses',[
+    {label:'Rent', formula:sumifs(16,'Current')},
+    {label:'Insurance', formula:sumifs(16,'Non-Current')},
+    {label:'Legal & Professional Fees', formula:sumifs(16,'Revenue')},
+    {label:'Audit Fees', formula:sumifs(16,'Capital')},
+    {label:'Travelling & Conveyance', formula:sumifs(16,'Others')},
+    {label:'Repairs & Maintenance', formula:sumifs(16,'MSME')},
+    {label:'Miscellaneous Expenses', formula:sumifs(16,'Unsecured')},
+    {label:'TOTAL', formula:sumifNote(16)}
+  ]);
+  XLSX.utils.book_append_sheet(wb, wsN16, 'Note 16');
+
+  // ── Note 17: Tax Expense ──
+  var wsN17 = makeNoteSheet(17,'Tax Expense and Deferred Tax',[
+    {label:'Current Tax (u/s 115JB / normal provisions)', formula:sumifFsLine('current_tax')},
+    {label:'MAT Credit Entitlement', formula:"0"},
+    {label:'--- Deferred Tax ---'},
+    {label:'Deferred Tax Asset: Disallowances u/s 43B', formula:sumifs(17,'Current')},
+    {label:'Deferred Tax Asset: Provision for bad debts', formula:sumifs(17,'Non-Current')},
+    {label:'Deferred Tax Liability: Excess depreciation (WDV vs SLM)', formula:sumifs(17,'Capital')},
+    {label:'NET DEFERRED TAX (DTA - DTL)', formula:sumifNote(17)},
+    {label:'TOTAL TAX EXPENSE', formula:sumifFsLine('current_tax')+'+'+sumifNote(17)}
+  ]);
+  XLSX.utils.book_append_sheet(wb, wsN17, 'Note 17');
+
+  // ── Note 18: Related Party Disclosures ──
+  var wsN18aoa = [[co],['Note 18 — Related Party Disclosures'],['(As per AS 18 / Ind AS 24)'],
+    ['Name of Related Party','Relationship','Nature of Transaction','Current Year','Previous Year'],
+    ['[Enter Name]','Key Management Personnel','Remuneration',0,0],
+    ['[Enter Name]','Associate Company','Sales',0,0]
+  ];
+  var wsN18 = XLSX.utils.aoa_to_sheet(wsN18aoa);
+  wsN18['!cols'] = [{wch:28},{wch:28},{wch:28},{wch:14},{wch:14}];
+  XLSX.utils.book_append_sheet(wb, wsN18, 'Note 18');
+
+  // ── Note 19: Contingent Liabilities ──
+  var wsN19aoa = [[co],['Note 19 — Contingent Liabilities and Commitments'],
+    ['Particulars','Current Year','Previous Year'],
+    ['(i) Claims against the Company not acknowledged as debts',0,0],
+    ['(ii) Guarantees issued by the Company',0,0],
+    ['(iii) Income tax matters pending appeal',0,0],
+    ['(iv) Capital commitments (net of advances)',0,0]
+  ];
+  var wsN19 = XLSX.utils.aoa_to_sheet(wsN19aoa);
+  wsN19['!cols'] = [{wch:48},{wch:14},{wch:14}];
+  XLSX.utils.book_append_sheet(wb, wsN19, 'Note 19');
+
+  // ── Note 20: Significant Accounting Policies ──
+  var policyText = fw === 'INDAS' ?
+    'Ind AS 1: These financial statements are prepared in accordance with Indian Accounting Standards (Ind AS) as notified under Section 133 of the Companies Act 2013. Basis of preparation: Historical cost convention, except financial instruments at fair value. Ind AS 2: Inventories valued at lower of cost (FIFO) and net realisable value. Ind AS 7: Cash flow statement prepared using indirect method. Ind AS 12: Deferred tax recognised on temporary differences. Ind AS 16: PPE recognised at cost less accumulated depreciation. Ind AS 19: Defined benefit obligations (gratuity) measured using Projected Unit Credit method; actuarial gains/losses recognised in OCI. Ind AS 116: Right-of-use assets and lease liabilities recognised for all leases exceeding 12 months.' :
+    'AS 1: These financial statements are prepared in accordance with applicable Accounting Standards (AS) notified under Section 133 of the Companies Act 2013 read with Rule 7 of the Companies (Accounts) Rules 2014. Basis: Going concern, accrual basis, historical cost convention. AS 2: Inventories at cost or net realisable value, whichever is lower. Basis of cost: FIFO method. AS 6/AS 10: Fixed assets at historical cost less depreciation. Depreciation on WDV basis as per Schedule II of Companies Act 2013. AS 15: Employee defined benefit obligations (gratuity) actuarially valued. AS 22: Deferred tax recognised on timing differences. AS 28: Impairment of assets assessed annually.';
+  var wsN20aoa = [[co],['Note 20 — Significant Accounting Policies'],[''],[policyText]];
+  var wsN20 = XLSX.utils.aoa_to_sheet(wsN20aoa);
+  wsN20['!cols'] = [{wch:100}];
+  wsN20['!merges'] = [{s:{r:0,c:0},e:{r:0,c:0}},{s:{r:1,c:0},e:{r:1,c:0}}];
+  XLSX.utils.book_append_sheet(wb, wsN20, 'Note 20');
+
+  // ── Sheet: Balance Sheet (formula-linked) ──
+  var bsRows = [
+    [co],
+    ['Balance Sheet as at ' + period0],
+    ['(All amounts in ' + unitNames[unitChoice] + ')'],
+    ['Particulars','Note No.','Current Year (' + period0 + ')','Previous Year (' + period1 + ')'],
+    ['I. EQUITY AND LIABILITIES','','',''],
+    ['(1) Shareholders Funds','','',''],
+    ['   (a) Share Capital',1,null,0],
+    ['   (b) Reserves & Surplus',2,null,0],
+    ['Sub-total — Shareholders Funds','',null,0],
+    ['(3) Non-Current Liabilities','','',''],
+    ['   (a) Long-term Borrowings',3,null,0],
+    ['   (b) Deferred Tax Liabilities','',null,0],
+    ['   (c) Long-term Provisions','',null,0],
+    ['Sub-total — Non-Current Liabilities','',null,0],
+    ['(4) Current Liabilities','','',''],
+    ['   (a) Short-term Borrowings',4,null,0],
+    ['   (b) Trade Payables',5,null,0],
+    ['   (c) Other Current Liabilities','',null,0],
+    ['   (d) Short-term Provisions','',null,0],
+    ['Sub-total — Current Liabilities','',null,0],
+    ['TOTAL EQUITY AND LIABILITIES','',null,0],
+    ['','','',''],
+    ['II. ASSETS','','',''],
+    ['(1) Non-Current Assets','','',''],
+    ['   (a) Tangible Assets',6,null,0],
+    ['   (b) Intangible Assets',6,null,0],
+    ['   (c) Capital Work-in-Progress',6,null,0],
+    ['   (d) Non-current Investments',7,null,0],
+    ['   (e) Deferred Tax Assets','',null,0],
+    ['   (f) Long-term Loans & Advances','',null,0],
+    ['Sub-total — Non-Current Assets','',null,0],
+    ['(2) Current Assets','','',''],
+    ['   (a) Inventories',13,null,0],
+    ['   (b) Trade Receivables',8,null,0],
+    ['   (c) Cash & Cash Equivalents',9,null,0],
+    ['   (d) Short-term Loans & Advances',10,null,0],
+    ['   (e) Other Current Assets','',null,0],
+    ['Sub-total — Current Assets','',null,0],
+    ['TOTAL ASSETS','',null,0],
+    ['TALLY CHECK','',null,null]
+  ];
+  var wBS = XLSX.utils.aoa_to_sheet(bsRows);
+  // Assign formulas to the note-linked cells (column C, 0-based col 2)
+  // Row indices: row 7 = share capital (0-based row 6), etc.
+  var bsFormulas = {
+    'C7': "='Note 01'!B5", // share capital total row
+    'C8': "='Note 02'!B11",
+    'C9': "=C7+C8",
+    'C11': "='Note 03'!B9",
+    'C12': "=SUMIF('Trial Balance'!$G:$G,\"dtl\",'Trial Balance'!$F:$F)/Unit!$B$1",
+    'C13': "=SUMIF('Trial Balance'!$G:$G,\"lt_provisions\",'Trial Balance'!$F:$F)/Unit!$B$1",
+    'C14': "=C11+C12+C13",
+    'C16': "='Note 04'!B8",
+    'C17': "='Note 05'!B7",
+    'C18': "=SUMIF('Trial Balance'!$G:$G,\"other_cl\",'Trial Balance'!$F:$F)/Unit!$B$1",
+    'C19': "=SUMIF('Trial Balance'!$G:$G,\"st_provisions\",'Trial Balance'!$F:$F)/Unit!$B$1",
+    'C20': "=C16+C17+C18+C19",
+    'C21': "=C9+C14+C20",
+    'C25': "=SUMIF('Trial Balance'!$G:$G,\"tangible\",'Trial Balance'!$F:$F)/Unit!$B$1",
+    'C26': "=SUMIF('Trial Balance'!$G:$G,\"intangible\",'Trial Balance'!$F:$F)/Unit!$B$1",
+    'C27': "=SUMIF('Trial Balance'!$G:$G,\"cwip\",'Trial Balance'!$F:$F)/Unit!$B$1",
+    'C28': "=SUMIF('Trial Balance'!$G:$G,\"nc_investments\",'Trial Balance'!$F:$F)/Unit!$B$1",
+    'C29': "=SUMIF('Trial Balance'!$G:$G,\"dta\",'Trial Balance'!$F:$F)/Unit!$B$1",
+    'C30': "=SUMIF('Trial Balance'!$G:$G,\"lt_loans\",'Trial Balance'!$F:$F)/Unit!$B$1",
+    'C31': "=C25+C26+C27+C28+C29+C30",
+    'C33': "=SUMIF('Trial Balance'!$G:$G,\"inventories\",'Trial Balance'!$F:$F)/Unit!$B$1",
+    'C34': "=SUMIF('Trial Balance'!$G:$G,\"trade_rec\",'Trial Balance'!$F:$F)/Unit!$B$1",
+    'C35': "=SUMIF('Trial Balance'!$G:$G,\"cash\",'Trial Balance'!$F:$F)/Unit!$B$1",
+    'C36': "=SUMIF('Trial Balance'!$G:$G,\"st_loans\",'Trial Balance'!$F:$F)/Unit!$B$1",
+    'C37': "=SUMIF('Trial Balance'!$G:$G,\"other_ca\",'Trial Balance'!$F:$F)/Unit!$B$1",
+    'C38': "=C33+C34+C35+C36+C37",
+    'C39': "=C31+C38",
+    'C40': "=IF(ABS(C21-C39)<1,\"Balanced\",\"Difference: \"&TEXT(ABS(C21-C39),\"#,##0.00\"))"
+  };
+  Object.keys(bsFormulas).forEach(function(cellRef){
+    wBS[cellRef] = {t: cellRef==='C40'?'s':'n', f: bsFormulas[cellRef]};
+  });
+  wBS['!cols'] = [{wch:48},{wch:8},{wch:20},{wch:20}];
+  wBS['!merges'] = [{s:{r:0,c:0},e:{r:0,c:3}},{s:{r:1,c:0},e:{r:1,c:3}},{s:{r:2,c:0},e:{r:2,c:3}}];
+  XLSX.utils.book_append_sheet(wb, wBS, 'Balance Sheet');
+
+  // ── Sheet: P&L Statement (formula-linked) ──
+  var plRows = [
+    [co],
+    ['Statement of Profit and Loss for the period ended ' + period0],
+    ['(All amounts in ' + unitNames[unitChoice] + ')'],
+    ['Particulars','Note No.','Current Year (' + period0 + ')','Previous Year (' + period1 + ')'],
+    ['I. Revenue from Operations',11,null,0],
+    ['II. Other Income',12,null,0],
+    ['III. TOTAL INCOME (I+II)','',null,0],
+    ['IV. EXPENSES','','',''],
+    ['   Cost of Materials Consumed','',null,0],
+    ['   Purchases of Stock-in-Trade','',null,0],
+    ['   Changes in Inventories','',null,0],
+    ['   Employee Benefits Expense',14,null,0],
+    ['   Finance Costs',15,null,0],
+    ['   Depreciation & Amortisation',6,null,0],
+    ['   Other Expenses',16,null,0],
+    ['   TOTAL EXPENSES','',null,0],
+    ['V. PROFIT BEFORE TAX (III-XV)','',null,0],
+    ['VI. Tax Expense — Current Tax','',null,0],
+    ['         Deferred Tax','',null,0],
+    ['         TOTAL TAX','',null,0],
+    ['VII. PROFIT FOR THE PERIOD (PAT)','',null,0],
+    ['EPS — Basic (Rs.)','',null,0],
+    ['EPS — Diluted (Rs.)','',null,0]
+  ];
+  var wPL = XLSX.utils.aoa_to_sheet(plRows);
+  var plFormulas = {
+    'C5': "='Note 11'!B8",
+    'C6': "='Note 12'!B9",
+    'C7': "=C5+C6",
+    'C9': "=SUMIF('Trial Balance'!$G:$G,\"cost_materials\",'Trial Balance'!$F:$F)/Unit!$B$1",
+    'C10': "=SUMIF('Trial Balance'!$G:$G,\"purchases_stock\",'Trial Balance'!$F:$F)/Unit!$B$1",
+    'C11': "=SUMIF('Trial Balance'!$G:$G,\"chg_inventories\",'Trial Balance'!$F:$F)/Unit!$B$1",
+    'C12': "='Note 14'!B10",
+    'C13': "='Note 15'!B9",
+    'C14': "=SUMIF('Trial Balance'!$G:$G,\"depreciation\",'Trial Balance'!$F:$F)/Unit!$B$1",
+    'C15': "='Note 16'!B12",
+    'C16': "=C9+C10+C11+C12+C13+C14+C15",
+    'C17': "=C7-C16",
+    'C18': "=SUMIF('Trial Balance'!$G:$G,\"current_tax\",'Trial Balance'!$F:$F)/Unit!$B$1",
+    'C19': "=SUMIF('Trial Balance'!$G:$G,\"deferred_tax\",'Trial Balance'!$F:$F)/Unit!$B$1",
+    'C20': "=C18+C19",
+    'C21': "=C17-C20"
+  };
+  Object.keys(plFormulas).forEach(function(cellRef){
+    wPL[cellRef] = {t:'n', f: plFormulas[cellRef]};
+  });
+  wPL['!cols'] = [{wch:48},{wch:8},{wch:20},{wch:20}];
+  wPL['!merges'] = [{s:{r:0,c:0},e:{r:0,c:3}},{s:{r:1,c:0},e:{r:1,c:3}},{s:{r:2,c:0},e:{r:2,c:3}}];
+  XLSX.utils.book_append_sheet(wb, wPL, 'P&L');
+
+  // ── Sheet: Cash Flow (indirect method) ──
+  var cfRows = [
+    [co],
+    ['Cash Flow Statement for the period ended ' + period0 + ' (Indirect Method)'],
+    ['(All amounts in ' + unitNames[unitChoice] + ')'],
+    ['Particulars','','Current Year','Previous Year'],
+    ['A. CASH FLOW FROM OPERATING ACTIVITIES','','',''],
+    ['Net Profit Before Tax (from P&L)','',null,0],
+    ['Adjustments for:','','',''],
+    ['   Add: Depreciation & Amortisation','',null,0],
+    ['   Add: Finance Costs','',null,0],
+    ['Working Capital Changes:','','',''],
+    ['   (Increase)/Decrease in Trade Receivables','',null,0],
+    ['   (Increase)/Decrease in Inventories','',null,0],
+    ['   Increase/(Decrease) in Trade Payables','',null,0],
+    ['Cash Generated from Operations','',null,0],
+    ['   Less: Income Tax Paid','',null,0],
+    ['NET CASH FROM OPERATING ACTIVITIES (A)','',null,0],
+    ['B. CASH FLOW FROM INVESTING ACTIVITIES','','',''],
+    ['   Purchase of Fixed Assets','',null,0],
+    ['   Sale of Fixed Assets','',null,0],
+    ['   Purchase of Investments','',null,0],
+    ['NET CASH FROM INVESTING ACTIVITIES (B)','',null,0],
+    ['C. CASH FLOW FROM FINANCING ACTIVITIES','','',''],
+    ['   Proceeds from Borrowings','',null,0],
+    ['   Repayment of Borrowings','',null,0],
+    ['   Finance Costs Paid','',null,0],
+    ['   Dividends Paid','',null,0],
+    ['NET CASH FROM FINANCING ACTIVITIES (C)','',null,0],
+    ['NET INCREASE/(DECREASE) IN CASH (A+B+C)','',null,0],
+    ['Opening Cash & Cash Equivalents','',null,0],
+    ['CLOSING CASH & CASH EQUIVALENTS','',null,0]
+  ];
+  var wCF = XLSX.utils.aoa_to_sheet(cfRows);
+  var cfFormulas = {
+    'C6': "='P&L'!C17",
+    'C8': "='P&L'!C14",
+    'C9': "='P&L'!C13",
+    'C14': "=C6+C8+C9+C11+C12+C13",
+    'C16': "=C14+C15",
+    'C21': "=C18+C19+C20",
+    'C27': "=C23+C24+C25+C26",
+    'C28': "=C16+C21+C27",
+    'C30': "=C29+C28",
+    'C35': "=SUMIF('Trial Balance'!$G:$G,\"cash\",'Trial Balance'!$F:$F)/Unit!$B$1"
+  };
+  Object.keys(cfFormulas).forEach(function(cellRef){
+    wCF[cellRef] = {t:'n', f: cfFormulas[cellRef]};
+  });
+  wCF['!cols'] = [{wch:48},{wch:4},{wch:20},{wch:20}];
+  wCF['!merges'] = [{s:{r:0,c:0},e:{r:0,c:3}},{s:{r:1,c:0},e:{r:1,c:3}},{s:{r:2,c:0},e:{r:2,c:3}}];
+  XLSX.utils.book_append_sheet(wb, wCF, 'Cash Flow');
+
+  var fname = 'ScheduleIII_' + fw + '_' + unitChoice + '_' + period0.replace(/[\s\/]/g,'') + '.xlsx';
+  XLSX.writeFile(wb, fname);
+  if(typeof showToast === 'function') showToast('Excel exported: ' + fname + ' (' + (Object.keys(wb.Sheets).length) + ' formula-linked sheets)');
 }
 
 // Generic ruled-table drawer for jsPDF. rows: array of arrays of cell strings.
@@ -6753,7 +7567,363 @@ function _s3PdfFooter(doc,pageNo){
   doc.setFont('helvetica','normal');
   doc.text('Page '+pageNo,196,288,{align:'right'});
 }
-function exportSched3PDF(){
+// ─── RENDER ALL 20 NOTES (in-app) ────────────────────────────────────────────
+function renderAllNotes(tbData, unitDiv, unitLabel){
+  var html = [];
+  html.push('<div class="box" style="margin-top:16px">');
+  html.push('<div class="box-title"><span class="icon">📑</span>Notes to Accounts (Schedule III)</div>');
+  html.push('<div style="font-size:11px;color:var(--muted);margin-bottom:12px">All amounts in '+unitLabel+'. Populated from Trial Balance mapping.</div>');
+
+  function getTBItems(noteNo){ return tbData.filter(function(d){return String(d.noteNo)===String(noteNo);}); }
+  function sumItems(items){ var t=0;items.forEach(function(d){t+=(d.opening||0)+(d.dr||0)-(d.cr||0);});return t; }
+  function sumCls(items, cls){ var t=0;items.filter(function(d){return d.classification===cls;}).forEach(function(d){t+=(d.opening||0)+(d.dr||0)-(d.cr||0);});return t; }
+  function fv(v){ return (v/unitDiv).toFixed(2); }
+
+  function noteHeader(n, title){
+    return '<div style="background:rgba(240,192,64,.08);border-left:3px solid var(--gold);padding:8px 12px;margin-top:12px;margin-bottom:4px"><span style="font-weight:700;color:var(--gold2);font-size:12px">Note '+n+' — '+title+'</span></div>';
+  }
+  function noteTable(headers, rows){
+    var t=['<div class="fin-table-wrap"><table class="fin-table" style="min-width:auto">'];
+    t.push('<thead><tr>');
+    headers.forEach(function(h,i){t.push('<th style="'+(i>0?'text-align:right':'text-align:left')+'">'+h+'</th>');});
+    t.push('</tr></thead><tbody>');
+    rows.forEach(function(row){
+      var isTot=row._total, isSec=row._section;
+      t.push('<tr class="'+(isTot?'total-row':isSec?'section-head':'')+'">');
+      row.cells.forEach(function(c,i){
+        t.push('<td class="'+(i>0?'num':'')+(isTot?' ':'')+(i===0&&!isSec?' indent1':'')+'"'+(isSec?' colspan="'+headers.length+'"':'')+'>'+c+'</td>');
+      });
+      t.push('</tr>');
+    });
+    t.push('</tbody></table></div>');
+    return t.join('');
+  }
+
+  // ── Note 1: Share Capital ──
+  var n1=getTBItems(1);
+  var n1total=sumItems(n1);
+  html.push(noteHeader(1,'Share Capital'));
+  html.push(noteTable(['Particulars','Current Year'],[
+    {cells:['Authorised Capital',fv(sumCls(n1,'Capital'))],_total:false},
+    {cells:['Issued, Subscribed & Paid-up Capital',fv(n1total>0?n1total:0)],_total:false},
+    {cells:['TOTAL',fv(n1total>0?n1total:0)],_total:true}
+  ]));
+
+  // ── Note 2: Reserves & Surplus ──
+  var n2=getTBItems(2);
+  html.push(noteHeader(2,'Reserves and Surplus'));
+  html.push(noteTable(['Particulars','Current Year'],[
+    {cells:['Capital Reserve',fv(sumCls(n2,'Capital'))],_total:false},
+    {cells:['Securities Premium',fv(sumCls(n2,'Revenue'))],_total:false},
+    {cells:['General Reserve',fv(sumCls(n2,'Others'))],_total:false},
+    {cells:['Retained Earnings',fv(sumCls(n2,'Non-Current'))],_total:false},
+    {cells:['TOTAL',fv(sumItems(n2))],_total:true}
+  ]));
+
+  // ── Note 3: Long-term Borrowings ──
+  var n3=getTBItems(3);
+  html.push(noteHeader(3,'Long-term Borrowings'));
+  html.push(noteTable(['Particulars','Current Year'],[
+    {cells:['Secured'],_section:true},
+    {cells:['Term Loans from Banks',fv(sumCls(n3,'Secured'))],_total:false},
+    {cells:['Unsecured'],_section:true},
+    {cells:['Debentures',fv(sumCls(n3,'Unsecured'))],_total:false},
+    {cells:['Loans from Directors / Related Parties',fv(sumCls(n3,'Others'))],_total:false},
+    {cells:['TOTAL',fv(sumItems(n3))],_total:true}
+  ]));
+
+  // ── Note 4: Short-term Borrowings ──
+  var n4=getTBItems(4);
+  html.push(noteHeader(4,'Short-term Borrowings'));
+  html.push(noteTable(['Particulars','Current Year'],[
+    {cells:['Secured — Working Capital Loans',fv(sumCls(n4,'Secured'))],_total:false},
+    {cells:['Unsecured',fv(sumCls(n4,'Unsecured'))],_total:false},
+    {cells:['TOTAL',fv(sumItems(n4))],_total:true}
+  ]));
+
+  // ── Note 5: Trade Payables ──
+  var n5=getTBItems(5);
+  html.push(noteHeader(5,'Trade Payables'));
+  html.push(noteTable(['Particulars','Current Year'],[
+    {cells:['(i) Total outstanding dues of MSME suppliers',fv(sumCls(n5,'MSME'))],_total:false},
+    {cells:['(ii) Total outstanding dues of creditors other than MSME',fv(sumCls(n5,'Others'))],_total:false},
+    {cells:['TOTAL',fv(sumItems(n5))],_total:true}
+  ]));
+
+  // ── Note 6: Fixed Assets ──
+  var n6=getTBItems(6);
+  html.push(noteHeader(6,'Fixed Assets — Property, Plant &amp; Equipment'));
+  html.push(noteTable(['Asset Category','Gross Block','Accum. Depreciation','Net Block'],[
+    {cells:['Tangible Assets',fv(sumItems(n6)),'0',fv(sumItems(n6))],_total:false},
+    {cells:['Intangible Assets','0','0','0'],_total:false},
+    {cells:['Capital Work-in-Progress (CWIP)',fv(sumCls(n6,'Capital')),'—',fv(sumCls(n6,'Capital'))],_total:false},
+    {cells:['TOTAL',fv(sumItems(n6)),'0',fv(sumItems(n6))],_total:true}
+  ]));
+
+  // ── Note 7: Investments ──
+  var n7=getTBItems(7);
+  html.push(noteHeader(7,'Non-current Investments'));
+  html.push(noteTable(['Particulars','Current Year'],[
+    {cells:['Equity Shares — Quoted',fv(sumCls(n7,'Current'))],_total:false},
+    {cells:['Equity Shares — Unquoted',fv(sumCls(n7,'Non-Current'))],_total:false},
+    {cells:['Mutual Funds',fv(sumCls(n7,'Others'))],_total:false},
+    {cells:['TOTAL',fv(sumItems(n7))],_total:true}
+  ]));
+
+  // ── Note 8: Trade Receivables ──
+  var n8=getTBItems(8);
+  html.push(noteHeader(8,'Trade Receivables'));
+  html.push(noteTable(['Particulars','Current Year'],[
+    {cells:['Outstanding > 6 months — Unsecured, Considered Good',fv(sumCls(n8,'Non-Current'))],_total:false},
+    {cells:['Other Receivables — Unsecured, Considered Good',fv(sumCls(n8,'Current'))],_total:false},
+    {cells:['TOTAL',fv(sumItems(n8))],_total:true}
+  ]));
+
+  // ── Note 9: Cash & Cash Equivalents ──
+  var n9=getTBItems(9);
+  html.push(noteHeader(9,'Cash and Cash Equivalents'));
+  html.push(noteTable(['Particulars','Current Year'],[
+    {cells:['Cash in hand',fv(sumCls(n9,'Current'))],_total:false},
+    {cells:['Balances with Banks — Current A/c',fv(sumCls(n9,'Non-Current'))],_total:false},
+    {cells:['FD with maturity &lt; 3 months',fv(sumCls(n9,'Others'))],_total:false},
+    {cells:['TOTAL',fv(sumItems(n9))],_total:true}
+  ]));
+
+  // ── Note 10: Short-term Loans & Advances ──
+  var n10=getTBItems(10);
+  html.push(noteHeader(10,'Short-term Loans and Advances'));
+  html.push(noteTable(['Particulars','Current Year'],[
+    {cells:['Advance to Suppliers',fv(sumCls(n10,'Current'))],_total:false},
+    {cells:['Prepaid Expenses',fv(sumCls(n10,'Others'))],_total:false},
+    {cells:['Other Advances',fv(sumCls(n10,'Revenue'))],_total:false},
+    {cells:['TOTAL',fv(sumItems(n10))],_total:true}
+  ]));
+
+  // ── Note 11: Revenue from Operations ──
+  var n11=getTBItems(11);
+  html.push(noteHeader(11,'Revenue from Operations'));
+  html.push(noteTable(['Particulars','Current Year'],[
+    {cells:['Sale of Products',fv(sumCls(n11,'Revenue'))],_total:false},
+    {cells:['Sale of Services',fv(sumCls(n11,'Current'))],_total:false},
+    {cells:['Other Operating Revenue',fv(sumCls(n11,'Others'))],_total:false},
+    {cells:['TOTAL',fv(sumItems(n11))],_total:true}
+  ]));
+
+  // ── Note 12: Other Income ──
+  var n12=getTBItems(12);
+  html.push(noteHeader(12,'Other Income'));
+  html.push(noteTable(['Particulars','Current Year'],[
+    {cells:['Interest Income',fv(sumCls(n12,'Current'))],_total:false},
+    {cells:['Dividend Income',fv(sumCls(n12,'Others'))],_total:false},
+    {cells:['Miscellaneous Income',fv(sumCls(n12,'Revenue'))],_total:false},
+    {cells:['TOTAL',fv(sumItems(n12))],_total:true}
+  ]));
+
+  // ── Note 13: Inventories ──
+  var n13=getTBItems(13);
+  html.push(noteHeader(13,'Inventories'));
+  html.push(noteTable(['Particulars','Current Year'],[
+    {cells:['Raw Materials',fv(sumCls(n13,'Current'))],_total:false},
+    {cells:['Work-in-Progress',fv(sumCls(n13,'Others'))],_total:false},
+    {cells:['Finished Goods',fv(sumCls(n13,'Revenue'))],_total:false},
+    {cells:['Stores & Spares',fv(sumCls(n13,'Non-Current'))],_total:false},
+    {cells:['TOTAL',fv(sumItems(n13))],_total:true}
+  ]));
+
+  // ── Note 14: Employee Benefits ──
+  var n14=getTBItems(14);
+  html.push(noteHeader(14,'Employee Benefits Expense'));
+  html.push(noteTable(['Particulars','Current Year'],[
+    {cells:['Salaries, Wages and Bonus',fv(sumCls(n14,'Revenue'))],_total:false},
+    {cells:['Contribution to PF and ESI',fv(sumCls(n14,'Current'))],_total:false},
+    {cells:['Gratuity (Defined Benefit — AS 15)',fv(sumCls(n14,'Non-Current'))],_total:false},
+    {cells:['Leave Encashment',fv(sumCls(n14,'Others'))],_total:false},
+    {cells:['TOTAL',fv(sumItems(n14))],_total:true}
+  ]));
+
+  // ── Note 15: Finance Costs ──
+  var n15=getTBItems(15);
+  html.push(noteHeader(15,'Finance Costs'));
+  html.push(noteTable(['Particulars','Current Year'],[
+    {cells:['Interest on Term Loans',fv(sumCls(n15,'Secured'))],_total:false},
+    {cells:['Interest on Working Capital Loans',fv(sumCls(n15,'Current'))],_total:false},
+    {cells:['Bank Charges',fv(sumCls(n15,'Others'))],_total:false},
+    {cells:['TOTAL',fv(sumItems(n15))],_total:true}
+  ]));
+
+  // ── Note 16: Other Expenses ──
+  var n16=getTBItems(16);
+  html.push(noteHeader(16,'Other Expenses'));
+  html.push(noteTable(['Particulars','Current Year'],[
+    {cells:['Rent',fv(sumCls(n16,'Current'))],_total:false},
+    {cells:['Legal &amp; Professional Fees',fv(sumCls(n16,'Revenue'))],_total:false},
+    {cells:['Audit Fees',fv(sumCls(n16,'Capital'))],_total:false},
+    {cells:['Travelling &amp; Conveyance',fv(sumCls(n16,'Others'))],_total:false},
+    {cells:['Miscellaneous',fv(sumCls(n16,'Non-Current'))],_total:false},
+    {cells:['TOTAL',fv(sumItems(n16))],_total:true}
+  ]));
+
+  // ── Note 17: Tax Expense ──
+  var n17=getTBItems(17);
+  html.push(noteHeader(17,'Tax Expense &amp; Deferred Tax'));
+  html.push(noteTable(['Particulars','Current Year'],[
+    {cells:['Current Tax (provision for income tax)'],_section:true},
+    {cells:['Current Tax',fv(sumCls(n17,'Revenue'))],_total:false},
+    {cells:['Deferred Tax'],_section:true},
+    {cells:['DTA: Disallowances u/s 43B',fv(sumCls(n17,'Current'))],_total:false},
+    {cells:['DTL: Excess depreciation',fv(sumCls(n17,'Capital'))],_total:false},
+    {cells:['NET DTA / (DTL)',fv(sumItems(n17))],_total:true}
+  ]));
+
+  // ── Note 18: Related Party Disclosures ──
+  html.push(noteHeader(18,'Related Party Disclosures (AS 18)'));
+  html.push('<div class="fin-table-wrap"><table class="fin-table" style="min-width:auto">');
+  html.push('<thead><tr><th>Name of Related Party</th><th>Relationship</th><th>Nature of Transaction</th><th style="text-align:right">Current Year</th></tr></thead>');
+  html.push('<tbody><tr><td>[Enter details]</td><td>Key Management Personnel</td><td>Remuneration</td><td class="num">—</td></tr></tbody></table></div>');
+  html.push('<div style="font-size:10px;color:var(--muted);padding:4px 8px">Update this note directly or via the Notes form. Refer to Ledgers tagged with Note 18.</div>');
+
+  // ── Note 19: Contingent Liabilities ──
+  html.push(noteHeader(19,'Contingent Liabilities and Commitments'));
+  html.push('<div class="fin-table-wrap"><table class="fin-table" style="min-width:auto">');
+  html.push('<thead><tr><th>Particulars</th><th style="text-align:right">Current Year</th><th style="text-align:right">Previous Year</th></tr></thead>');
+  html.push('<tbody>');
+  html.push('<tr><td>(i) Claims against the Company not acknowledged as debts</td><td class="num">—</td><td class="num">—</td></tr>');
+  html.push('<tr><td>(ii) Guarantees</td><td class="num">—</td><td class="num">—</td></tr>');
+  html.push('<tr><td>(iii) Income tax matters pending</td><td class="num">—</td><td class="num">—</td></tr>');
+  html.push('<tr><td>(iv) Capital commitments (net of advances)</td><td class="num">—</td><td class="num">—</td></tr>');
+  html.push('</tbody></table></div>');
+
+  // ── Note 20: Accounting Policies ──
+  var fw = window._finFramework || 'AS';
+  html.push(noteHeader(20,'Significant Accounting Policies'));
+  html.push('<div style="padding:10px 14px;background:rgba(15,27,45,.5);border-radius:6px;font-size:11.5px;line-height:1.8;color:var(--text)">');
+  if(fw === 'INDAS'){
+    html.push('<b>Ind AS 1 — Basis of Preparation:</b> These financial statements are prepared in accordance with Indian Accounting Standards (Ind AS) as notified under Section 133 of the Companies Act 2013. Historical cost convention, except financial instruments measured at fair value.<br>');
+    html.push('<b>Ind AS 2 — Inventories:</b> Valued at lower of cost (FIFO) and net realisable value.<br>');
+    html.push('<b>Ind AS 7 — Cash Flow:</b> Prepared using indirect method.<br>');
+    html.push('<b>Ind AS 12 — Income Taxes:</b> Deferred tax recognised on temporary differences using balance sheet approach.<br>');
+    html.push('<b>Ind AS 16 — PPE:</b> Recognised at cost less accumulated depreciation and impairment. Depreciation on SLM basis per Schedule II.<br>');
+    html.push('<b>Ind AS 19 — Employee Benefits:</b> Defined benefit obligations (gratuity, leave) measured using Projected Unit Credit method. Actuarial gains/losses recognised in Other Comprehensive Income.<br>');
+    html.push('<b>Ind AS 116 — Leases:</b> Right-of-use assets and lease liabilities recognised for leases exceeding 12 months or low-value threshold.');
+  } else {
+    html.push('<b>AS 1 — Disclosure of Accounting Policies:</b> These financial statements are prepared in accordance with Accounting Standards notified under Section 133 of the Companies Act 2013. Going concern basis, accrual basis, historical cost convention.<br>');
+    html.push('<b>AS 2 — Valuation of Inventories:</b> At lower of cost and net realisable value. Cost determined on FIFO basis.<br>');
+    html.push('<b>AS 6 / AS 10 — Fixed Assets &amp; Depreciation:</b> At historical cost less accumulated depreciation. Depreciation on Written Down Value (WDV) method as per Schedule II of the Companies Act 2013.<br>');
+    html.push('<b>AS 15 — Employee Benefits:</b> Defined benefit obligations (gratuity, leave encashment) are actuarially valued. Short-term benefits expensed as incurred.<br>');
+    html.push('<b>AS 22 — Deferred Tax:</b> Recognised on timing differences at enacted tax rates. DTA recognised only when reasonably certain of realisation.<br>');
+    html.push('<b>AS 28 — Impairment:</b> Assets reviewed annually for impairment. Impairment loss recognised when carrying amount exceeds recoverable amount.');
+  }
+  html.push('</div>');
+  html.push('</div>'); // close outer box
+  return html.join('');
+}
+
+// ─── SAMPLE TRIAL BALANCE — 35 LEDGERS ──────────────────────────────────────
+function loadFullSampleTB(){
+  _tbData = [
+    // Ledger, code, opening, dr, cr, cls, fsLine, noteNo, classification
+    // P&L
+    {ledger:'Sales — Domestic',code:'SALD001',opening:0,dr:0,cr:8000000,cls:'Revenue from Operations',fsLine:'rev_gross',noteNo:'11',classification:'Revenue'},
+    {ledger:'Sales — Export',code:'SALE001',opening:0,dr:0,cr:2000000,cls:'Revenue from Operations',fsLine:'rev_gross',noteNo:'11',classification:'Revenue'},
+    {ledger:'Interest Income',code:'INTI001',opening:0,dr:0,cr:150000,cls:'Other Income',fsLine:'other_income',noteNo:'12',classification:'Current'},
+    {ledger:'Miscellaneous Income',code:'MISC001',opening:0,dr:0,cr:50000,cls:'Other Income',fsLine:'other_income',noteNo:'12',classification:'Others'},
+    {ledger:'Raw Material Consumed',code:'RAWM001',opening:0,dr:3500000,cr:0,cls:'Cost of Materials Consumed',fsLine:'cost_materials',noteNo:'',classification:'Revenue'},
+    {ledger:'Purchase of Traded Goods',code:'PURC001',opening:0,dr:800000,cr:0,cls:'Cost of Materials Consumed',fsLine:'purchases_stock',noteNo:'',classification:'Revenue'},
+    {ledger:'Change in Inventories',code:'CINV001',opening:0,dr:200000,cr:0,cls:'Cost of Materials Consumed',fsLine:'chg_inventories',noteNo:'',classification:'Revenue'},
+    {ledger:'Salaries and Wages',code:'SALW001',opening:0,dr:1200000,cr:0,cls:'Employee Benefit Expense',fsLine:'emp_benefits',noteNo:'14',classification:'Revenue'},
+    {ledger:'PF Contribution',code:'PFCO001',opening:0,dr:144000,cr:0,cls:'Employee Benefit Expense',fsLine:'emp_benefits',noteNo:'14',classification:'Current'},
+    {ledger:'Gratuity Expense',code:'GRAT001',opening:0,dr:80000,cr:0,cls:'Employee Benefit Expense',fsLine:'emp_benefits',noteNo:'14',classification:'Non-Current'},
+    {ledger:'Interest on Term Loan',code:'INTL001',opening:0,dr:240000,cr:0,cls:'Finance Costs',fsLine:'finance_costs',noteNo:'15',classification:'Secured'},
+    {ledger:'Bank Charges',code:'BCHG001',opening:0,dr:30000,cr:0,cls:'Finance Costs',fsLine:'finance_costs',noteNo:'15',classification:'Others'},
+    {ledger:'Depreciation',code:'DEPR001',opening:0,dr:450000,cr:0,cls:'Depreciation & Amortisation',fsLine:'depreciation',noteNo:'6',classification:'Revenue'},
+    {ledger:'Rent Expense',code:'RENT001',opening:0,dr:360000,cr:0,cls:'Other Expenses',fsLine:'other_exp',noteNo:'16',classification:'Current'},
+    {ledger:'Legal & Professional Fees',code:'LEGA001',opening:0,dr:120000,cr:0,cls:'Other Expenses',fsLine:'other_exp',noteNo:'16',classification:'Revenue'},
+    {ledger:'Travelling Expenses',code:'TRAV001',opening:0,dr:90000,cr:0,cls:'Other Expenses',fsLine:'other_exp',noteNo:'16',classification:'Others'},
+    {ledger:'Audit Fees',code:'AUDF001',opening:0,dr:75000,cr:0,cls:'Other Expenses',fsLine:'other_exp',noteNo:'16',classification:'Capital'},
+    {ledger:'Miscellaneous Expenses',code:'MISC002',opening:0,dr:60000,cr:0,cls:'Other Expenses',fsLine:'other_exp',noteNo:'16',classification:'Non-Current'},
+    {ledger:'Income Tax Provision',code:'TAXP001',opening:0,dr:400000,cr:0,cls:'Tax Expense',fsLine:'current_tax',noteNo:'17',classification:'Revenue'},
+    {ledger:'Deferred Tax Expense',code:'DEFE001',opening:0,dr:50000,cr:0,cls:'Tax Expense',fsLine:'deferred_tax',noteNo:'17',classification:'Capital'},
+    // Balance Sheet — Equity
+    {ledger:'Equity Share Capital',code:'ESCP001',opening:0,dr:0,cr:10000000,cls:'Share Capital',fsLine:'share_capital',noteNo:'1',classification:'Capital'},
+    {ledger:'Securities Premium',code:'SECP001',opening:0,dr:0,cr:2000000,cls:'Reserves & Surplus',fsLine:'reserves_surplus',noteNo:'2',classification:'Revenue'},
+    {ledger:'General Reserve',code:'GENR001',opening:0,dr:0,cr:500000,cls:'Reserves & Surplus',fsLine:'reserves_surplus',noteNo:'2',classification:'Others'},
+    {ledger:'Retained Earnings',code:'RETE001',opening:0,dr:0,cr:600000,cls:'Reserves & Surplus',fsLine:'reserves_surplus',noteNo:'2',classification:'Non-Current'},
+    // Balance Sheet — Liabilities
+    {ledger:'Term Loan — SBI',code:'TERML001',opening:0,dr:0,cr:5000000,cls:'Long Term Borrowings',fsLine:'lt_borrowings',noteNo:'3',classification:'Secured'},
+    {ledger:'Cash Credit — Canara Bank',code:'CASHC001',opening:0,dr:0,cr:2000000,cls:'Short Term Borrowings',fsLine:'st_borrowings',noteNo:'4',classification:'Secured'},
+    {ledger:'Sundry Creditors (MSME)',code:'CRMS001',opening:0,dr:0,cr:800000,cls:'Trade Payables',fsLine:'trade_pay_msme',noteNo:'5',classification:'MSME'},
+    {ledger:'Sundry Creditors (Others)',code:'CROT001',opening:0,dr:0,cr:1200000,cls:'Trade Payables',fsLine:'trade_pay_others',noteNo:'5',classification:'Others'},
+    {ledger:'Outstanding Expenses',code:'OUTE001',opening:0,dr:0,cr:350000,cls:'Other Current Liabilities',fsLine:'other_cl',noteNo:'',classification:'Current'},
+    {ledger:'Advance from Customers',code:'ADVC001',opening:0,dr:0,cr:200000,cls:'Other Current Liabilities',fsLine:'other_cl',noteNo:'',classification:'Current'},
+    // Balance Sheet — Assets
+    {ledger:'Plant & Machinery',code:'PLAM001',opening:0,dr:8000000,cr:0,cls:'Property Plant & Equipment',fsLine:'tangible',noteNo:'6',classification:'Non-Current'},
+    {ledger:'Furniture & Fixtures',code:'FURN001',opening:0,dr:500000,cr:0,cls:'Property Plant & Equipment',fsLine:'tangible',noteNo:'6',classification:'Non-Current'},
+    {ledger:'Sundry Debtors',code:'DEBS001',opening:0,dr:3500000,cr:0,cls:'Trade Receivables',fsLine:'trade_rec',noteNo:'8',classification:'Current'},
+    {ledger:'Cash and Bank',code:'CASH001',opening:0,dr:1800000,cr:0,cls:'Cash & Cash Equivalents',fsLine:'cash',noteNo:'9',classification:'Current'},
+    {ledger:'Closing Stock — Raw Material',code:'CLOS001',opening:0,dr:1200000,cr:0,cls:'Inventories',fsLine:'inventories',noteNo:'13',classification:'Current'}
+  ];
+  renderTBMapping();
+  var tbPane=document.getElementById('sched3Pane-tb');
+  if(tbPane){tbPane.style.display='';var ldPane=document.getElementById('sched3Pane-loaded');if(ldPane)ldPane.style.display='none';}
+  var mbx=document.getElementById('tbMappingBox');if(mbx)mbx.style.display='';
+  var gbr=document.getElementById('tbGenerateRow');if(gbr)gbr.style.display='';
+  nav('sched3');
+  if(typeof showToast==='function')showToast('35-ledger Sample TB loaded — all 20 notes pre-mapped. Click Generate to view statements.');
+}
+
+// ─── DEMO DATA LOADERS ─────────────────────────────────────────────────────
+function loadASDemoData(){
+  setFinFramework('AS');
+  loadFullSampleTB();
+  if(typeof showToast==='function')showToast('AS Demo Data loaded — Manufacturing Pvt Ltd with 35 ledgers');
+}
+
+function loadIndasDemoData(){
+  setFinFramework('INDAS');
+  // IT Company with ROU assets (Ind AS 116), OCI items
+  _tbData = [
+    {ledger:'Revenue from IT Services',code:'ITS001',opening:0,dr:0,cr:12000000,cls:'Revenue from Operations',fsLine:'rev_gross',noteNo:'11',classification:'Revenue'},
+    {ledger:'Revenue from SaaS Products',code:'SAS001',opening:0,dr:0,cr:3000000,cls:'Revenue from Operations',fsLine:'rev_gross',noteNo:'11',classification:'Revenue'},
+    {ledger:'Interest Income on FD',code:'INT001',opening:0,dr:0,cr:200000,cls:'Other Income',fsLine:'other_income',noteNo:'12',classification:'Current'},
+    {ledger:'Gain on Foreign Exchange',code:'FOREX001',opening:0,dr:0,cr:100000,cls:'Other Income',fsLine:'other_income',noteNo:'12',classification:'Others'},
+    {ledger:'Salaries & Wages',code:'SALW001',opening:0,dr:5000000,cr:0,cls:'Employee Benefit Expense',fsLine:'emp_benefits',noteNo:'14',classification:'Revenue'},
+    {ledger:'PF Contribution',code:'PF001',opening:0,dr:600000,cr:0,cls:'Employee Benefit Expense',fsLine:'emp_benefits',noteNo:'14',classification:'Current'},
+    {ledger:'Gratuity — DBO (Ind AS 19)',code:'GRAT001',opening:0,dr:300000,cr:0,cls:'Employee Benefit Expense',fsLine:'emp_benefits',noteNo:'14',classification:'Non-Current'},
+    {ledger:'Interest on Lease Liability (Ind AS 116)',code:'LEAS001',opening:0,dr:180000,cr:0,cls:'Finance Costs',fsLine:'finance_costs',noteNo:'15',classification:'Others'},
+    {ledger:'Depreciation on PPE',code:'DEPP001',opening:0,dr:600000,cr:0,cls:'Depreciation & Amortisation',fsLine:'depreciation',noteNo:'6',classification:'Revenue'},
+    {ledger:'Depreciation on ROU Assets',code:'DEPR001',opening:0,dr:400000,cr:0,cls:'Depreciation & Amortisation',fsLine:'depreciation',noteNo:'6',classification:'Revenue'},
+    {ledger:'Rent & Utilities',code:'RENT001',opening:0,dr:500000,cr:0,cls:'Other Expenses',fsLine:'other_exp',noteNo:'16',classification:'Current'},
+    {ledger:'Legal & Professional',code:'LEGA001',opening:0,dr:200000,cr:0,cls:'Other Expenses',fsLine:'other_exp',noteNo:'16',classification:'Revenue'},
+    {ledger:'Audit Fees',code:'AUDF001',opening:0,dr:100000,cr:0,cls:'Other Expenses',fsLine:'other_exp',noteNo:'16',classification:'Capital'},
+    {ledger:'Current Tax',code:'TAXC001',opening:0,dr:700000,cr:0,cls:'Tax Expense',fsLine:'current_tax',noteNo:'17',classification:'Revenue'},
+    {ledger:'Deferred Tax (Ind AS 12)',code:'DEFT001',opening:0,dr:80000,cr:0,cls:'Tax Expense',fsLine:'deferred_tax',noteNo:'17',classification:'Capital'},
+    // OCI items
+    {ledger:'Actuarial Loss on Gratuity (OCI)',code:'ACLO001',opening:0,dr:50000,cr:0,cls:'Other Expenses',fsLine:'oci_noreclass',noteNo:'',classification:'Non-Current'},
+    // Balance Sheet
+    {ledger:'Equity Share Capital',code:'ESCP001',opening:0,dr:0,cr:5000000,cls:'Share Capital',fsLine:'share_capital',noteNo:'1',classification:'Capital'},
+    {ledger:'Securities Premium',code:'SECP001',opening:0,dr:0,cr:3000000,cls:'Reserves & Surplus',fsLine:'reserves_surplus',noteNo:'2',classification:'Revenue'},
+    {ledger:'Retained Earnings',code:'RETE001',opening:0,dr:0,cr:2000000,cls:'Reserves & Surplus',fsLine:'reserves_surplus',noteNo:'2',classification:'Non-Current'},
+    {ledger:'Term Loan',code:'TERM001',opening:0,dr:0,cr:2000000,cls:'Long Term Borrowings',fsLine:'lt_borrowings',noteNo:'3',classification:'Secured'},
+    {ledger:'Lease Liability (Non-current — Ind AS 116)',code:'LLNC001',opening:0,dr:0,cr:1500000,cls:'Long Term Borrowings',fsLine:'lt_borrowings',noteNo:'3',classification:'Non-Current'},
+    {ledger:'Lease Liability (Current)',code:'LLCU001',opening:0,dr:0,cr:400000,cls:'Short Term Borrowings',fsLine:'st_borrowings',noteNo:'4',classification:'Current'},
+    {ledger:'Trade Payables',code:'CRED001',opening:0,dr:0,cr:1000000,cls:'Trade Payables',fsLine:'trade_pay_others',noteNo:'5',classification:'Others'},
+    {ledger:'Computer Equipment',code:'COMP001',opening:0,dr:4000000,cr:0,cls:'Property Plant & Equipment',fsLine:'tangible',noteNo:'6',classification:'Non-Current'},
+    {ledger:'Right-of-Use Asset (Office Lease)',code:'ROUA001',opening:0,dr:2000000,cr:0,cls:'Property Plant & Equipment',fsLine:'rou_assets',noteNo:'6',classification:'Non-Current'},
+    {ledger:'Trade Receivables',code:'DEBS001',opening:0,dr:4000000,cr:0,cls:'Trade Receivables',fsLine:'trade_rec',noteNo:'8',classification:'Current'},
+    {ledger:'Cash at Bank',code:'CASH001',opening:0,dr:2500000,cr:0,cls:'Cash & Cash Equivalents',fsLine:'cash',noteNo:'9',classification:'Current'},
+    {ledger:'Advance to Vendors',code:'ADVA001',opening:0,dr:300000,cr:0,cls:'Short-term Loans & Advances',fsLine:'st_loans',noteNo:'10',classification:'Current'},
+    {ledger:'Deferred Tax Asset (Ind AS 12)',code:'DTAA001',opening:0,dr:200000,cr:0,cls:'Non-current Investments',fsLine:'dta',noteNo:'17',classification:'Non-Current'}
+  ];
+  renderTBMapping();
+  var tbPane=document.getElementById('sched3Pane-tb');
+  if(tbPane){tbPane.style.display='';var ldPane=document.getElementById('sched3Pane-loaded');if(ldPane)ldPane.style.display='none';}
+  var mbx=document.getElementById('tbMappingBox');if(mbx)mbx.style.display='';
+  var gbr=document.getElementById('tbGenerateRow');if(gbr)gbr.style.display='';
+  nav('sched3');
+  if(typeof showToast==='function')showToast('Ind AS Demo loaded — IT Company with ROU assets, OCI items (Ind AS 116, 19, 12)');
+}
+
+function exportSched3PDF(fw, unitChoice){
   if(!window.jspdf&&!window.jsPDF){alert('jsPDF library not loaded');return;}
   var jsPDF=window.jspdf?window.jspdf.jsPDF:window.jsPDF;
   var doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
