@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
@@ -7265,41 +7265,96 @@ function exportSched3Excel(fw, unitChoice){
   }
   var NUM_FMT = '#,##0.00';
 
-  // ── Note sheet builder ──
-  // rowDefs: {label, formula, value (pre-computed), isSec, isTotal, totFormula, totValue}
+  // ── Style constants (xlsx-js-style) ──
+  var sBold = {font:{bold:true,sz:10}};
+  var sHdr  = {font:{bold:true,sz:10,color:{rgb:'FFFFFF'}},fill:{patternType:'solid',fgColor:{rgb:'1F4E79'}},
+               border:{top:{style:'thin'},bottom:{style:'thin'},left:{style:'thin'},right:{style:'thin'}},
+               alignment:{horizontal:'center',vertical:'middle',wrapText:true}};
+  var sNoteTitle = {font:{bold:true,sz:11,color:{rgb:'FFFFFF'}},fill:{patternType:'solid',fgColor:{rgb:'2E75B6'}},
+               border:{bottom:{style:'medium'}},alignment:{vertical:'middle'}};
+  var sSec  = {font:{bold:true,italic:true,sz:10},fill:{patternType:'solid',fgColor:{rgb:'D6E4F0'}},
+               border:{top:{style:'thin'},bottom:{style:'thin'},left:{style:'thin'},right:{style:'thin'}}};
+  var sDat  = {font:{sz:10},border:{bottom:{style:'hair'},left:{style:'thin'},right:{style:'thin'}}};
+  var sDatR = {font:{sz:10},numFmt:'#,##0.00',border:{bottom:{style:'hair'},left:{style:'thin'},right:{style:'thin'}},
+               alignment:{horizontal:'right'}};
+  var sTot  = {font:{bold:true,sz:10},fill:{patternType:'solid',fgColor:{rgb:'BDD7EE'}},
+               border:{top:{style:'thin'},bottom:{style:'double'},left:{style:'thin'},right:{style:'thin'}}};
+  var sTotR = {font:{bold:true,sz:10},numFmt:'#,##0.00',fill:{patternType:'solid',fgColor:{rgb:'BDD7EE'}},
+               border:{top:{style:'thin'},bottom:{style:'double'},left:{style:'thin'},right:{style:'thin'}},
+               alignment:{horizontal:'right'}};
+  var sCo   = {font:{bold:true,sz:14,color:{rgb:'1F4E79'}},alignment:{horizontal:'center',vertical:'middle'}};
+  var sTitleRow = {font:{bold:true,sz:11},alignment:{horizontal:'center',vertical:'middle'}};
+  var sSubTitle = {font:{italic:true,sz:10,color:{rgb:'595959'}},alignment:{horizontal:'center'}};
+  function cs(base, extra){ return Object.assign({}, base, extra); }
+
+  // ── Shared Notes worksheet (all Notes 1-20 on ONE sheet) ──
+  var wsNotes = {'!merges':[], '!cols':[{wch:52},{wch:20},{wch:20},{wch:28},{wch:14}], '!rows':[]};
+  var NOTES_SHEET = 'Notes to Accounts';
+  var nRow = 1;
+
+  // Top header rows
+  function nCell(col, row, t, v, sty){
+    wsNotes[col+''+row] = {t:t, v:v};
+    if(sty) wsNotes[col+''+row].s = sty;
+  }
+  nCell('A',1,'s',co,sCo);
+  nCell('B',1,'s','',sCo); nCell('C',1,'s','',sCo);
+  nCell('A',2,'s','Notes to the Financial Statements for the year ended '+fy,sTitleRow);
+  nCell('B',2,'s','',sTitleRow); nCell('C',2,'s','',sTitleRow);
+  nCell('A',3,'s','(All amounts in '+unitName+')',sSubTitle);
+  nCell('B',3,'s','',sSubTitle); nCell('C',3,'s','',sSubTitle);
+  wsNotes['!merges'].push({s:{r:0,c:0},e:{r:0,c:4}});
+  wsNotes['!merges'].push({s:{r:1,c:0},e:{r:1,c:4}});
+  wsNotes['!merges'].push({s:{r:2,c:0},e:{r:2,c:4}});
+  wsNotes['!rows'].push({hpt:24},{hpt:20},{hpt:16});
+  nRow = 5;
+
   function makeNote(noteNo, title, rowDefs){
     var noteName = 'Note ' + (noteNo < 10 ? '0' : '') + noteNo;
-    var aoa = [
-      [co],
-      [noteName + ' — ' + title],
-      ['(All amounts in ' + unitName + ')'],
-      ['Particulars','Current Year (' + fy + ')','Previous Year (' + fyPrev + ')']
-    ];
-    var ws = XLSX.utils.aoa_to_sheet(aoa);
-    var r = 5;
+    // Title row (blue merged)
+    nCell('A',nRow,'s',noteName+' — '+title,sNoteTitle);
+    nCell('B',nRow,'s','',sNoteTitle); nCell('C',nRow,'s','',sNoteTitle);
+    wsNotes['!merges'].push({s:{r:nRow-1,c:0},e:{r:nRow-1,c:2}});
+    wsNotes['!rows'].push({hpt:18});
+    nRow++;
+
+    // Column header row
+    nCell('A',nRow,'s','Particulars',sHdr);
+    nCell('B',nRow,'s','Current Year ('+fy+')',sHdr);
+    nCell('C',nRow,'s','Previous Year ('+fyPrev+')',sHdr);
+    wsNotes['!rows'].push({hpt:32});
+    nRow++;
+
+    // Data rows
     var totalRow = 0;
     rowDefs.forEach(function(def){
-      ws['A'+r] = {t:'s', v: def.label || ''};
       if(def.isSec){
-        // section heading — no value cells
+        nCell('A',nRow,'s',def.label||'',sSec);
+        nCell('B',nRow,'s','',sSec); nCell('C',nRow,'s','',sSec);
+        wsNotes['!rows'].push({hpt:16});
       } else if(def.isTotal){
-        // TOTAL row: use the master SUMIF by noteNo (catches ALL rows regardless of classification)
         var totF = def.totFormula || (def.negTotal ? neg(tbSumNote(noteNo)) : tbSumNote(noteNo));
         var totV = def.totValue !== undefined ? def.totValue : tbCalcNote(noteNo, !!def.negTotal);
-        ws['B'+r] = {t:'n', f: totF, v: totV, z: NUM_FMT};
-        ws['C'+r] = {t:'n', v: 0, z: NUM_FMT};
-        totalRow = r;
+        nCell('A',nRow,'s',def.label||'TOTAL',sTot);
+        wsNotes['B'+nRow] = {t:'n', f:totF, v:totV, z:NUM_FMT, s:sTotR};
+        wsNotes['C'+nRow] = {t:'n', v:0, z:NUM_FMT, s:sTotR};
+        totalRow = nRow;
+        wsNotes['!rows'].push({hpt:16});
       } else if(def.formula){
-        ws['B'+r] = {t:'n', f: def.formula, v: def.value !== undefined ? def.value : 0, z: NUM_FMT};
-        ws['C'+r] = {t:'n', v: 0, z: NUM_FMT};
+        nCell('A',nRow,'s',def.label||'',sDat);
+        wsNotes['B'+nRow] = {t:'n', f:def.formula, v:def.value!==undefined?def.value:0, z:NUM_FMT, s:sDatR};
+        wsNotes['C'+nRow] = {t:'n', v:0, z:NUM_FMT, s:sDatR};
+        wsNotes['!rows'].push({hpt:15});
+      } else {
+        nCell('A',nRow,'s',def.label||'',sDat);
+        wsNotes['!rows'].push({hpt:15});
       }
-      r++;
+      nRow++;
     });
-    ws['!ref'] = 'A1:C' + (r - 1);
-    ws['!cols'] = [{wch:52},{wch:20},{wch:20}];
-    ws['!merges'] = [{s:{r:0,c:0},e:{r:0,c:2}},{s:{r:1,c:0},e:{r:1,c:2}},{s:{r:2,c:0},e:{r:2,c:2}}];
-    XLSX.utils.book_append_sheet(wb, ws, noteName);
-    return {ws: ws, totalRow: totalRow, name: noteName};
+
+    nRow += 2; // blank gap between notes
+    wsNotes['!ref'] = 'A1:E'+(nRow-1);
+    return {ws:wsNotes, totalRow:totalRow, name:NOTES_SHEET};
   }
 
   // ── Notes 1–17 from shared definitions ──
@@ -7326,44 +7381,79 @@ function exportSched3Excel(fw, unitChoice){
     noteTot[nd.n] = {name: made.name, totalRow: made.totalRow};
   });
   function nref(noteNo, col){
-    return "'" + noteTot[noteNo].name + "'!" + (col || 'B') + noteTot[noteNo].totalRow;
+    return "'"+NOTES_SHEET+"'!"+(col||'B')+noteTot[noteNo].totalRow;
   }
 
-  // ── Note 18: Related Party Disclosures (template) ──
-  var wsN18 = XLSX.utils.aoa_to_sheet([
-    [co],
-    ['Note 18 — Related Party Disclosures (' + (fw === 'INDAS' ? 'Ind AS 24' : 'AS 18') + ')'],
-    ['(All amounts in ' + unitName + ')'],
-    ['Name of Related Party','Relationship','Nature of Transaction','Current Year','Previous Year'],
-    ['[Enter Name]','Key Management Personnel','Remuneration',0,0],
-    ['[Enter Name]','Director','Loan taken / repaid',0,0],
-    ['[Enter Name]','Associate / Group Company','Sales / Purchases',0,0],
-    ['[Enter Name]','Relative of KMP','Rent paid',0,0]
-  ]);
-  wsN18['!cols'] = [{wch:26},{wch:26},{wch:28},{wch:14},{wch:14}];
-  XLSX.utils.book_append_sheet(wb, wsN18, 'Note 18');
+  // ── Note 18: Related Party Disclosures ──
+  nCell('A',nRow,'s','Note 18 — Related Party Disclosures ('+(fw==='INDAS'?'Ind AS 24':'AS 18')+')',sNoteTitle);
+  ['B','C','D','E'].forEach(function(c){nCell(c,nRow,'s','',sNoteTitle);});
+  wsNotes['!merges'].push({s:{r:nRow-1,c:0},e:{r:nRow-1,c:4}});
+  wsNotes['!rows'].push({hpt:18});
+  nRow++;
+  ['Name of Related Party','Relationship','Nature of Transaction','Current Year','Previous Year'].forEach(function(h,i){
+    wsNotes[String.fromCharCode(65+i)+''+nRow]={t:'s',v:h,s:sHdr};
+  });
+  wsNotes['!rows'].push({hpt:32});
+  nRow++;
+  [['[Enter Name]','Key Management Personnel','Remuneration',0,0],
+   ['[Enter Name]','Director','Loan taken / repaid',0,0],
+   ['[Enter Name]','Associate / Group Company','Sales / Purchases',0,0],
+   ['[Enter Name]','Relative of KMP','Rent paid',0,0]].forEach(function(rowData){
+    rowData.forEach(function(v,i){
+      wsNotes[String.fromCharCode(65+i)+''+nRow]={t:(typeof v==='number'?'n':'s'),v:v,s:(i>=3?sDatR:sDat)};
+    });
+    wsNotes['!rows'].push({hpt:15});
+    nRow++;
+  });
+  nRow += 2;
+  wsNotes['!ref'] = 'A1:E'+(nRow-1);
 
-  // ── Note 19: Contingent Liabilities and Commitments (template) ──
-  var wsN19 = XLSX.utils.aoa_to_sheet([
-    [co],
-    ['Note 19 — Contingent Liabilities and Commitments (to the extent not provided for)'],
-    ['(All amounts in ' + unitName + ')'],
-    ['Particulars','Current Year','Previous Year'],
-    ['(i) Claims against the Company not acknowledged as debts',0,0],
-    ['(ii) Guarantees given by the Company',0,0],
-    ['(iii) Letters of Credit outstanding',0,0],
-    ['(iv) Income-tax matters pending in appeal',0,0],
-    ['(v) Estimated amount of contracts remaining to be executed on capital account (net of advances)',0,0]
-  ]);
-  wsN19['!cols'] = [{wch:64},{wch:14},{wch:14}];
-  XLSX.utils.book_append_sheet(wb, wsN19, 'Note 19');
+  // ── Note 19: Contingent Liabilities ──
+  nCell('A',nRow,'s','Note 19 — Contingent Liabilities and Commitments',sNoteTitle);
+  nCell('B',nRow,'s','',sNoteTitle); nCell('C',nRow,'s','',sNoteTitle);
+  wsNotes['!merges'].push({s:{r:nRow-1,c:0},e:{r:nRow-1,c:2}});
+  wsNotes['!rows'].push({hpt:18});
+  nRow++;
+  ['Particulars','Current Year','Previous Year'].forEach(function(h,i){
+    wsNotes[String.fromCharCode(65+i)+''+nRow]={t:'s',v:h,s:sHdr};
+  });
+  wsNotes['!rows'].push({hpt:32});
+  nRow++;
+  ['(i) Claims against the Company not acknowledged as debts',
+   '(ii) Guarantees given by the Company',
+   '(iii) Letters of Credit outstanding',
+   '(iv) Income-tax matters pending in appeal',
+   '(v) Capital commitments (net of advances)'].forEach(function(label){
+    nCell('A',nRow,'s',label,sDat);
+    wsNotes['B'+nRow]={t:'n',v:0,z:NUM_FMT,s:sDatR};
+    wsNotes['C'+nRow]={t:'n',v:0,z:NUM_FMT,s:sDatR};
+    wsNotes['!rows'].push({hpt:30});
+    nRow++;
+  });
+  nRow += 2;
+  wsNotes['!ref'] = 'A1:E'+(nRow-1);
 
   // ── Note 20: Significant Accounting Policies ──
-  var polAoa = [[co],['Note 20 — Significant Accounting Policies'],['Policy','Description']];
-  _s3Policies(fw).forEach(function(p){ polAoa.push([p[0], p[1]]); });
-  var wsN20 = XLSX.utils.aoa_to_sheet(polAoa);
-  wsN20['!cols'] = [{wch:40},{wch:110}];
-  XLSX.utils.book_append_sheet(wb, wsN20, 'Note 20');
+  nCell('A',nRow,'s','Note 20 — Significant Accounting Policies',sNoteTitle);
+  nCell('B',nRow,'s','',sNoteTitle);
+  wsNotes['!merges'].push({s:{r:nRow-1,c:0},e:{r:nRow-1,c:1}});
+  wsNotes['!rows'].push({hpt:18});
+  nRow++;
+  ['Policy','Description'].forEach(function(h,i){
+    wsNotes[String.fromCharCode(65+i)+''+nRow]={t:'s',v:h,s:sHdr};
+  });
+  wsNotes['!rows'].push({hpt:20});
+  nRow++;
+  _s3Policies(fw).forEach(function(p){
+    nCell('A',nRow,'s',p[0]||'',sDat);
+    nCell('B',nRow,'s',p[1]||'',sDat);
+    wsNotes['!rows'].push({hpt:45});
+    nRow++;
+  });
+  wsNotes['!ref'] = 'A1:E'+(nRow-1);
+
+  // ── Append single Notes sheet ──
+  XLSX.utils.book_append_sheet(wb, wsNotes, NOTES_SHEET);
 
   // ── Auditor signature block rows (appended to BS / P&L / CF) ──
   function sigRows(){
@@ -7498,6 +7588,23 @@ function exportSched3Excel(fw, unitChoice){
   wBS['C40'] = {t:'s', f:'IF(ABS(C21-C39)<1,"Balanced ✓","Difference: "&TEXT(C21-C39,"#,##0.00"))', v: bsTally};
   wBS['!cols'] = [{wch:48},{wch:9},{wch:20},{wch:20}];
   wBS['!merges'] = [{s:{r:0,c:0},e:{r:0,c:3}},{s:{r:1,c:0},e:{r:1,c:3}},{s:{r:2,c:0},e:{r:2,c:3}}];
+  // Style the BS header rows
+  ['A','B','C','D'].forEach(function(c){
+    if(wBS[c+'1']) wBS[c+'1'].s = sCo;
+    if(wBS[c+'2']) wBS[c+'2'].s = sTitleRow;
+    if(wBS[c+'3']) wBS[c+'3'].s = sSubTitle;
+    if(wBS[c+'4']) wBS[c+'4'].s = sHdr;
+  });
+  // Style section headers (rows 5,10,15,22,31)
+  [5,10,15,22,31].forEach(function(r){
+    ['A','B','C','D'].forEach(function(c){ if(wBS[c+''+r]) wBS[c+''+r].s = sSec; });
+  });
+  // Style sub-total/grand total rows
+  [9,14,20,21,30,38,39,40].forEach(function(r){
+    ['A','B','C','D'].forEach(function(c){
+      if(wBS[c+''+r]){ wBS[c+''+r].s = (c==='A'?sTot:sTotR); }
+    });
+  });
   XLSX.utils.book_append_sheet(wb, wBS, 'Balance Sheet');
 
   // ── TIER 3b: Statement of Profit and Loss ──
@@ -7569,6 +7676,18 @@ function exportSched3Excel(fw, unitChoice){
   });
   wPL['!cols'] = [{wch:50},{wch:9},{wch:20},{wch:20}];
   wPL['!merges'] = [{s:{r:0,c:0},e:{r:0,c:3}},{s:{r:1,c:0},e:{r:1,c:3}},{s:{r:2,c:0},e:{r:2,c:3}}];
+  ['A','B','C','D'].forEach(function(c){
+    if(wPL[c+'1']) wPL[c+'1'].s = sCo;
+    if(wPL[c+'2']) wPL[c+'2'].s = sTitleRow;
+    if(wPL[c+'3']) wPL[c+'3'].s = sSubTitle;
+    if(wPL[c+'4']) wPL[c+'4'].s = sHdr;
+  });
+  [5,9,16].forEach(function(r){
+    ['A','B','C','D'].forEach(function(c){ if(wPL[c+''+r]) wPL[c+''+r].s = sSec; });
+  });
+  [8,14,15,16,17,20,21].forEach(function(r){
+    ['A','B','C','D'].forEach(function(c){ if(wPL[c+''+r]) wPL[c+''+r].s = (c==='A'?sTot:sTotR); });
+  });
   XLSX.utils.book_append_sheet(wb, wPL, 'P&L');
 
   // ── TIER 3c: Cash Flow Statement (indirect method, values in column B) ──
