@@ -7079,8 +7079,9 @@ function _s3NoteDefs(){
     {n:2,title:'Reserves and Surplus',neg:true,lines:[
       {label:'Securities Premium',cls:'Revenue'},
       {label:'General Reserve',cls:'Others'},
-      {label:'Retained Earnings / Surplus in Statement of P&L',cls:'Non-Current'},
-      {label:'Capital Reserve',cls:'Capital'}]},
+      {label:'Retained Earnings / Surplus (opening)',cls:'Non-Current'},
+      {label:'Capital Reserve',cls:'Capital'},
+      {label:'Add: Net Profit for the Year (transferred from P&L)',cls:'Profit'}]},
     {n:3,title:'Long-term Borrowings',neg:true,lines:[
       {label:'SECURED',sec:true},
       {label:'Term Loans from Banks',cls:'Secured'},
@@ -7150,7 +7151,7 @@ function _s3NoteDefs(){
       {label:'Payment to Auditors (Audit Fees)',cls:'Capital'},
       {label:'Travelling and Conveyance',cls:'Others'},
       {label:'Repairs and Maintenance',cls:'MSME'},
-      {label:'Miscellaneous Expenses',cls:'Unsecured'}]},
+      {label:'Miscellaneous Expenses',cls:'Non-Current'}]},
     {n:17,title:'Tax Expense and Deferred Tax',neg:false,totalLabel:'NET TAX (per books)',lines:[
       {label:'Current Tax',fsLine:'current_tax'},
       {label:'Deferred Tax',fsLine:'deferred_tax'},
@@ -7217,7 +7218,10 @@ function exportSched3Excel(fw, unitChoice){
   tbAoa.push(['Dr = Cr?',null,'','','','','','','']);
   var wsTB = XLSX.utils.aoa_to_sheet(tbAoa);
   for(var ri=tbFirst; ri<=tbLast; ri++){
-    wsTB['F'+ri] = {t:'n', f:'C'+ri+'+D'+ri+'-E'+ri};
+    var tbIdx = ri - tbFirst;
+    var tbRow = tb[tbIdx] || {};
+    var closing = (tbRow.opening||0) + (tbRow.dr||0) - (tbRow.cr||0);
+    wsTB['F'+ri] = {t:'n', f:'C'+ri+'+D'+ri+'-E'+ri, v: closing, z: NUM_FMT};
   }
   var tbTotRow = tbLast + 1;
   wsTB['C'+tbTotRow] = {t:'n', f:'SUM(C'+tbFirst+':C'+tbLast+')'};
@@ -7229,19 +7233,40 @@ function exportSched3Excel(fw, unitChoice){
   XLSX.utils.book_append_sheet(wb, wsTB, 'Trial Balance');
 
   // ── TB lookup formula helpers (TIER 2: Notes pull from Trial Balance) ──
+  // Use TEXT criteria for noteNo since TB column H stores noteNo as text
   function tbSumNote(noteNo){
-    return "SUMIFS('Trial Balance'!$F:$F,'Trial Balance'!$H:$H," + noteNo + ")/'Unit'!$B$2";
+    return "SUMIFS('Trial Balance'!$F:$F,'Trial Balance'!$H:$H,\"" + noteNo + "\")/'Unit'!$B$2";
   }
   function tbSumCls(noteNo, cls){
-    return "SUMIFS('Trial Balance'!$F:$F,'Trial Balance'!$H:$H," + noteNo + ",'Trial Balance'!$I:$I,\"" + cls + "\")/'Unit'!$B$2";
+    return "SUMIFS('Trial Balance'!$F:$F,'Trial Balance'!$H:$H,\"" + noteNo + "\",'Trial Balance'!$I:$I,\"" + cls + "\")/'Unit'!$B$2";
   }
   function tbSumLine(fsLine){
     return "SUMIF('Trial Balance'!$G:$G,\"" + fsLine + "\",'Trial Balance'!$F:$F)/'Unit'!$B$2";
   }
   function neg(f){ return '-(' + f + ')'; }
+  // ── Pre-computation helpers — compute values from _tbData so cells are non-blank ──
+  function tbCalcNote(noteNo, negate){
+    var s = 0;
+    tb.forEach(function(r){ if(String(r.noteNo)===String(noteNo)) s += (r.opening||0)+(r.dr||0)-(r.cr||0); });
+    var v = s / unitDiv;
+    return negate ? -v : v;
+  }
+  function tbCalcCls(noteNo, cls, negate){
+    var s = 0;
+    tb.forEach(function(r){ if(String(r.noteNo)===String(noteNo) && r.classification===cls) s += (r.opening||0)+(r.dr||0)-(r.cr||0); });
+    var v = s / unitDiv;
+    return negate ? -v : v;
+  }
+  function tbCalcLine(fsLine, negate){
+    var s = 0;
+    tb.forEach(function(r){ if(r.fsLine===fsLine) s += (r.opening||0)+(r.dr||0)-(r.cr||0); });
+    var v = s / unitDiv;
+    return negate ? -v : v;
+  }
+  var NUM_FMT = '#,##0.00';
 
   // ── Note sheet builder ──
-  // rowDefs: array of {label, formula, isSec, isTotal}. Returns {ws, totalRow}.
+  // rowDefs: {label, formula, value (pre-computed), isSec, isTotal, totFormula, totValue}
   function makeNote(noteNo, title, rowDefs){
     var noteName = 'Note ' + (noteNo < 10 ? '0' : '') + noteNo;
     var aoa = [
@@ -7251,23 +7276,22 @@ function exportSched3Excel(fw, unitChoice){
       ['Particulars','Current Year (' + fy + ')','Previous Year (' + fyPrev + ')']
     ];
     var ws = XLSX.utils.aoa_to_sheet(aoa);
-    var r = 5;                  // next Excel row (1-based)
-    var detailRows = [];
+    var r = 5;
     var totalRow = 0;
     rowDefs.forEach(function(def){
       ws['A'+r] = {t:'s', v: def.label || ''};
       if(def.isSec){
-        // label-only section heading
+        // section heading — no value cells
       } else if(def.isTotal){
-        var parts = detailRows.map(function(dr){ return 'B' + dr; });
-        var partsC = detailRows.map(function(dr){ return 'C' + dr; });
-        ws['B'+r] = {t:'n', f: parts.length ? parts.join('+') : '0'};
-        ws['C'+r] = {t:'n', f: partsC.length ? partsC.join('+') : '0'};
+        // TOTAL row: use the master SUMIF by noteNo (catches ALL rows regardless of classification)
+        var totF = def.totFormula || (def.negTotal ? neg(tbSumNote(noteNo)) : tbSumNote(noteNo));
+        var totV = def.totValue !== undefined ? def.totValue : tbCalcNote(noteNo, !!def.negTotal);
+        ws['B'+r] = {t:'n', f: totF, v: totV, z: NUM_FMT};
+        ws['C'+r] = {t:'n', v: 0, z: NUM_FMT};
         totalRow = r;
       } else if(def.formula){
-        ws['B'+r] = {t:'n', f: def.formula};
-        ws['C'+r] = {t:'n', v: 0};   // previous-year placeholder, fill manually
-        detailRows.push(r);
+        ws['B'+r] = {t:'n', f: def.formula, v: def.value !== undefined ? def.value : 0, z: NUM_FMT};
+        ws['C'+r] = {t:'n', v: 0, z: NUM_FMT};
       }
       r++;
     });
@@ -7284,11 +7308,20 @@ function exportSched3Excel(fw, unitChoice){
   noteDefs.forEach(function(nd){
     var rowDefs = nd.lines.map(function(ln){
       if(ln.sec) return {label: ln.label, isSec: true};
-      var f = ln.cls ? tbSumCls(nd.n, ln.cls) : tbSumLine(ln.fsLine);
-      if(nd.neg) f = neg(f);
-      return {label: ln.label, formula: f};
+      var f, preV;
+      if(ln.cls){
+        f = tbSumCls(nd.n, ln.cls);
+        preV = tbCalcCls(nd.n, ln.cls, false);
+        if(nd.neg){ f = neg(f); preV = -preV; }
+      } else {
+        f = tbSumLine(ln.fsLine);
+        preV = tbCalcLine(ln.fsLine, false);
+      }
+      return {label: ln.label, formula: f, value: preV};
     });
-    rowDefs.push({label: nd.totalLabel || 'TOTAL', isTotal: true});
+    // TOTAL: uses tbSumNote (master SUMIF) — correct regardless of classification coverage
+    rowDefs.push({label: nd.totalLabel || 'TOTAL', isTotal: true, negTotal: !!nd.neg,
+      totValue: tbCalcNote(nd.n, !!nd.neg)});
     var made = makeNote(nd.n, nd.title, rowDefs);
     noteTot[nd.n] = {name: made.name, totalRow: made.totalRow};
   });
@@ -7434,8 +7467,35 @@ function exportSched3Excel(fw, unitChoice){
     'C38': 'SUM(C33:C37)', 'D38': 'SUM(D33:D37)',
     'C39': 'C31+C38',      'D39': 'D31+D38'
   };
-  Object.keys(bsF).forEach(function(cell){ wBS[cell] = {t:'n', f: bsF[cell]}; });
-  wBS['C40'] = {t:'s', f:'IF(ABS(C21-C39)<0.01,"Balanced","Difference: "&TEXT(C21-C39,"#,##0.00"))'};
+  // Pre-compute BS values for immediate display (v property)
+  var bsVals = {
+    C7: tbCalcNote(1,true),    C8: tbCalcNote(2,true),
+    C11: tbCalcNote(3,true),   C12: tbCalcLine('dtl',true),
+    C13: tbCalcLine('lt_provisions',true),
+    C16: tbCalcNote(4,true),   C17: tbCalcNote(5,true),
+    C18: tbCalcLine('other_cl',true), C19: tbCalcLine('st_provisions',true),
+    C25: tbCalcLine('tangible',false)+tbCalcLine('rou_assets',false),
+    C26: tbCalcLine('intangible',false), C27: tbCalcLine('cwip',false),
+    C28: tbCalcNote(7,false),  C29: tbCalcLine('dta',false),
+    C30: tbCalcLine('lt_loans',false),
+    C33: tbCalcNote(13,false), C34: tbCalcNote(8,false),
+    C35: tbCalcNote(9,false),  C36: tbCalcNote(10,false),
+    C37: tbCalcLine('other_ca',false)
+  };
+  bsVals.C9  = bsVals.C7 + bsVals.C8;
+  bsVals.C14 = bsVals.C11 + bsVals.C12 + bsVals.C13;
+  bsVals.C20 = bsVals.C16 + bsVals.C17 + bsVals.C18 + bsVals.C19;
+  bsVals.C21 = bsVals.C9  + bsVals.C14 + bsVals.C20;
+  bsVals.C31 = bsVals.C25 + bsVals.C26 + bsVals.C27 + bsVals.C28 + bsVals.C29 + bsVals.C30;
+  bsVals.C38 = bsVals.C33 + bsVals.C34 + bsVals.C35 + bsVals.C36 + bsVals.C37;
+  bsVals.C39 = bsVals.C31 + bsVals.C38;
+  Object.keys(bsF).forEach(function(cell){
+    wBS[cell] = {t:'n', f: bsF[cell], v: bsVals[cell] !== undefined ? bsVals[cell] : 0, z: NUM_FMT};
+  });
+  var bsTally = Math.abs(bsVals.C21 - bsVals.C39) < 0.01 ? 'Balanced' : 'Difference: ' + (bsVals.C21 - bsVals.C39).toFixed(2);
+  var bsTallyDiff = bsVals.C21 - bsVals.C39;
+  bsTally = Math.abs(bsTallyDiff) < 1 ? 'Balanced ✓' : 'Difference: ' + bsTallyDiff.toFixed(2);
+  wBS['C40'] = {t:'s', f:'IF(ABS(C21-C39)<1,"Balanced ✓","Difference: "&TEXT(C21-C39,"#,##0.00"))', v: bsTally};
   wBS['!cols'] = [{wch:48},{wch:9},{wch:20},{wch:20}];
   wBS['!merges'] = [{s:{r:0,c:0},e:{r:0,c:3}},{s:{r:1,c:0},e:{r:1,c:3}},{s:{r:2,c:0},e:{r:2,c:3}}];
   XLSX.utils.book_append_sheet(wb, wBS, 'Balance Sheet');
@@ -7490,7 +7550,23 @@ function exportSched3Excel(fw, unitChoice){
     'C20': 'C18+C19',    'D20': 'D18+D19',
     'C21': 'C17-C20',    'D21': 'D17-D20'
   };
-  Object.keys(plF).forEach(function(cell){ wPL[cell] = {t:'n', f: plF[cell]}; });
+  // Pre-compute P&L values
+  var plVals = {
+    C5: tbCalcNote(11,true),  C6: tbCalcNote(12,true),
+    C9: tbCalcLine('cost_materials',false), C10: tbCalcLine('purchases_stock',false),
+    C11: tbCalcLine('chg_inventories',false),
+    C12: tbCalcNote(14,false), C13: tbCalcNote(15,false),
+    C14: tbCalcLine('depreciation',false), C15: tbCalcNote(16,false),
+    C18: tbCalcLine('current_tax',false), C19: tbCalcLine('deferred_tax',false)
+  };
+  plVals.C7  = plVals.C5 + plVals.C6;
+  plVals.C16 = plVals.C9+plVals.C10+plVals.C11+plVals.C12+plVals.C13+plVals.C14+plVals.C15;
+  plVals.C17 = plVals.C7 - plVals.C16;
+  plVals.C20 = plVals.C18 + plVals.C19;
+  plVals.C21 = plVals.C17 - plVals.C20;
+  Object.keys(plF).forEach(function(cell){
+    wPL[cell] = {t:'n', f: plF[cell], v: plVals[cell] !== undefined ? plVals[cell] : 0, z: NUM_FMT};
+  });
   wPL['!cols'] = [{wch:50},{wch:9},{wch:20},{wch:20}];
   wPL['!merges'] = [{s:{r:0,c:0},e:{r:0,c:3}},{s:{r:1,c:0},e:{r:1,c:3}},{s:{r:2,c:0},e:{r:2,c:3}}];
   XLSX.utils.book_append_sheet(wb, wPL, 'P&L');
@@ -7567,7 +7643,30 @@ function exportSched3Excel(fw, unitChoice){
     'B32': 'B30+B31',
     'B33': "'Balance Sheet'!C35"
   };
-  Object.keys(cfF).forEach(function(cell){ wCF[cell] = {t:'n', f: cfF[cell]}; });
+  // Pre-compute CF values from already-computed BS/PL values
+  var cfVals = {
+    B6: plVals.C17, B8: plVals.C14, B9: plVals.C13,
+    B18: -plVals.C18,
+    B21: -(bsVals.C25+bsVals.C26+bsVals.C27 - plVals.C14),
+    B22: -bsVals.C28,
+    B31: (function(){ var s=0; tb.forEach(function(r){ if(r.fsLine==='cash') s+=(r.opening||0); }); return s/unitDiv; })()
+  };
+  cfVals.B10 = cfVals.B6 + cfVals.B8 + cfVals.B9;
+  // WC changes = 0 (no prior year in demo) — leave as 0
+  cfVals.B12 = 0; cfVals.B13 = 0; cfVals.B14 = 0; cfVals.B15 = 0; cfVals.B16 = 0;
+  cfVals.B17 = cfVals.B10 + cfVals.B12 + cfVals.B13 + cfVals.B14 + cfVals.B15 + cfVals.B16;
+  cfVals.B19 = cfVals.B17 + cfVals.B18;
+  cfVals.B23 = cfVals.B21 + cfVals.B22;
+  cfVals.B25 = bsVals.C11; cfVals.B26 = bsVals.C16;
+  cfVals.B27 = -(tbCalcNote(1,true) - 0); // equity change = 0 if no prior year
+  cfVals.B28 = -plVals.C13;
+  cfVals.B29 = cfVals.B25+cfVals.B26+cfVals.B27+cfVals.B28;
+  cfVals.B30 = cfVals.B19+cfVals.B23+cfVals.B29;
+  cfVals.B32 = cfVals.B30+cfVals.B31;
+  cfVals.B33 = bsVals.C35;
+  Object.keys(cfF).forEach(function(cell){
+    wCF[cell] = {t:'n', f: cfF[cell], v: cfVals[cell] !== undefined ? cfVals[cell] : 0, z: NUM_FMT};
+  });
   wCF['!cols'] = [{wch:58},{wch:20},{wch:20}];
   wCF['!merges'] = [{s:{r:0,c:0},e:{r:0,c:2}},{s:{r:1,c:0},e:{r:1,c:2}},{s:{r:2,c:0},e:{r:2,c:2}}];
   XLSX.utils.book_append_sheet(wb, wCF, 'Cash Flow');
@@ -7932,9 +8031,11 @@ function loadFullSampleTB(){
     // Balance Sheet — Assets
     {ledger:'Plant & Machinery',code:'PLAM001',opening:0,dr:8000000,cr:0,cls:'Property Plant & Equipment',fsLine:'tangible',noteNo:'6',classification:'Non-Current'},
     {ledger:'Furniture & Fixtures',code:'FURN001',opening:0,dr:500000,cr:0,cls:'Property Plant & Equipment',fsLine:'tangible',noteNo:'6',classification:'Non-Current'},
-    {ledger:'Sundry Debtors',code:'DEBS001',opening:0,dr:3500000,cr:0,cls:'Trade Receivables',fsLine:'trade_rec',noteNo:'8',classification:'Current'},
-    {ledger:'Cash and Bank',code:'CASH001',opening:0,dr:1800000,cr:0,cls:'Cash & Cash Equivalents',fsLine:'cash',noteNo:'9',classification:'Current'},
-    {ledger:'Closing Stock — Raw Material',code:'CLOS001',opening:0,dr:1200000,cr:0,cls:'Inventories',fsLine:'inventories',noteNo:'13',classification:'Current'}
+    {ledger:'Sundry Debtors',code:'DEBS001',opening:0,dr:10000000,cr:0,cls:'Trade Receivables',fsLine:'trade_rec',noteNo:'8',classification:'Current'},
+    {ledger:'Cash and Bank',code:'CASH001',opening:0,dr:5000000,cr:0,cls:'Cash & Cash Equivalents',fsLine:'cash',noteNo:'9',classification:'Current'},
+    {ledger:'Closing Stock — Raw Material',code:'CLOS001',opening:0,dr:1200000,cr:0,cls:'Inventories',fsLine:'inventories',noteNo:'13',classification:'Current'},
+    {ledger:'Net Profit for the Year (P&L A/c)',code:'PAT001',opening:0,dr:0,cr:2401000,cls:'Reserves & Surplus',fsLine:'reserves_surplus',noteNo:'2',classification:'Profit'},
+    {ledger:'TDS / Advance Tax Receivable',code:'TDSR001',opening:0,dr:351000,cr:0,cls:'Other Current Assets',fsLine:'other_ca',noteNo:'',classification:'Current'}
   ];
   renderTBMapping();
   var tbPane=document.getElementById('sched3Pane-tb');
