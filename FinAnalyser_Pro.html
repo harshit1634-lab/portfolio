@@ -7074,77 +7074,112 @@ function _s3Policies(fw){
 // or {label, fsLine:'<fs line>'} matches TB FS line code, or {label, sec:true}.
 function _s3NoteDefs(){
   return [
-    {n:1,title:'Share Capital',neg:true,lines:[
-      {label:'Issued, Subscribed & Paid-up Capital',cls:'Capital'}]},
-    {n:2,title:'Reserves and Surplus',neg:true,lines:[
+    {n:1,title:'Share Capital',neg:true,
+     para:'The authorised share capital comprises equity shares of Rs. 10/- each. All issued shares rank pari passu in respect of dividend and voting rights. No shares have been issued for consideration other than cash.',
+     lines:[
+      {label:'A. AUTHORISED SHARE CAPITAL',sec:true},
+      {label:'Equity Shares (face value Rs. 10 each)',cls:'Capital'},
+      {label:'B. ISSUED, SUBSCRIBED & PAID-UP',sec:true},
+      {label:'Fully paid-up Equity Shares',cls:'Capital'}]},
+    {n:2,title:'Reserves and Surplus',neg:true,
+     para:'Movement in Reserves: Opening balance carried forward represents accumulated surplus from prior years. Current year net profit has been transferred from the Statement of Profit and Loss.',
+     lines:[
       {label:'Securities Premium',cls:'Revenue'},
       {label:'General Reserve',cls:'Others'},
       {label:'Retained Earnings / Surplus (opening)',cls:'Non-Current'},
       {label:'Capital Reserve',cls:'Capital'},
       {label:'Add: Net Profit for the Year (transferred from P&L)',cls:'Profit'}]},
-    {n:3,title:'Long-term Borrowings',neg:true,lines:[
+    {n:3,title:'Long-term Borrowings',neg:true,
+     para:'Term loans from banks are secured by first and exclusive charge on movable and immovable assets of the Company and personal guarantee of the directors. The loans are repayable as per individual repayment schedules agreed with the respective banks.',
+     lines:[
       {label:'SECURED',sec:true},
       {label:'Term Loans from Banks',cls:'Secured'},
       {label:'Term Loans from Financial Institutions',cls:'Non-Current'},
       {label:'UNSECURED',sec:true},
       {label:'Debentures',cls:'Unsecured'},
       {label:'Loans from Directors',cls:'Others'}]},
-    {n:4,title:'Short-term Borrowings',neg:true,lines:[
+    {n:4,title:'Short-term Borrowings',neg:true,
+     para:'Working capital loans are secured by hypothecation of stocks, book debts and other current assets of the Company and collateral charge on movable fixed assets and personal guarantee of directors.',
+     lines:[
       {label:'Working Capital Loans from Banks (Secured)',cls:'Secured'},
       {label:'Loans from Directors (Unsecured)',cls:'Unsecured'},
       {label:'Current Maturities of Long-term Debt',cls:'Current'},
       {label:'Other Short-term Borrowings',cls:'Others'}]},
-    {n:5,title:'Trade Payables',neg:true,lines:[
+    {n:5,title:'Trade Payables',neg:true,
+     para:'Disclosure as required under Section 22 of the Micro, Small and Medium Enterprises Development Act, 2006: The Company has compiled information regarding its suppliers who are registered under the MSMED Act, 2006 based on the confirmations received from suppliers. The above amounts payable to MSME parties include interest-free credit and have been paid/are payable within the agreed credit terms.',
+     lines:[
       {label:'(i) Total outstanding dues of micro and small enterprises (MSME)',cls:'MSME'},
       {label:'(ii) Total outstanding dues of creditors other than MSME',cls:'Others'}]},
-    {n:6,title:'Property, Plant and Equipment',neg:false,lines:[
+    {n:6,title:'Property, Plant and Equipment',neg:false,
+     para:'Depreciation is charged on the Written Down Value (WDV) method over the useful lives of assets as prescribed in Schedule II to the Companies Act, 2013. The carrying amount of assets is reviewed at each Balance Sheet date to assess whether there is any indication of impairment.',
+     lines:[
       {label:'Tangible Assets (Net Block)',fsLine:'tangible'},
       {label:'Right-of-Use Assets',fsLine:'rou_assets'},
       {label:'Capital Work-in-Progress',fsLine:'cwip'},
       {label:'Intangible Assets',fsLine:'intangible'}]},
-    {n:7,title:'Non-current Investments',neg:false,lines:[
+    {n:7,title:'Non-current Investments',neg:false,
+     para:'All investments are stated at cost. Provision for diminution in the value of long-term investments is made only when such diminution is other than temporary in nature.',
+     lines:[
       {label:'Investments in Equity Shares (Quoted)',cls:'Current'},
       {label:'Investments in Equity Shares (Unquoted)',cls:'Non-Current'},
       {label:'Investments in Mutual Funds',cls:'Others'}]},
-    {n:8,title:'Trade Receivables',neg:false,lines:[
+    {n:8,title:'Trade Receivables',neg:false,
+     para:'In the opinion of the Board of Directors, all trade receivables are recoverable at the value stated. No receivables are outstanding for a period exceeding six months from the date they became due, except those provided for. The Company carries out regular age-wise analysis and follows up for recovery.',
+     lines:[
       {label:'Outstanding for more than six months — Unsecured, Considered Good',cls:'Non-Current'},
       {label:'Other Receivables — Unsecured, Considered Good',cls:'Current'},
       {label:'Doubtful (net of provision)',cls:'Others'}]},
-    {n:9,title:'Cash and Cash Equivalents',neg:false,lines:[
+    {n:9,title:'Cash and Cash Equivalents',neg:false,
+     para:'Cash and cash equivalents include cash on hand and balances with scheduled banks. Bank fixed deposits with maturity of less than three months from the date of acquisition are classified as cash equivalents.',
+     lines:[
       {label:'Cash on Hand',cls:'Others'},
       {label:'Balances with Banks — Current Accounts',cls:'Current'},
       {label:'Bank Fixed Deposits (maturity less than 3 months)',cls:'Non-Current'}]},
-    {n:10,title:'Short-term Loans and Advances',neg:false,lines:[
+    {n:10,title:'Short-term Loans and Advances',neg:false,
+     para:'All short-term loans and advances are unsecured and considered good for recovery unless otherwise stated. Loans to related parties, if any, are interest-free and repayable on demand.',
+     lines:[
       {label:'Advances to Suppliers',cls:'Current'},
       {label:'Prepaid Expenses',cls:'Others'},
       {label:'Loans to Related Parties (Unsecured, Considered Good)',cls:'Unsecured'}]},
-    {n:11,title:'Revenue from Operations',neg:true,lines:[
+    {n:11,title:'Revenue from Operations',neg:true,
+     para:'Revenue is recognised when significant risks and rewards of ownership are transferred to the buyer, which generally coincides with dispatch/delivery of goods. Revenue from services is recognised proportionately over the period of service delivery.',
+     lines:[
       {label:'Sale of Products',cls:'Revenue'},
       {label:'Sale of Services',cls:'Current'},
       {label:'Other Operating Revenue',cls:'Others'}]},
-    {n:12,title:'Other Income',neg:true,lines:[
+    {n:12,title:'Other Income',neg:true,
+     para:'Interest income is recognised on a time-proportion basis using the effective interest method. Dividend income is recognised when the right to receive payment is established.',
+     lines:[
       {label:'Interest Income',cls:'Current'},
       {label:'Dividend Income',cls:'Others'},
       {label:'Miscellaneous Income',cls:'Revenue'},
       {label:'Gain on Sale of Assets / Investments',cls:'Capital'}]},
-    {n:13,title:'Inventories',neg:false,lines:[
+    {n:13,title:'Inventories',neg:false,
+     para:'Inventories are valued at the lower of cost and net realisable value. Cost is determined on FIFO basis and includes all costs of purchase, conversion and other costs incurred in bringing the inventories to their present location and condition.',
+     lines:[
       {label:'Raw Materials',cls:'Current'},
       {label:'Work-in-Progress',cls:'Others'},
       {label:'Finished Goods',cls:'Revenue'},
       {label:'Stock-in-Trade',cls:'Non-Current'},
       {label:'Stores and Spares',cls:'Capital'}]},
-    {n:14,title:'Employee Benefits Expense',neg:false,lines:[
+    {n:14,title:'Employee Benefits Expense',neg:false,
+     para:'The Company provides for gratuity, a defined benefit plan, based on actuarial valuation using the Projected Unit Credit method. Provident Fund and ESI are defined contribution schemes and contributions are charged to revenue as incurred.',
+     lines:[
       {label:'Salaries, Wages and Bonus',cls:'Revenue'},
       {label:'Contribution to PF and ESI',cls:'Current'},
       {label:'Gratuity Expense',cls:'Non-Current'},
       {label:'Leave Encashment',cls:'Others'},
       {label:'Staff Welfare Expenses',cls:'Capital'}]},
-    {n:15,title:'Finance Costs',neg:false,lines:[
+    {n:15,title:'Finance Costs',neg:false,
+     para:'Finance costs represent interest on term loans, working capital facilities and other borrowings, recognised on an effective interest rate basis. Bank charges include processing fees, commission and other bank-related expenses.',
+     lines:[
       {label:'Interest on Term Loans',cls:'Secured'},
       {label:'Interest on Working Capital Loans',cls:'Current'},
       {label:'Interest on Debentures',cls:'Non-Current'},
       {label:'Bank Charges and Processing Fees',cls:'Others'}]},
-    {n:16,title:'Other Expenses',neg:false,lines:[
+    {n:16,title:'Other Expenses',neg:false,
+     para:'Payment to auditors comprises statutory audit fees. All other expenses are incurred in the ordinary course of business and are recognised on accrual basis.',
+     lines:[
       {label:'Rent',cls:'Current'},
       {label:'Insurance',cls:'Non-Current'},
       {label:'Legal and Professional Fees',cls:'Revenue'},
@@ -7152,10 +7187,113 @@ function _s3NoteDefs(){
       {label:'Travelling and Conveyance',cls:'Others'},
       {label:'Repairs and Maintenance',cls:'MSME'},
       {label:'Miscellaneous Expenses',cls:'Non-Current'}]},
-    {n:17,title:'Tax Expense and Deferred Tax',neg:false,totalLabel:'NET TAX (per books)',lines:[
+    {n:17,title:'Tax Expense and Deferred Tax',neg:false,totalLabel:'NET TAX (per books)',
+     para:'Current tax is computed at the applicable income-tax rates. Deferred tax arises on timing differences between book profit and taxable profit and is recognised at substantively enacted tax rates. The Company reviews the deferred tax position at each Balance Sheet date.',
+     lines:[
       {label:'Current Tax',fsLine:'current_tax'},
       {label:'Deferred Tax',fsLine:'deferred_tax'},
       {label:'Deferred Tax Asset (as per Balance Sheet)',fsLine:'dta'}]}
+  ];
+}
+
+// Build rows for the PPE / depreciation schedule (Note 6).
+// Returns array of row-arrays: [Description, GrossOpen, GrossAdd, GrossDisp, GrossClose, DepOpen, DepYear, DepDisp, DepClose, NetClose, NetPrev]
+function _s3PPESched(tb, unitDiv, fy){
+  var cats = [
+    {label:'Plant & Machinery',       fsLine:'tangible',    cls:'Revenue'},
+    {label:'Furniture & Fixtures',    fsLine:'tangible',    cls:'Capital'},
+    {label:'Vehicles',                fsLine:'tangible',    cls:'Others'},
+    {label:'Office Equipment',        fsLine:'tangible',    cls:'MSME'},
+    {label:'Right-of-Use Assets',     fsLine:'rou_assets',  cls:''},
+    {label:'Intangible Assets',       fsLine:'intangible',  cls:''},
+    {label:'Capital Work-in-Progress',fsLine:'cwip',        cls:''}
+  ];
+  var rows = [];
+  var totGrO=0,totGrA=0,totGrD=0,totGrC=0,totDO=0,totDY=0,totDD=0,totDC=0,totNC=0,totNP=0;
+  cats.forEach(function(c){
+    var grO=0,grA=0,grD=0,depY=0;
+    tb.forEach(function(r){
+      if(r.fsLine!==c.fsLine) return;
+      if(c.cls && r.classification!==c.cls) return;
+      grO += (r.opening||0);
+      grA += (r.dr||0);
+      grD += (r.cr||0);
+    });
+    // Depreciation: look up the P&L depreciation entry that matches this asset fsLine/cls
+    tb.forEach(function(r){
+      if(r.fsLine==='depreciation' && (!c.cls || r.classification===c.cls)){
+        depY += (r.dr||0)-(r.cr||0);
+      }
+    });
+    var grC = grO+grA-grD;
+    var depO=0, depC=depO+depY;
+    var netC = (grC-depC)/unitDiv;
+    var netP = (grO)/unitDiv;
+    grO/=unitDiv; grA/=unitDiv; grD/=unitDiv; grC/=unitDiv; depO/=unitDiv; depY/=unitDiv; var depD=0; depC/=unitDiv;
+    if(grO===0&&grA===0&&grD===0&&netC===0) return;
+    rows.push([c.label, grO, grA, grD, grC, depO, depY, 0, depC, netC, netP]);
+    totGrO+=grO;totGrA+=grA;totGrD+=grD;totGrC+=grC;totDO+=depO;totDY+=depY;totDC+=depC;totNC+=netC;totNP+=netP;
+  });
+  rows.push(['TOTAL',totGrO,totGrA,totGrD,totGrC,totDO,totDY,0,totDC,totNC,totNP]);
+  return rows;
+}
+
+function _s3RatioRows(tb, unitDiv){
+  function sum(fsLines){
+    var t=0;
+    fsLines.forEach(function(fl){
+      tb.forEach(function(r){ if(r.fsLine===fl) t+=(r.opening||0)+(r.dr||0)-(r.cr||0); });
+    });
+    return t/unitDiv;
+  }
+  function sumN(noteNo){
+    var t=0;
+    tb.forEach(function(r){ if(String(r.noteNo)===String(noteNo)) t+=(r.opening||0)+(r.dr||0)-(r.cr||0); });
+    return Math.abs(t/unitDiv);
+  }
+  var revenue = sumN(11)+sumN(12);
+  var cogs = Math.abs(sum(['cost_materials','purchases_stock','chg_inventories']));
+  var grossProfit = revenue - cogs;
+  var pat = revenue - Math.abs(sum(['cost_materials','purchases_stock','chg_inventories','emp_benefits','finance_costs','depreciation','other_exp','current_tax','deferred_tax']));
+  var ebit = revenue - Math.abs(sum(['cost_materials','purchases_stock','chg_inventories','emp_benefits','depreciation','other_exp']));
+  var ebitda = ebit + Math.abs(sum(['depreciation']));
+  var ca = Math.abs(sum(['inventories','trade_rec','cash','st_loans','other_ca']));
+  var inv = Math.abs(sum(['inventories']));
+  var cl = Math.abs(sum(['st_borrowings','trade_pay_msme','trade_pay_others','other_cl','st_provisions']));
+  var ta = Math.abs(sum(['tangible','intangible','cwip','rou_assets'])) + ca;
+  var equity = sumN(1)+sumN(2);
+  var ltd = sumN(3);
+  var std = sumN(4);
+  var debt = ltd+std;
+  var trad = Math.abs(sum(['trade_rec']));
+  var tpay = Math.abs(sum(['trade_pay_msme','trade_pay_others']));
+  var dep = Math.abs(sum(['depreciation']));
+  function r2(v){ return isNaN(v)||!isFinite(v)?'N/A':v.toFixed(2); }
+  function pct(v){ return isNaN(v)||!isFinite(v)?'N/A':(v*100).toFixed(1)+'%'; }
+  return [
+    ['LIQUIDITY RATIOS','','',''],
+    ['Current Ratio','Current Assets / Current Liabilities',r2(ca/cl),'> 1.5x'],
+    ['Quick Ratio','(Current Assets - Inventories) / Current Liabilities',r2((ca-inv)/cl),'> 1.0x'],
+    ['Cash Ratio','Cash & Equivalents / Current Liabilities',r2(Math.abs(sum(['cash']))/cl),'> 0.2x'],
+    ['SOLVENCY / LEVERAGE RATIOS','','',''],
+    ['Debt-to-Equity Ratio','Total Debt / Shareholders Equity',r2(debt/equity),'< 2.0x'],
+    ['Debt-to-Assets Ratio','Total Debt / Total Assets',r2(debt/ta),'< 0.5x'],
+    ['Interest Coverage Ratio','EBIT / Finance Costs',r2(ebit/Math.abs(sum(['finance_costs']))),'> 3.0x'],
+    ['PROFITABILITY RATIOS','','',''],
+    ['Gross Profit Margin','Gross Profit / Revenue',pct(grossProfit/revenue),'> 30%'],
+    ['EBITDA Margin','EBITDA / Revenue',pct(ebitda/revenue),'> 20%'],
+    ['Net Profit Margin','PAT / Revenue',pct(pat/revenue),'> 10%'],
+    ['Return on Equity (ROE)','PAT / Shareholders Equity',pct(pat/equity),'> 15%'],
+    ['Return on Assets (ROA)','PAT / Total Assets',pct(pat/ta),'> 5%'],
+    ['Return on Capital Employed (ROCE)','EBIT / (Equity + LT Debt)',pct(ebit/(equity+ltd)),'> 12%'],
+    ['EFFICIENCY / TURNOVER RATIOS','','',''],
+    ['Asset Turnover Ratio','Revenue / Total Assets',r2(revenue/ta),'> 1.0x'],
+    ['Inventory Turnover Ratio','COGS / Inventories',r2(cogs/inv),'> 6x'],
+    ['Receivables Turnover Ratio','Revenue / Trade Receivables',r2(revenue/trad),'> 8x'],
+    ['Payables Turnover Ratio','COGS / Trade Payables',r2(cogs/tpay),'> 5x'],
+    ['Inventory Days','365 / Inventory Turnover',r2(365*inv/cogs),'< 60 days'],
+    ['Receivables Days (DSO)','365 / Receivables Turnover',r2(365*trad/revenue),'< 45 days'],
+    ['Payables Days','365 / Payables Turnover',r2(365*tpay/cogs),'> 30 days']
   ];
 }
 
@@ -7311,21 +7449,18 @@ function exportSched3Excel(fw, unitChoice){
 
   function makeNote(noteNo, title, rowDefs){
     var noteName = 'Note ' + (noteNo < 10 ? '0' : '') + noteNo;
-    // Title row (blue merged)
     nCell('A',nRow,'s',noteName+' — '+title,sNoteTitle);
     nCell('B',nRow,'s','',sNoteTitle); nCell('C',nRow,'s','',sNoteTitle);
     wsNotes['!merges'].push({s:{r:nRow-1,c:0},e:{r:nRow-1,c:2}});
     wsNotes['!rows'].push({hpt:18});
     nRow++;
 
-    // Column header row
     nCell('A',nRow,'s','Particulars',sHdr);
     nCell('B',nRow,'s','Current Year ('+fy+')',sHdr);
     nCell('C',nRow,'s','Previous Year ('+fyPrev+')',sHdr);
     wsNotes['!rows'].push({hpt:32});
     nRow++;
 
-    // Data rows
     var totalRow = 0;
     rowDefs.forEach(function(def){
       if(def.isSec){
@@ -7352,8 +7487,36 @@ function exportSched3Excel(fw, unitChoice){
       nRow++;
     });
 
-    nRow += 2; // blank gap between notes
-    wsNotes['!ref'] = 'A1:E'+(nRow-1);
+    // Note 6: append full depreciation schedule
+    if(noteNo === 6){
+      nRow++;
+      nCell('A',nRow,'s','PPE Depreciation Schedule',sNoteTitle);
+      for(var cc=1;cc<10;cc++) nCell(String.fromCharCode(65+cc),nRow,'s','',sNoteTitle);
+      wsNotes['!merges'].push({s:{r:nRow-1,c:0},e:{r:nRow-1,c:9}});
+      wsNotes['!rows'].push({hpt:16});
+      nRow++;
+      var ppeCols = ['Description','Gross Block Opening','Additions','Disposals','Gross Block Closing',
+                     'Acc. Dep Opening','Dep for Year','Dep on Disposal','Acc. Dep Closing','Net Block (CY)'];
+      ppeCols.forEach(function(h,i){ wsNotes[String.fromCharCode(65+i)+''+nRow]={t:'s',v:h,s:sHdr}; });
+      wsNotes['!rows'].push({hpt:40});
+      nRow++;
+      var ppeRows = _s3PPESched(tb, unitDiv, fy);
+      ppeRows.forEach(function(row){
+        var isTotRow = row[0]==='TOTAL';
+        row.forEach(function(v,i){
+          var style = isTotRow ? (i===0?sTot:sTotR) : (i===0?sDat:sDatR);
+          wsNotes[String.fromCharCode(65+i)+''+nRow]={t:(typeof v==='number'?'n':'s'),v:v,s:style};
+          if(typeof v==='number') wsNotes[String.fromCharCode(65+i)+''+nRow].z=NUM_FMT;
+        });
+        wsNotes['!rows'].push({hpt:15});
+        nRow++;
+      });
+      // widen cols for PPE schedule
+      wsNotes['!cols'] = [{wch:28},{wch:14},{wch:12},{wch:12},{wch:14},{wch:14},{wch:12},{wch:12},{wch:14},{wch:14},{wch:14}];
+    }
+
+    wsNotes['!ref'] = 'A1:K'+(nRow-1);
+    nRow += 2;
     return {ws:wsNotes, totalRow:totalRow, name:NOTES_SHEET};
   }
 
@@ -7379,6 +7542,17 @@ function exportSched3Excel(fw, unitChoice){
       totValue: tbCalcNote(nd.n, !!nd.neg)});
     var made = makeNote(nd.n, nd.title, rowDefs);
     noteTot[nd.n] = {name: made.name, totalRow: made.totalRow};
+    if(nd.para){
+      var pLines = nd.para.match(/.{1,90}(\s|$)/g) || [nd.para];
+      pLines.forEach(function(line){
+        nCell('A',nRow,'s',line.trim(),{font:{italic:true,sz:9,color:{rgb:'404040'}}});
+        wsNotes['!merges'] = wsNotes['!merges'] || [];
+        wsNotes['!merges'].push({s:{r:nRow-1,c:0},e:{r:nRow-1,c:2}});
+        wsNotes['!rows'].push({hpt:13});
+        nRow++;
+      });
+      nRow++;
+    }
   });
   function nref(noteNo, col){
     return "'"+NOTES_SHEET+"'!"+(col||'B')+noteTot[noteNo].totalRow;
@@ -7454,6 +7628,43 @@ function exportSched3Excel(fw, unitChoice){
 
   // ── Append single Notes sheet ──
   XLSX.utils.book_append_sheet(wb, wsNotes, NOTES_SHEET);
+
+  // ── Ratio Analysis sheet ──
+  var wsRatio = {'!merges':[], '!cols':[{wch:32},{wch:48},{wch:16},{wch:18}]};
+  var rRow = 1;
+  wsRatio['A1'] = {t:'s',v:co,s:sCo};
+  wsRatio['B1']={t:'s',v:'',s:sCo};wsRatio['C1']={t:'s',v:'',s:sCo};wsRatio['D1']={t:'s',v:'',s:sCo};
+  wsRatio['!merges'].push({s:{r:0,c:0},e:{r:0,c:3}});
+  wsRatio['A2']={t:'s',v:'Financial Ratio Analysis — '+fy,s:sTitleRow};
+  wsRatio['B2']={t:'s',v:'',s:sTitleRow};wsRatio['C2']={t:'s',v:'',s:sTitleRow};wsRatio['D2']={t:'s',v:'',s:sTitleRow};
+  wsRatio['!merges'].push({s:{r:1,c:0},e:{r:1,c:3}});
+  wsRatio['A3']={t:'s',v:'(Computed from Trial Balance)',s:sSubTitle};
+  wsRatio['B3']={t:'s',v:'',s:sSubTitle};wsRatio['C3']={t:'s',v:'',s:sSubTitle};wsRatio['D3']={t:'s',v:'',s:sSubTitle};
+  wsRatio['!merges'].push({s:{r:2,c:0},e:{r:2,c:3}});
+  rRow = 4;
+  ['Ratio','Formula','Value','Benchmark'].forEach(function(h,i){
+    wsRatio[String.fromCharCode(65+i)+''+rRow]={t:'s',v:h,s:sHdr};
+  });
+  rRow++;
+  var ratioRows = _s3RatioRows(tb, unitDiv);
+  ratioRows.forEach(function(row){
+    var isSection = (row[1]===''&&row[2]==='');
+    if(isSection){
+      wsRatio['A'+rRow]={t:'s',v:row[0],s:sNoteTitle};
+      wsRatio['B'+rRow]={t:'s',v:'',s:sNoteTitle};
+      wsRatio['C'+rRow]={t:'s',v:'',s:sNoteTitle};
+      wsRatio['D'+rRow]={t:'s',v:'',s:sNoteTitle};
+      wsRatio['!merges'].push({s:{r:rRow-1,c:0},e:{r:rRow-1,c:3}});
+    } else {
+      wsRatio['A'+rRow]={t:'s',v:row[0],s:sDat};
+      wsRatio['B'+rRow]={t:'s',v:row[1],s:sDat};
+      wsRatio['C'+rRow]={t:'s',v:row[2],s:sDatR};
+      wsRatio['D'+rRow]={t:'s',v:row[3],s:sDat};
+    }
+    rRow++;
+  });
+  wsRatio['!ref'] = 'A1:D'+(rRow-1);
+  XLSX.utils.book_append_sheet(wb, wsRatio, 'Ratio Analysis');
 
   // ── Auditor signature block rows (appended to BS / P&L / CF) ──
   function sigRows(){
@@ -8444,18 +8655,56 @@ function exportSched3PDF(fw, unitChoice){
   _s3NoteDefs().forEach(function(nd){
     ensureSpace(14 + nd.lines.length * 7);
     noteTitle(nd.n, nd.title);
-    var rows = [['Particulars','Current Year (' + fy + ')','Previous Year (' + fyPrev + ')']];
+    var rows = [['Particulars','Current Year ('+fy+')','Previous Year ('+fyPrev+')']];
     var secIdx = [], total = 0;
-    nd.lines.forEach(function(ln, i){
+    nd.lines.forEach(function(ln){
       if(ln.sec){ secIdx.push(rows.length); rows.push([ln.label,'','']); return; }
       var v = ln.cls ? sumNoteCls(nd.n, ln.cls) : sumLine(ln.fsLine);
       if(nd.neg) v = -v;
       total += v;
       rows.push([ln.label, uf(v), '0.00']);
     });
-    rows.push([nd.totalLabel || 'TOTAL', uf(total), '0.00']);
+    rows.push([nd.totalLabel||'TOTAL', uf(total), '0.00']);
     y = drawTable(doc, 14, y, noteColW, rows, {header:true, sectionRows:secIdx, totalRows:[rows.length-1], numericCols:[1,2], fontSize:8, onNewPage:newPageY});
-    y += 6;
+    y += 3;
+    if(nd.para){
+      ensureSpace(12);
+      doc.setFont('helvetica','italic'); doc.setFontSize(7.5); doc.setTextColor(60,60,60);
+      var paraLines = doc.splitTextToSize(nd.para, 178);
+      if(y + paraLines.length*3.2 > 250){ doc.addPage(); pageNo++; _s3PdfFooter(doc,pageNo); y=20; }
+      doc.text(paraLines, 14, y);
+      y += paraLines.length*3.2 + 2;
+      doc.setTextColor(20,20,20);
+    }
+    if(nd.n === 6){
+      ensureSpace(30);
+      doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(20,20,20);
+      doc.text('PPE / Depreciation Schedule:', 14, y); y += 4;
+      var ppeRows2 = _s3PPESched(tb, unitDiv, fy);
+      var ppeHdr = ['Description','Gr.Open','Addn','Disp','Gr.Close','Dep.Open','Dep.Year','Dep.Disp','Dep.Close','Net Block'];
+      ppeRows2.unshift(ppeHdr);
+      y = drawTable(doc, 14, y, [38,16,14,14,16,16,14,14,16,16], ppeRows2, {header:true, totalRows:[ppeRows2.length-1], numericCols:[1,2,3,4,5,6,7,8,9], fontSize:7, onNewPage:newPageY});
+      y += 4;
+    }
+    if(nd.n === 17){
+      ensureSpace(40);
+      doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(20,20,20);
+      doc.text('Tax Rate Reconciliation:', 14, y); y += 4;
+      var pbt17 = -(sumNote(11)+sumNote(12)) - (sumNote(14)+sumNote(15)+sumNote(16)+sumLine('cost_materials')+sumLine('purchases_stock')+sumLine('chg_inventories')+sumLine('depreciation'));
+      var statRate = 0.25;
+      var expectedTax = pbt17 * statRate;
+      var actualTax = sumLine('current_tax');
+      var taxRows17 = [
+        ['Particulars','Amount'],
+        ['Net Profit Before Tax', uf(pbt17)],
+        ['Tax at statutory rate (25%)', uf(expectedTax)],
+        ['Actual Current Tax (per books)', uf(actualTax)],
+        ['Effective Tax Rate', isNaN(actualTax/pbt17)?'N/A':(actualTax/pbt17*100).toFixed(1)+'%']
+      ];
+      y = drawTable(doc, 14, y, [130, 48], taxRows17, {header:true, totalRows:[4], numericCols:[1], fontSize:8, onNewPage:newPageY});
+      y += 4;
+    }
+    y += 3;
   });
   // Note 18 — Related Party (template)
   ensureSpace(48);
@@ -8496,6 +8745,25 @@ function exportSched3PDF(fw, unitChoice){
     doc.text(body, 14, y);
     y += body.length * 3.6 + 3;
   });
+
+  // ── Ratio Analysis ──
+  doc.addPage(); pageNo++; _s3PdfFooter(doc, pageNo);
+  y = titleBlock('Financial Ratio Analysis — '+fy);
+  doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(60,60,60);
+  doc.text('Computed from Trial Balance. N/A = insufficient data.', 105, y, {align:'center'});
+  y += 5;
+  var ratPdfRows = [['Ratio','Formula','Value','Benchmark']];
+  var ratData = _s3RatioRows(tb, unitDiv);
+  var ratSecIdx2 = [];
+  ratData.forEach(function(row,i){
+    if(row[1]===''&&row[2]===''){
+      ratSecIdx2.push(ratPdfRows.length);
+      ratPdfRows.push([row[0],'','','']);
+    } else {
+      ratPdfRows.push(row);
+    }
+  });
+  y = drawTable(doc, 14, y, [50,78,20,24], ratPdfRows, {header:true, sectionRows:ratSecIdx2, numericCols:[2], fontSize:7.5, onNewPage:newPageY});
 
   // ── Annexure: Trial Balance ──
   doc.addPage(); pageNo++; _s3PdfFooter(doc, pageNo);
