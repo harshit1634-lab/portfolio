@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CC AutoFill — Weekly Uploader</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@900&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#10130f; --panel:#181c14; --panel2:#1f241a; --line:#2c3325;
+    --ink:#e9e6d8; --dim:#9aa087; --faint:#6c7259;
+    --green:#9bd16b; --green-d:#5f8f3a; --amber:#e6b04a; --red:#e08b6b; --blue:#7fb0c9;
+    --shadow:0 12px 40px rgba(0,0,0,.45);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:
+      radial-gradient(900px 500px at 85% -5%, rgba(155,209,107,.07), transparent 60%),
+      radial-gradient(700px 400px at 5% 110%, rgba(230,176,74,.06), transparent 55%),
+      var(--bg);
+    color:var(--ink);font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.5;
+    -webkit-font-smoothing:antialiased}
+  .num{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums}
+  .wrap{max-width:1380px;margin:0 auto;padding:28px 22px 120px}
+  header.top{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;
+    border-bottom:1px solid var(--line);padding-bottom:18px;flex-wrap:wrap}
+  h1{font-family:'Fraunces',serif;font-weight:900;font-size:30px;line-height:1.05;margin:0;letter-spacing:-.5px}
+  h1 small{display:block;font-family:'IBM Plex Mono',monospace;font-weight:400;font-size:12px;color:var(--dim);
+    letter-spacing:1px;text-transform:uppercase;margin-top:8px}
+  .memops{text-align:right;color:var(--dim);font-family:'IBM Plex Mono',monospace;font-size:12px;line-height:1.9}
+  .memops b{color:var(--ink)}
+  .btn{display:inline-block;background:var(--panel2);border:1px solid var(--line);color:var(--ink);
+    border-radius:8px;padding:6px 12px;font:inherit;font-size:12.5px;cursor:pointer;margin-left:6px}
+  .btn:hover{border-color:var(--green-d)}
+  .btn.primary{background:var(--green-d);border-color:var(--green-d);color:#0e120a;font-weight:600}
+  .btn.primary:hover{background:var(--green)}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  /* drop zone */
+  #drop{margin:26px 0;border:2px dashed var(--line);border-radius:14px;background:var(--panel);
+    padding:46px 26px;text-align:center;cursor:pointer;transition:border-color .15s, background .15s}
+  #drop.hover{border-color:var(--green);background:var(--panel2)}
+  #drop h2{margin:0 0 8px;font-size:18px}
+  #drop p{margin:4px 0;color:var(--dim);font-size:13px}
+  #drop .mono{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--faint)}
+  /* cards */
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:22px 0}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .card .k{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--dim)}
+  .card .v{font-family:'IBM Plex Mono',monospace;font-size:26px;margin-top:4px}
+  .card.green .v{color:var(--green)} .card.amber .v{color:var(--amber)}
+  .card.blue .v{color:var(--blue)} .card.grey .v{color:var(--dim)}
+  #fileinfo{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--dim);margin:-8px 0 16px}
+  /* toolbar */
+  .toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0 14px}
+  .tab{background:none;border:1px solid var(--line);border-radius:999px;color:var(--dim);
+    font:inherit;font-size:12.5px;padding:5px 14px;cursor:pointer}
+  .tab.on{color:var(--ink);border-color:var(--green-d);background:var(--panel2)}
+  .spacer{flex:1}
+  /* table */
+  table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--line);
+    border-radius:12px;overflow:hidden}
+  thead th{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:1px;text-transform:uppercase;
+    color:var(--dim);text-align:left;padding:10px 10px;border-bottom:1px solid var(--line);background:var(--panel2)}
+  tbody td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  tbody tr:last-child td{border-bottom:none}
+  tr.r-auto td:first-child{box-shadow:inset 3px 0 0 var(--green-d)}
+  tr.r-kept td:first-child{box-shadow:inset 3px 0 0 var(--faint)}
+  tr.r-guess td:first-child, tr.r-fuzzy td:first-child{box-shadow:inset 3px 0 0 var(--amber)}
+  tr.r-choose td:first-child{box-shadow:inset 3px 0 0 var(--blue)}
+  tr.r-done td:first-child{box-shadow:inset 3px 0 0 var(--green)}
+  .desc{max-width:330px}
+  .desc .m{white-space:pre-wrap;word-break:break-word}
+  .desc .sub{color:var(--faint);font-size:12px;margin-top:2px;font-family:'IBM Plex Mono',monospace}
+  .desc details{margin-top:4px}
+  .desc summary{color:var(--blue);font-size:11.5px;cursor:pointer;user-select:none}
+  .desc pre{white-space:pre-wrap;word-break:break-word;color:var(--dim);font-size:11.5px;margin:4px 0 0;
+    font-family:'IBM Plex Mono',monospace;background:var(--panel2);border-radius:8px;padding:8px}
+  td.amt{text-align:right;white-space:nowrap}
+  .cellv{min-width:150px;max-width:240px;cursor:pointer;border-radius:7px;padding:4px 7px;margin:-4px -7px}
+  .cellv:hover{background:var(--panel2);outline:1px solid var(--line)}
+  .cellv.empty{color:var(--faint);font-style:italic}
+  .editin{width:230px;background:var(--panel2);border:1px solid var(--green-d);color:var(--ink);
+    border-radius:7px;padding:4px 7px;font:inherit;font-size:13px}
+  .chip{display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.8px;
+    border-radius:999px;padding:2px 9px;border:1px solid}
+  .chip.auto{color:var(--green);border-color:var(--green-d)}
+  .chip.kept{color:var(--dim);border-color:var(--faint)}
+  .chip.guess,.chip.fuzzy{color:var(--amber);border-color:var(--amber)}
+  .chip.choose{color:var(--blue);border-color:var(--blue)}
+  .chip.done{color:#0e120a;background:var(--green);border-color:var(--green)}
+  .okbtn{display:inline-block;margin-top:6px;background:none;border:1px solid var(--green-d);color:var(--green);
+    border-radius:7px;font:inherit;font-size:11.5px;padding:2px 9px;cursor:pointer}
+  .okbtn:hover{background:var(--green-d);color:#0e120a}
+  tr.cands td{background:var(--panel2);padding:8px 10px 10px}
+  .cand{display:block;width:100%;text-align:left;background:var(--panel);border:1px solid var(--line);
+    color:var(--ink);border-radius:8px;padding:7px 10px;font:inherit;font-size:12.5px;cursor:pointer;margin:4px 0}
+  .cand:hover{border-color:var(--blue)}
+  .cand .x{color:var(--faint);font-family:'IBM Plex Mono',monospace;font-size:11px;margin-left:8px}
+  .cand b{color:var(--blue);font-weight:500}
+  /* bottom bar */
+  #bar{position:fixed;left:0;right:0;bottom:0;background:rgba(16,19,15,.92);backdrop-filter:blur(6px);
+    border-top:1px solid var(--line);padding:12px 22px;display:none}
+  #bar .inner{max-width:1380px;margin:0 auto;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  #bar .note{color:var(--dim);font-size:12.5px}
+  #toast{position:fixed;right:20px;bottom:74px;background:var(--panel2);border:1px solid var(--green-d);
+    color:var(--ink);border-radius:10px;padding:10px 16px;font-size:13px;box-shadow:var(--shadow);
+    display:none;max-width:420px;z-index:50}
+  .err{background:#2a1813;border:1px solid var(--red);color:var(--ink);border-radius:12px;
+    padding:14px 18px;margin:18px 0;display:none;white-space:pre-wrap;font-family:'IBM Plex Mono',monospace;font-size:12.5px}
+  .legend{color:var(--faint);font-size:12px;margin:8px 0 18px;font-family:'IBM Plex Mono',monospace}
+  .legend i{font-style:normal;padding:1px 7px;border-radius:999px;border:1px solid;margin-right:4px;font-size:10.5px}
+  details.help{margin:30px 0;color:var(--dim);font-size:13px}
+  details.help summary{cursor:pointer;color:var(--ink);font-weight:600}
+  details.help li{margin:5px 0}
+  #main{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>CC AutoFill<small>weekly credit card uploader · item / vendor / department</small></h1>
+    <div class="memops">
+      <span id="memstats">memory: …</span><br>
+      <button class="btn" id="btnExport">Export memory</button><button class="btn" id="btnImport">Import memory</button><button class="btn" id="btnReset">Reset learned</button>
+      <input type="file" id="memfile" accept=".json" style="display:none">
+    </div>
+  </header>
+
+  <div id="drop">
+    <h2>Drop the weekly workbook here — or click to browse</h2>
+    <p>Reads <b>Transaction Details</b> and fills <b>Item name · Vendor name · DEPARTMENT</b> from the Description, using everything it has learned so far.</p>
+    <p class="mono">Lists come from the file itself: Item Master!B (items) · Vendor master!I (vendors) · Departments!A (departments).<br>
+    Only those three columns are written back — every formula, sheet, style and dropdown in the file is preserved untouched.</p>
+    <input type="file" id="file" accept=".xlsx" style="display:none">
+  </div>
+
+  <div class="err" id="err"></div>
+
+  <div id="main">
+    <div id="fileinfo"></div>
+    <div class="cards">
+      <div class="card"><div class="k">Transactions</div><div class="v num" id="cAll">0</div></div>
+      <div class="card green"><div class="k">Auto-filled</div><div class="v num" id="cAuto">0</div></div>
+      <div class="card amber"><div class="k">To verify</div><div class="v num" id="cGuess">0</div></div>
+      <div class="card blue"><div class="k">Needs choice</div><div class="v num" id="cChoose">0</div></div>
+      <div class="card grey"><div class="k">Already filled</div><div class="v num" id="cKept">0</div></div>
+    </div>
+    <div class="legend">
+      <i style="color:var(--green);border-color:var(--green-d)">AUTO</i> seen before, one known mapping &nbsp;
+      <i style="color:var(--amber);border-color:var(--amber)">GUESS</i> new merchant, best guess — please verify &nbsp;
+      <i style="color:var(--blue);border-color:var(--blue)">CHOOSE</i> this merchant maps differently on different rows — pick one &nbsp;
+      <i style="color:var(--dim);border-color:var(--faint)">KEPT</i> was already filled in the file &nbsp;
+      <i style="color:#0e120a;background:var(--green);border-color:var(--green)">OK</i> confirmed by you
+    </div>
+    <div class="toolbar">
+      <button class="tab on" data-f="all">All</button>
+      <button class="tab" data-f="flag">Flagged</button>
+      <button class="tab" data-f="auto">Auto</button>
+      <button class="tab" data-f="kept">Kept</button>
+      <button class="tab" data-f="done">Confirmed</button>
+      <span class="spacer"></span>
+      <button class="btn" id="btnVerifyAll">✓ Verify all guesses</button>
+    </div>
+    <table>
+      <thead><tr>
+        <th>#</th><th>Date</th><th>Description</th><th style="text-align:right">Amount</th>
+        <th>Item name</th><th>Vendor name</th><th>Department</th><th>Status</th>
+      </tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+  <details class="help">
+    <summary>How it works</summary>
+    <ul>
+      <li><b>Matching.</b> The first 20 characters of the Description are the card network's merchant field. The tool keys on that (digits/punctuation ignored), so appended notes or changing invoice numbers don't break recognition.</li>
+      <li><b>Auto:</b> merchant seen before with exactly one historical mapping → filled silently. <b>Choose:</b> merchant has more than one historical mapping (e.g. Amazon as snacks vs IT) → never guessed, you pick from its history. <b>Guess:</b> never-seen merchant → vendor/keyword heuristics propose values, flagged amber for your review.</li>
+      <li><b>Learning.</b> When you download, every confirmed row (auto, kept, or edited/verified by you) is added to memory in this browser (localStorage). Unverified guesses are <i>not</i> learned. Use Export/Import memory to move it between machines or keep a backup.</li>
+      <li><b>Safety.</b> The output file is your original workbook with only the Item/Vendor/Department cells rewritten inside the sheet XML — formulas (vendor & item internal-ID lookups, amounts), all other sheets, styles and dropdown validations are byte-for-byte preserved. A full recalculation is requested on open so the lookup columns refresh.</li>
+      <li><b>Dropdowns.</b> Editing a cell offers the same lists as the workbook's own validations: Item Master column B, Vendor master column I, Departments column A.</li>
+    </ul>
+  </details>
+</div>
+
+<div id="bar"><div class="inner">
+  <button class="btn primary" id="btnDownload">⬇ Download updated workbook</button>
+  <span class="note" id="barnote"></span>
+</div></div>
+<div id="toast"></div>
+<datalist id="dl-items"></datalist>
+<datalist id="dl-vendors"></datalist>
+<datalist id="dl-depts"></datalist>
+
+<script id="cc-seed" type="application/json">{"byDesc":{"AURA PRO SINGAPORE SG":{"Advertising & Marketing - Misc\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"APLPAY NJT RAIL MY TNEWARK NJ":{"Domestic Travel - Local Transport/Car - Support\u0001Miscellaneous Vendors - US\u0001Support : CXO":3},"CHECKLY UTRECHT UT":{"Software License  expense - miscellaneous\u0001Miscellaneous Vendors - US\u0001Support : IT":1},"JASPER AI SAN FRANCISCO CA":{"Advertising & Marketing - Misc\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"ADOBE ADOBE SYSTEMS SAN JOSE CA":{"Software Subcription - Adobe\u0001Adobe\u0001Support : IT":1},"AMAZON COM AMZN COM BILL WA COLD BREW PURCHASE FOR OFFICE":{"Office Snacks & Meals\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"AMEXGBT PHOENIX AZ ERIKA TRAVEL FOR QBR FROM GR TO NY AND RETURN TO GR FROM 31ST MAY 26 TO 2ND JUNE 26":{"Domestic Travel - Airfare - Support\u0001Miscellaneous Vendors - US\u0001Support : Sales":1},"AMEX GBT US SCOTTSDALE AZ ERIKA TRAVEL FOR QBR FROM GR TO NY AND RETURN TO GR FROM 31ST MAY 26 TO 2ND JUNE 26":{"Domestic Travel - Airfare - Support\u0001Miscellaneous Vendors - US\u0001Support : Sales":1},"FEDEX255611889 FEDEXMEMPHIS TN":{"Courier/Postage Charges\u0001Fedex\u0001Support : Admin":1},"LINKEDIN P3019093164SAN FRANCISCO":{"Advertising and Marketing - Linkedin\u0001Linkedin\u0001Support : Marketing":1},"NPM INC SAN FRANCISCO CA":{"Software Subscription – Navicat\u0001Navicat\u0001Support : IT":1},"AMAZON MARKEPLACE NA PA WALL LED LIGHT PURCHASE FOR PHONE BOOTH":{"Office Maintenance Expense - Misc.\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"AMAZON MARKEPLACE NA PA":{"Office Snacks & Meals\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"AMAZON COM AMZN COM BILL WA":{"IT Consumable\u0001Miscellaneous Vendors - US\u0001Support : IT":1},"APLPAY TRADER JOE S NEW YORK NY":{"Office Snacks & Meals\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"C4MEDIA INC ETOBICOKE REGISTRATION OF SANDEEP SAWHNEY FOR QCON CONFRENCE IN CANADA ON 1ST AND 2ND JUNE 26":{"Advertising and Marketing - Events & Seminars\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"COMCAST XFINITY 800 266 2278 NJ":{"Mobile Expense\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"OPENAI CHATGPT SUBSSAN FRANCISCO CA":{"ChatGPT\u0001Miscellaneous Vendors - US\u0001Support : IT":1},"PAYPAL OPENAIOPCOL 8002428478 CA":{"ChatGPT\u0001Miscellaneous Vendors - US\u0001Support : IT":1},"STRATECHERY DITHERINCLAYMONT DE":{"Advertising & Marketing - Misc\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"STREAMLINE DESIGN INSHERIDAN WY":{"Advertising & Marketing - Misc\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"TRAVEL RESERVATION 877 283 5585 WA SANDEEP STAYING FOR QCON AI CONFRANCE FROM 31ST MAY 26 TO 1ST JUNE 26":{"Domestic Travel - Hotel/Lodging - Support\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"HUNTER IO STARTER WILMINGTON DE":{"Advertising & Marketing - Misc\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"TYPEFORM WILMINGTON DE":{"Software Subscription - Typeform\u0001Typeform\u0001Support : IT":1},"AMEXGBT PHOENIX AZ MR RITESH KUMAR TRAVEL FOR GME PROJECT FROM NEWARK TO SOUTH LUIS AND RETURN TO NEWARK ON 26TH MAY 36 TO 28TH MAYU 26":{"Domestic Travel - Airfare - Direct\u0001Miscellaneous Vendors - US\u0001Operations : Practices : DXP/Content":2},"AMEXGBT PHOENIX AZ MR KETAN SETHI TRAVEL FOR GME PROJECT FROM NEWARK TO SOUTH LUIS AND RETURN TO NEWARK ON 26TH MAY 36 TO 28TH MAYU 26":{"Domestic Travel - Airfare - Direct\u0001Miscellaneous Vendors - US\u0001Operations : Practices : DXP/Content":1},"AMEXGBT PHOENIX MR KETAN SETHI TRAVEL FOR GME PROJECT FROM NEWARK TO SOUTH LUIS AND RETURN TO NEWARK ON 26TH MAY 36 TO 28TH MAYU 26":{"Domestic Travel - Airfare - Direct\u0001Miscellaneous Vendors - US\u0001Operations : Practices : DXP/Content":1},"AMEX GBT US SCOTTSDALE AZ MR KETAN SETHI TRAVEL FOR GME PROJECT FROM NEWARK TO SOUTH LUIS AND RETURN TO NEWARK ON 26TH MAY 36 TO 28TH MAYU 26":{"Domestic Travel - Airfare - Direct\u0001Miscellaneous Vendors - US\u0001Operations : Practices : DXP/Content":2},"AMEX GBT US SCOTTSDALE AZ MR RITESH KUMAR TRAVEL FOR GME PROJECT FROM NEWARK TO SOUTH LUIS AND RETURN TO NEWARK ON 26TH MAY 36 TO 28TH MAYU 26":{"Domestic Travel - Airfare - Direct\u0001Miscellaneous Vendors - US\u0001Operations : Practices : DXP/Content":2},"ELEVENLABS IO NEW YORK NY":{"Advertising & Marketing - Misc\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"RC NEW YORK NY":{"Bank Charges & Fees\u0001Miscellaneous Vendors - US\u0001Support : Finance":1},"APLPAY APPLE STORE NEW YORK NY APPLE MACBOOK PURCHASE FOR SACHIN SINGH":{"Laptops\u0001Miscellaneous Vendors - US\u0001Support : IT":1},"APLPAY USPS PO 35964NEW YORK NY POSTAGE CHARGES FOR TAXES COMPTROLLER FILLING":{"Courier/Postage Charges\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"COSSETTA INC 00 0803SAINT PAUL MN":{"Business - Meals & entertainment\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"FEDEX 800 463 3339 TN":{"Courier/Postage Charges\u0001Fedex\u0001Support : Admin":1},"HUDSON FAO SCHAWARZ CHICAGO IL":{"Business - Meals & entertainment\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"LYFT 855 280 0278 CA":{"Domestic Travel - Local Transport/Car - Support\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"NYTIMES COM NY TIMES 800 698 4637 NY":{"Housekeeping Material\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"OPENVPN SUBSCRIPTIONLAS VEGAS NV":{"Software Subscription - OpenVPN\u0001Miscellaneous Vendors - US\u0001Support : IT":1},"SPOTIFY P4257BF88D 6NEW YORK NY":{"Software Subscription – Spotify\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"SQSP INV 234101550 NEW YORK NY":{"Advertising and Marketing - Squarespace\u0001Squarespace\u0001Support : IT":1},"APLPAY AMTRAK MOBILEWASHINGTON DC":{"Domestic Travel - Local Transport/Car - Support\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1}},"byMerchant":{"AURA PRO":{"Advertising & Marketing - Misc\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"APLPAY NJT RAIL MY T":{"Domestic Travel - Local Transport/Car - Support\u0001Miscellaneous Vendors - US\u0001Support : CXO":3},"CHECKLY":{"Software License  expense - miscellaneous\u0001Miscellaneous Vendors - US\u0001Support : IT":1},"JASPER AI":{"Advertising & Marketing - Misc\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"ADOBE ADOBE SYSTEMS":{"Software Subcription - Adobe\u0001Adobe\u0001Support : IT":1},"AMAZON COM":{"Office Snacks & Meals\u0001Miscellaneous Vendors - US\u0001Support : Admin":1,"IT Consumable\u0001Miscellaneous Vendors - US\u0001Support : IT":1},"AMEXGBT":{"Domestic Travel - Airfare - Support\u0001Miscellaneous Vendors - US\u0001Support : Sales":1,"Domestic Travel - Airfare - Direct\u0001Miscellaneous Vendors - US\u0001Operations : Practices : DXP/Content":4},"AMEX GBT US":{"Domestic Travel - Airfare - Support\u0001Miscellaneous Vendors - US\u0001Support : Sales":1,"Domestic Travel - Airfare - Direct\u0001Miscellaneous Vendors - US\u0001Operations : Practices : DXP/Content":4},"FEDEX FEDEX":{"Courier/Postage Charges\u0001Fedex\u0001Support : Admin":1},"LINKEDIN P":{"Advertising and Marketing - Linkedin\u0001Linkedin\u0001Support : Marketing":1},"NPM INC":{"Software Subscription – Navicat\u0001Navicat\u0001Support : IT":1},"AMAZON MARKEPLACE NA":{"Office Maintenance Expense - Misc.\u0001Miscellaneous Vendors - US\u0001Support : Admin":1,"Office Snacks & Meals\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"APLPAY TRADER JOE S":{"Office Snacks & Meals\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"C MEDIA INC":{"Advertising and Marketing - Events & Seminars\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"COMCAST XFINITY":{"Mobile Expense\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"OPENAI CHATGPT SUBS":{"ChatGPT\u0001Miscellaneous Vendors - US\u0001Support : IT":1},"PAYPAL OPENAIOPCOL":{"ChatGPT\u0001Miscellaneous Vendors - US\u0001Support : IT":1},"STRATECHERY DITHERIN":{"Advertising & Marketing - Misc\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"STREAMLINE DESIGN IN":{"Advertising & Marketing - Misc\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"TRAVEL RESERVATION":{"Domestic Travel - Hotel/Lodging - Support\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"HUNTER IO STARTER":{"Advertising & Marketing - Misc\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"TYPEFORM":{"Software Subscription - Typeform\u0001Typeform\u0001Support : IT":1},"ELEVENLABS IO":{"Advertising & Marketing - Misc\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"RC":{"Bank Charges & Fees\u0001Miscellaneous Vendors - US\u0001Support : Finance":1},"APLPAY APPLE STORE":{"Laptops\u0001Miscellaneous Vendors - US\u0001Support : IT":1},"APLPAY USPS PO":{"Courier/Postage Charges\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"COSSETTA INC":{"Business - Meals & entertainment\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"FEDEX":{"Courier/Postage Charges\u0001Fedex\u0001Support : Admin":1},"HUDSON FAO SCHAWARZ":{"Business - Meals & entertainment\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"LYFT":{"Domestic Travel - Local Transport/Car - Support\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"NYTIMES COM NY TIMES":{"Housekeeping Material\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"OPENVPN SUBSCRIPTION":{"Software Subscription - OpenVPN\u0001Miscellaneous Vendors - US\u0001Support : IT":1},"SPOTIFY P BF D":{"Software Subscription – Spotify\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"SQSP INV":{"Advertising and Marketing - Squarespace\u0001Squarespace\u0001Support : IT":1},"APLPAY AMTRAK MOBILE":{"Domestic Travel - Local Transport/Car - Support\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1}}}</script>
+<script id="cc-core">
+/* ============================================================
+   CC AutoFill core — pure logic, no DOM. Runs in browser & Node.
+   ============================================================ */
+(function(){
+'use strict';
+
+/* ---------- bytes & zip ---------- */
+const TD = new TextDecoder('utf-8'), TE = new TextEncoder();
+const CRC_T = (() => { const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++){ let c = n;
+    for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    t[n] = c >>> 0; } return t; })();
+function crc32(u8){ let c = 0xFFFFFFFF;
+  for (let i = 0; i < u8.length; i++) c = CRC_T[(c ^ u8[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0; }
+
+async function pipe(u8, stream){
+  return new Uint8Array(await new Response(new Blob([u8]).stream().pipeThrough(stream)).arrayBuffer());
+}
+const inflateRaw = u8 => pipe(u8, new DecompressionStream('deflate-raw'));
+const deflateRaw = u8 => pipe(u8, new CompressionStream('deflate-raw'));
+
+/* Parse a zip from its central directory. Keeps raw compressed slices so
+   untouched entries can be copied through byte-identically on repack. */
+function zipOpen(bytes){
+  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  let eocd = -1;
+  for (let i = bytes.length - 22; i >= Math.max(0, bytes.length - 65557); i--)
+    if (dv.getUint32(i, true) === 0x06054b50){ eocd = i; break; }
+  if (eocd < 0) throw new Error('Not a valid .xlsx (zip directory not found)');
+  const count = dv.getUint16(eocd + 10, true);
+  let off = dv.getUint32(eocd + 16, true);
+  const entries = [], byName = new Map();
+  for (let n = 0; n < count; n++){
+    if (dv.getUint32(off, true) !== 0x02014b50) throw new Error('Corrupt zip central directory');
+    const flags   = dv.getUint16(off + 8, true);
+    const method  = dv.getUint16(off + 10, true);
+    const time    = dv.getUint16(off + 12, true);
+    const date    = dv.getUint16(off + 14, true);
+    const crc     = dv.getUint32(off + 16, true);
+    const csize   = dv.getUint32(off + 20, true);
+    const usize   = dv.getUint32(off + 24, true);
+    const nameLen = dv.getUint16(off + 28, true);
+    const extraLen= dv.getUint16(off + 30, true);
+    const cmtLen  = dv.getUint16(off + 32, true);
+    const extAttr = dv.getUint32(off + 38, true);
+    const lho     = dv.getUint32(off + 42, true);
+    const name    = TD.decode(bytes.subarray(off + 46, off + 46 + nameLen));
+    const e = { name, flags, method, time, date, crc, csize, usize, extAttr, lho };
+    entries.push(e); byName.set(name, e);
+    off += 46 + nameLen + extraLen + cmtLen;
+  }
+  function dataSlice(e){
+    if (dv.getUint32(e.lho, true) !== 0x04034b50) throw new Error('Corrupt zip local header: ' + e.name);
+    const nl = dv.getUint16(e.lho + 26, true), el = dv.getUint16(e.lho + 28, true);
+    const start = e.lho + 30 + nl + el;
+    return bytes.subarray(start, start + e.csize);
+  }
+  async function read(name){
+    const e = byName.get(name);
+    if (!e) return null;
+    const raw = dataSlice(e);
+    if (e.method === 0) return raw.slice();
+    if (e.method === 8) return inflateRaw(raw);
+    throw new Error('Unsupported zip compression in ' + name);
+  }
+  return { entries, byName, read, dataSlice };
+}
+
+/* Rebuild the zip: entries in original order; `replacements` is a
+   Map<name, Uint8Array> of new uncompressed contents. Everything else is
+   copied through with its original compressed bytes, CRC and metadata. */
+async function zipRepack(zip, replacements){
+  const parts = [], central = [];
+  let offset = 0;
+  const now = new Date();
+  const dosTime = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1);
+  const dosDate = (((now.getFullYear() - 1980) & 0x7F) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+  for (const e of zip.entries){
+    let method = e.method, crc = e.crc, csize = e.csize, usize = e.usize,
+        time = e.time, date = e.date, data;
+    if (replacements.has(e.name)){
+      const plain = replacements.get(e.name);
+      usize = plain.length; crc = crc32(plain);
+      data = await deflateRaw(plain); method = 8; csize = data.length;
+      time = dosTime; date = dosDate;
+      if (csize >= usize && usize > 0){ data = plain; method = 0; csize = usize; }
+    } else {
+      data = zip.dataSlice(e);
+    }
+    const nameB = TE.encode(e.name);
+    const flags = e.flags & 0x0800; // keep only the UTF-8 flag
+    const lh = new Uint8Array(30 + nameB.length);
+    const lv = new DataView(lh.buffer);
+    lv.setUint32(0, 0x04034b50, true); lv.setUint16(4, 20, true); lv.setUint16(6, flags, true);
+    lv.setUint16(8, method, true); lv.setUint16(10, time, true); lv.setUint16(12, date, true);
+    lv.setUint32(14, crc, true); lv.setUint32(18, csize, true); lv.setUint32(22, usize, true);
+    lv.setUint16(26, nameB.length, true); lv.setUint16(28, 0, true);
+    lh.set(nameB, 30);
+    parts.push(lh, data);
+    central.push({ nameB, flags, method, time, date, crc, csize, usize, extAttr: e.extAttr, lho: offset });
+    offset += lh.length + csize;
+  }
+  const cdStart = offset;
+  for (const c of central){
+    const ch = new Uint8Array(46 + c.nameB.length);
+    const cv = new DataView(ch.buffer);
+    cv.setUint32(0, 0x02014b50, true); cv.setUint16(4, 20, true); cv.setUint16(6, 20, true);
+    cv.setUint16(8, c.flags, true); cv.setUint16(10, c.method, true);
+    cv.setUint16(12, c.time, true); cv.setUint16(14, c.date, true);
+    cv.setUint32(16, c.crc, true); cv.setUint32(20, c.csize, true); cv.setUint32(24, c.usize, true);
+    cv.setUint16(28, c.nameB.length, true);
+    cv.setUint32(38, c.extAttr, true); cv.setUint32(42, c.lho, true);
+    ch.set(c.nameB, 46);
+    parts.push(ch); offset += ch.length;
+  }
+  const eocd = new Uint8Array(22);
+  const ev = new DataView(eocd.buffer);
+  ev.setUint32(0, 0x06054b50, true);
+  ev.setUint16(8, central.length, true); ev.setUint16(10, central.length, true);
+  ev.setUint32(12, offset - cdStart, true); ev.setUint32(16, cdStart, true);
+  parts.push(eocd);
+  const total = parts.reduce((s, p) => s + p.length, 0);
+  const out = new Uint8Array(total);
+  let pos = 0; for (const p of parts){ out.set(p, pos); pos += p.length; }
+  return out;
+}
+
+/* ---------- xml & xlsx reading ---------- */
+function xmlUnescape(s){
+  return s.replace(/&(#x?[0-9a-fA-F]+|[a-z]+);/g, (m, e) => {
+    if (e[0] === '#') return String.fromCodePoint(parseInt(e[1] === 'x' ? e.slice(2) : e.slice(1), e[1] === 'x' ? 16 : 10));
+    return ({amp:'&', lt:'<', gt:'>', quot:'"', apos:"'"})[e] ?? m;
+  });
+}
+function xmlEscape(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'})[c]);
+}
+function colIndex(letters){ let n = 0; for (const ch of letters) n = n * 26 + (ch.charCodeAt(0) - 64); return n; }
+function colLetter(n){ let s = ''; while (n > 0){ const r = (n - 1) % 26; s = String.fromCharCode(65 + r) + s; n = (n - 1 - r) / 26; } return s; }
+
+function textOf(inner){ // concatenated <t> contents (plain or rich-text runs)
+  let out = '', m; const re = /<t(?:\s[^>]*)?>([\s\S]*?)<\/t>|<t(?:\s[^>]*)?\/>/g;
+  while ((m = re.exec(inner))) out += m[1] ? xmlUnescape(m[1]) : '';
+  return out;
+}
+function parseSharedStrings(xml){
+  if (!xml) return [];
+  const out = []; let m; const re = /<si>([\s\S]*?)<\/si>|<si\/>/g;
+  while ((m = re.exec(xml))) out.push(m[1] ? textOf(m[1]) : '');
+  return out;
+}
+/* sheet xml -> Map rowNum -> Map colIdx -> value (string|number|boolean|null) */
+function parseSheetCells(xml, shared){
+  const rows = new Map(); let rm;
+  const rowRe = /<row\b[^>]*?\br="(\d+)"[^>]*?(?:\/>|>([\s\S]*?)<\/row>)/g;
+  while ((rm = rowRe.exec(xml))){
+    const rn = +rm[1], inner = rm[2] || '';
+    const cells = new Map(); let cm;
+    const cellRe = /<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g;
+    while ((cm = cellRe.exec(inner))){
+      const attrs = cm[1], body = cm[2] || '';
+      const ref = /\br="([A-Z]+)(\d+)"/.exec(attrs); if (!ref) continue;
+      const ci = colIndex(ref[1]);
+      const t = (/\bt="([^"]+)"/.exec(attrs) || [])[1];
+      let val = null;
+      if (t === 'inlineStr'){ val = textOf(body); }
+      else {
+        const v = /<v(?:\s[^>]*)?>([\s\S]*?)<\/v>/.exec(body);
+        if (v){
+          const raw = xmlUnescape(v[1]);
+          if (t === 's') val = shared[+raw] ?? '';
+          else if (t === 'str') val = raw;
+          else if (t === 'b') val = raw === '1';
+          else if (t === 'e') val = null;
+          else val = Number(raw);
+        }
+      }
+      if (val !== null && val !== '') cells.set(ci, val);
+    }
+    rows.set(rn, cells);
+  }
+  return rows;
+}
+
+function openWorkbook(zip){
+  return (async () => {
+    const wbXml = TD.decode(await zip.read('xl/workbook.xml'));
+    const relXml = TD.decode(await zip.read('xl/_rels/workbook.xml.rels'));
+    const rels = new Map();
+    let m; const relRe = /<Relationship\b[^>]*\bId="([^"]+)"[^>]*\bTarget="([^"]+)"[^>]*?\/?>/g;
+    while ((m = relRe.exec(relXml))) rels.set(m[1], m[2]);
+    const sheets = []; const shRe = /<sheet\b[^>]*?\bname="([^"]+)"[^>]*?\br:id="([^"]+)"[^>]*?\/?>/g;
+    while ((m = shRe.exec(wbXml))){
+      let t = rels.get(m[2]) || '';
+      t = t.replace(/^\//, '').replace(/^(\.\.\/)+/, '');
+      if (!/^xl\//.test(t)) t = 'xl/' + t;
+      sheets.push({ name: xmlUnescape(m[1]), path: t });
+    }
+    const ssRaw = await zip.read('xl/sharedStrings.xml');
+    const shared = parseSharedStrings(ssRaw ? TD.decode(ssRaw) : null);
+    async function grid(sheetName){
+      const s = sheets.find(x => x.name === sheetName)
+            || sheets.find(x => x.name.trim().toLowerCase() === sheetName.trim().toLowerCase());
+      if (!s) return null;
+      const xml = TD.decode(await zip.read(s.path));
+      return { path: s.path, xml, rows: parseSheetCells(xml, shared) };
+    }
+    return { wbXml, sheets, shared, grid };
+  })();
+}
+
+/* ---------- layout & lists ---------- */
+function findHeader(rows, wanted){
+  for (let r = 1; r <= 15; r++){
+    const cells = rows.get(r); if (!cells) continue;
+    for (const [, v] of cells)
+      if (typeof v === 'string' && v.trim().toLowerCase() === wanted) return r;
+  }
+  return -1;
+}
+function detectLayout(rows){
+  const hr = findHeader(rows, 'description');
+  if (hr < 0) throw new Error("Couldn't find a 'Description' header in Transaction Details (searched rows 1–15).");
+  const H = rows.get(hr);
+  const named = (label) => { const hits = [];
+    for (const [ci, v] of H) if (typeof v === 'string' && v.trim().toLowerCase() === label) hits.push(ci);
+    return hits.sort((a, b) => a - b); };
+  const one = a => a.length ? a[a.length - 1] : null;     // rightmost wins
+  const cDesc = one(named('description'));
+  const items = named('item name'), vendors = named('vendor name');
+  const cItem = one(items), cVendor = one(vendors);
+  const cDept = one(named('department'));
+  if (!cItem || !cVendor || !cDept)
+    throw new Error('Missing target column header(s) on row ' + hr +
+      ' — need "Item name", "Vendor name", "DEPARTMENT". Found: ' +
+      [...H.values()].filter(v => typeof v === 'string').join(' | '));
+  const layout = {
+    headerRow: hr, cDesc, cItem, cVendor, cDept,
+    cDate: one(named('bill date')) ?? one(named('date')),
+    cAmount: one(named('amount')),
+    cMember: vendors.length > 1 ? vendors[0] : one(named('card member')),
+    cExt: one(named('extended details')),
+    dataRows: []
+  };
+  let last = 0; for (const rn of rows.keys()) if (rn > last) last = rn;
+  for (let r = hr + 1; r <= last; r++){
+    const d = rows.get(r)?.get(cDesc);
+    if (typeof d === 'string' && d.trim() !== '') layout.dataRows.push(r);
+  }
+  return layout;
+}
+function columnList(rows, ci, headerRow){
+  const seen = new Set(), out = [];
+  let last = 0; for (const rn of rows.keys()) if (rn > last) last = rn;
+  for (let r = headerRow + 1; r <= last; r++){
+    const v = rows.get(r)?.get(ci);
+    if (typeof v === 'string' && v.trim() !== '' && !seen.has(v)){ seen.add(v); out.push(v); }
+  }
+  return out;
+}
+
+/* ---------- normalisation & memory ---------- */
+const SEP = '\u0001';
+const normDesc = d => String(d).toUpperCase().replace(/[^A-Z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
+const merchantKey = d => String(d).slice(0, 20).toUpperCase().replace(/[^A-Z]+/g, ' ').replace(/\s+/g, ' ').trim();
+const tokens = s => s.split(' ').filter(Boolean);
+
+function mergeMemory(...mems){
+  const out = { byDesc: {}, byMerchant: {} };
+  for (const m of mems){ if (!m) continue;
+    for (const part of ['byDesc', 'byMerchant']){
+      const src = m[part] || {};
+      for (const k in src){ const d = out[part][k] || (out[part][k] = {});
+        for (const t in src[k]) d[t] = Math.min(999, (d[t] || 0) + src[k][t]); }
+    }
+  }
+  return out;
+}
+function triplesOf(entry){ // -> [{item,vendor,dept,count}] sorted by count desc
+  return Object.entries(entry || {})
+    .map(([t, c]) => { const [item, vendor, dept] = t.split(SEP); return { item, vendor, dept, count: c }; })
+    .sort((a, b) => b.count - a.count);
+}
+
+/* aggregates for the guess tiers */
+function buildAggregates(mem){
+  const itemDept = new Map(), itemVendor = new Map(), vendorItem = new Map(), vendorDept = new Map();
+  const bump = (map, k, v, c) => { if (!k || !v) return;
+    const d = map.get(k) || new Map(); d.set(v, (d.get(v) || 0) + c); map.set(k, d); };
+  for (const k in mem.byMerchant)
+    for (const t of triplesOf(mem.byMerchant[k])){
+      bump(itemDept, t.item, t.dept, t.count); bump(itemVendor, t.item, t.vendor, t.count);
+      bump(vendorItem, t.vendor, t.item, t.count); bump(vendorDept, t.vendor, t.dept, t.count);
+    }
+  const top = (map, k) => { const d = map.get(k); if (!d) return null;
+    let best = null, bc = -1; for (const [v, c] of d) if (c > bc){ best = v; bc = c; } return best; };
+  return { itemDept, itemVendor, vendorItem, vendorDept, top };
+}
+
+const KEYWORD_RULES = [
+  { re: /\b(FEDEX|DHL|USPS|POSTAG|COURIER|SHIPP|UPS STORE)\b/, item: 'Courier/Postage Charges', dept: 'Support : Admin' },
+  { re: /\b(AMTRAK|NJT|TRANSIT|MTA|METRO|SUBWAY|RAIL|LYFT|UBER|TAXI|CAB|PARKING|TOLL|CITIBIKE|HERTZ|AVIS|CAR RENTAL)\b/, item: 'Domestic Travel - Local Transport/Car - Support', dept: 'Support : CXO' },
+  { re: /\b(AIRLINE|AIRLINES|AIRWAYS|DELTA|JETBLUE|SOUTHWEST|LUFTHANSA|EMIRATES|GBT|EXPEDIA|KAYAK|TRAVEL RESERVATION|PRICELINE|ORBITZ)\b/, item: 'Domestic Travel - Airfare - Support', dept: 'Support : Sales' },
+  { re: /\b(HOTEL|MARRIOTT|HILTON|HYATT|WESTIN|SHERATON|INN|RESORT|LODGING|AIRBNB|MOTEL)\b/, item: 'Domestic Travel - Hotel/Lodging - Support', dept: 'Support : Marketing' },
+  { re: /\b(RESTAURANT|CAFE|COFFEE|STARBUCKS|PIZZA|GRILL|DINER|DOORDASH|GRUBHUB|SEAMLESS|TRADER JOE S?|WHOLE ?FOODS?|WHOLEFDS|DELI|BAKERY|CHIPOTLE|SWEETGREEN|JUICE|CATERING|SNACK|SNACKS)\b/, item: 'Office Snacks & Meals', dept: 'Support : Admin' },
+  { re: /\b(LINKEDIN|FACEBK|FACEBOOK|META PLATFORMS?|GOOGLE ADS|ADWORDS|ADVERT|ADVERTISING|MARKETING|MAILCHIMP|HUBSPOT|SEMRUSH|AHREFS|CANVA|EVENTBRITE|WEBINAR|SEMINAR|CONFERENCE|CONFRENCE|SUMMIT|EXPO)\b/, item: 'Advertising & Marketing - Misc', dept: 'Support : Marketing' },
+  { re: /\b(OPENAI|CHATGPT|ANTHROPIC|CLAUDE|GITHUB|GITLAB|ATLASSIAN|JIRA|SLACK|ZOOM|NOTION|FIGMA|AWS|AMAZON WEB|AZURE|GOOGLE CLOUD|GCP|DIGITALOCEAN|HEROKU|NETLIFY|VERCEL|DOMAIN|GODADDY|NAMECHEAP|HOSTING|SOFTWARE|SUBSCRIPTION|SUBS|LICENSE|LICENCE|SAAS|AI|IO|CLOUD|DATADOG|SENTRY|MONGODB|TWILIO|SENDGRID|APP)\b/, item: 'Software License  expense - miscellaneous', dept: 'Support : IT' },
+  { re: /\b(BANK|FEE|FEES|INTEREST|FINANCE CHARGE|WIRE)\b/, item: 'Bank Charges & Fees', dept: 'Support : Finance' },
+];
+const TOKEN_STOP = new Set(['APLPAY', 'PAYPAL', 'BILL', 'WWW', 'COM', 'INC', 'LLC', 'CORP', 'LTD']);
+
+function buildClassifier(mem, itemList, vendorList, deptList){
+  const agg = buildAggregates(mem);
+  const itemSet = new Set(itemList), deptSet = new Set(deptList), vendorSet = new Set(vendorList);
+  const MISC = vendorList.find(v => /^MISCELLANEOUS VENDORS/i.test(v.trim())) || null;
+  const vendorIdx = vendorList
+    .map(v => ({ v, n: normDesc(v) }))
+    .filter(e => e.n.length >= 4 && !/MISCELLANEOUS/.test(e.n));
+  const itemIdx = itemList.map(v => ({ v, n: normDesc(v) }));
+  const memKeys = Object.keys(mem.byMerchant).map(k => ({ k, toks: tokens(k), sq: k.replace(/ /g, '') }));
+  const wordIn = (hay, needle) => (' ' + hay + ' ').includes(' ' + needle + ' ');
+
+  const checkedDept = d => (d && deptSet.has(d)) ? d : null;
+  const checkedItem = i => (i && itemSet.has(i)) ? i : null;
+  const checkedVendor = v => (v && vendorSet.has(v)) ? v : null;
+
+  return function classify(desc, ext){
+    const key = merchantKey(desc);
+    const nd = normDesc(desc);
+    const matchText = normDesc(desc + ' ' + (ext || ''));
+
+    // T1/T2 — merchant memory. Ambiguity at merchant level always wins: ask.
+    const entry = mem.byMerchant[key];
+    if (entry){
+      const trips = triplesOf(entry);
+      if (trips.length === 1)
+        return { status: 'auto', tier: 'memory', fill: trips[0], candidates: trips };
+      const exact = triplesOf(mem.byDesc[nd]);
+      const order = exact.length
+        ? [...exact, ...trips.filter(t => !exact.some(e => e.item === t.item && e.vendor === t.vendor && e.dept === t.dept))]
+        : trips;
+      return { status: 'choose', tier: 'memory-ambiguous', fill: null, candidates: order.slice(0, 6) };
+    }
+
+    // T3 — near match against known merchant keys (token containment / squashed)
+    if (key.length >= 4){
+      const kt = tokens(key), sq = key.replace(/ /g, '');
+      const near = memKeys.filter(({ toks, sq: s2 }) => {
+        const tokCont = kt.every(t => toks.includes(t)) || toks.every(t => kt.includes(t));
+        const sqCont = sq.length >= 5 && s2.length >= 5 && (sq.includes(s2) || s2.includes(sq));
+        return tokCont || sqCont;
+      });
+      if (near.length){
+        const all = [];
+        for (const { k } of near)
+          for (const t of triplesOf(mem.byMerchant[k])){
+            const hit = all.find(x => x.item === t.item && x.vendor === t.vendor && x.dept === t.dept);
+            if (hit) hit.count += t.count; else all.push({ ...t });
+          }
+        all.sort((a, b) => b.count - a.count);
+        if (all.length === 1) return { status: 'fuzzy', tier: 'near:' + near[0].k, fill: all[0], candidates: all };
+        return { status: 'choose', tier: 'near-ambiguous', fill: null, candidates: all.slice(0, 6) };
+      }
+    }
+
+    // T4 — vendor name appears in the text
+    let vbest = null;
+    for (const e of vendorIdx)
+      if (wordIn(matchText, e.n) && (!vbest || e.n.length > vbest.n.length)) vbest = e;
+    if (vbest){
+      const vendor = vbest.v;
+      let item = checkedItem(agg.top(agg.vendorItem, vendor));
+      if (!item){
+        const withTok = itemIdx.filter(e => wordIn(e.n, vbest.n));
+        item = (withTok.find(e => /SUBSCRIPTION|SUBCRIPTION|LICENSE/.test(e.n)) || withTok[0])?.v || null;
+      }
+      const dept = checkedDept(agg.top(agg.itemDept, item)) || checkedDept(agg.top(agg.vendorDept, vendor));
+      return { status: 'guess', tier: 'vendor-token:' + vendor, fill: { item, vendor, dept }, candidates: [] };
+    }
+
+    // T5 — a strong description token appears inside an item name
+    let tbest = null;
+    for (const tok of new Set(tokens(matchText)))
+      if (tok.length >= 5 && !TOKEN_STOP.has(tok)){
+        const hits = itemIdx.filter(e => wordIn(e.n, tok));
+        if (hits.length >= 1 && hits.length <= 3 && (!tbest || tok.length > tbest.tok.length))
+          tbest = { tok, item: hits[0].v };
+      }
+    if (tbest){
+      const item = tbest.item;
+      const vendor = checkedVendor(agg.top(agg.itemVendor, item)) || MISC;
+      const dept = checkedDept(agg.top(agg.itemDept, item));
+      return { status: 'guess', tier: 'item-token:' + tbest.tok, fill: { item, vendor, dept }, candidates: [] };
+    }
+
+    // T6 — keyword rules
+    for (const r of KEYWORD_RULES)
+      if (r.re.test(matchText) && itemSet.has(r.item)){
+        const item = r.item;
+        const vendor = checkedVendor(agg.top(agg.itemVendor, item)) || MISC;
+        const dept = checkedDept(agg.top(agg.itemDept, item)) || checkedDept(r.dept);
+        return { status: 'guess', tier: 'keyword', fill: { item, vendor, dept }, candidates: [] };
+      }
+
+    // T7 — nothing to go on
+    return { status: 'guess', tier: 'fallback', fill: { item: null, vendor: MISC, dept: null }, candidates: [] };
+  };
+}
+
+/* ---------- writing ---------- */
+/* Surgical in-place patch of a worksheet XML: only the addressed cells are
+   rewritten (as inline strings); every other byte of the sheet is untouched. */
+function patchSheetXml(xml, editsByRow, styleByCol){
+  const missing = new Set(editsByRow.keys());
+  const out = xml.replace(/<row\b[^>]*?\br="(\d+)"[^>]*?(?:\/>|>([\s\S]*?)<\/row>)/g, (whole, rStr, inner) => {
+    const rn = +rStr; const edits = editsByRow.get(rn);
+    if (!edits) return whole;
+    missing.delete(rn);
+    let openTag = whole.slice(0, whole.indexOf('>') + 1);
+    if (openTag.endsWith('/>')){ openTag = openTag.slice(0, -2) + '>'; inner = ''; }
+    const byCol = new Map(); let cm;
+    const cellRe = /<c\b[^>]*?(?:\/>|>[\s\S]*?<\/c>)/g;
+    while ((cm = cellRe.exec(inner || ''))){
+      const ref = /\br="([A-Z]+)\d+"/.exec(cm[0]);
+      if (!ref) return whole;                       // unexpected shape — leave row untouched
+      byCol.set(colIndex(ref[1]), cm[0]);
+    }
+    for (const [ci, val] of edits){
+      const ref = colLetter(ci) + rn;
+      const prev = byCol.get(ci);
+      let sAttr = '';
+      const sm = prev && /\bs="(\d+)"/.exec(prev);
+      if (sm) sAttr = ` s="${sm[1]}"`;
+      else if (styleByCol.has(ci)) sAttr = ` s="${styleByCol.get(ci)}"`;
+      byCol.set(ci, (val == null || val === '')
+        ? `<c r="${ref}"${sAttr}/>`
+        : `<c r="${ref}"${sAttr} t="inlineStr"><is><t xml:space="preserve">${xmlEscape(val)}</t></is></c>`);
+    }
+    const cells = [...byCol.entries()].sort((a, b) => a[0] - b[0]).map(e => e[1]).join('');
+    return openTag + cells + '</row>';
+  });
+  if (missing.size) throw new Error('Rows not found in sheet XML: ' + [...missing].join(', '));
+  return out;
+}
+/* style hints: per target column, the s= attribute most used by existing cells */
+function styleHints(xml, colIdxs){
+  const counts = new Map(colIdxs.map(c => [c, new Map()]));
+  let m; const re = /<c\b([^>]*?)(?:\/>|>[\s\S]*?<\/c>)/g;
+  while ((m = re.exec(xml))){
+    const ref = /\br="([A-Z]+)\d+"/.exec(m[1]); if (!ref) continue;
+    const ci = colIndex(ref[1]); if (!counts.has(ci)) continue;
+    const s = /\bs="(\d+)"/.exec(m[1]); if (!s) continue;
+    const c = counts.get(ci); c.set(s[1], (c.get(s[1]) || 0) + 1);
+  }
+  const out = new Map();
+  for (const [ci, c] of counts){
+    let best = null, bc = -1; for (const [v, n] of c) if (n > bc){ best = v; bc = n; }
+    if (best !== null) out.set(ci, best);
+  }
+  return out;
+}
+function ensureFullCalc(wbXml){
+  if (/<calcPr\b[^>]*\bfullCalcOnLoad="1"/.test(wbXml)) return wbXml;
+  if (/<calcPr\b/.test(wbXml)) return wbXml.replace(/<calcPr\b/, '<calcPr fullCalcOnLoad="1" ');
+  if (/<\/definedNames>/.test(wbXml)) return wbXml.replace('</definedNames>', '</definedNames><calcPr fullCalcOnLoad="1"/>');
+  return wbXml.replace('</sheets>', '</sheets><calcPr fullCalcOnLoad="1"/>');
+}
+
+/* ---------- seed memory (generated from the 20 May 26 uploader file) ---------- */
+const seedEl = (typeof document !== 'undefined') && document.getElementById && document.getElementById('cc-seed');
+const SEED = JSON.parse(seedEl ? seedEl.textContent : globalThis.CC_SEED_JSON);
+
+globalThis.CC = {
+  crc32, inflateRaw, deflateRaw, zipOpen, zipRepack,
+  xmlEscape, xmlUnescape, colIndex, colLetter,
+  parseSharedStrings, parseSheetCells, openWorkbook,
+  detectLayout, columnList,
+  SEP, normDesc, merchantKey, tokens, mergeMemory, triplesOf,
+  buildClassifier, patchSheetXml, styleHints, ensureFullCalc, SEED
+};
+})();
+</script>
+
+
+<script>
+/* ============================================================
+   UI layer
+   ============================================================ */
+(function(){
+'use strict';
+const CC = globalThis.CC;
+const $ = id => document.getElementById(id);
+const MEM_KEY = 'ccAutofillMemory.v1';
+
+if (typeof DecompressionStream === 'undefined'){
+  $('err').style.display = 'block';
+  $('err').textContent = 'This browser is too old for CC AutoFill — it needs Chrome/Edge 88+, Safari 16.4+ or Firefox 113+.';
+}
+
+/* ---------- memory ---------- */
+function loadLearned(){
+  try { return JSON.parse(localStorage.getItem(MEM_KEY) || 'null') || { byDesc:{}, byMerchant:{} }; }
+  catch { return { byDesc:{}, byMerchant:{} }; }
+}
+function saveLearned(m){
+  try { localStorage.setItem(MEM_KEY, JSON.stringify(m)); return true; }
+  catch { return false; }
+}
+let learned = loadLearned();
+const memory = () => CC.mergeMemory(CC.SEED, learned);
+function memStats(){
+  const m = memory();
+  const lm = Object.keys(learned.byMerchant || {}).length;
+  $('memstats').innerHTML = `memory: <b>${Object.keys(m.byMerchant).length}</b> merchants · <b>${Object.keys(m.byDesc).length}</b> exact texts · learned here: <b>${lm}</b>`;
+}
+memStats();
+
+$('btnExport').onclick = () => {
+  const blob = new Blob([JSON.stringify({ format:'cc-autofill-memory@1', exported:new Date().toISOString(), ...memory() }, null, 1)], { type:'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = 'cc-autofill-memory.json'; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+};
+$('btnImport').onclick = () => $('memfile').click();
+$('memfile').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try {
+    const j = JSON.parse(await f.text());
+    if (!j.byMerchant) throw new Error('no byMerchant section');
+    learned = CC.mergeMemory(learned, { byDesc: j.byDesc || {}, byMerchant: j.byMerchant });
+    saveLearned(learned); memStats();
+    toast(`Imported memory — now ${Object.keys(memory().byMerchant).length} merchants known.`);
+  } catch (err){ toast('Import failed: ' + err.message, true); }
+  e.target.value = '';
+};
+$('btnReset').onclick = () => {
+  if (!confirm('Forget everything learned in this browser? (The built-in seed memory stays.)')) return;
+  learned = { byDesc:{}, byMerchant:{} }; saveLearned(learned); memStats();
+  toast('Learned memory cleared.');
+};
+
+/* ---------- state ---------- */
+let S = null;   // { fileName, bytes, zip, wb, sheetPath, sheetXml, layout, lists, classify, rows[] }
+let filter = 'all';
+
+function toast(msg, bad){
+  const t = $('toast'); t.textContent = msg;
+  t.style.borderColor = bad ? 'var(--red)' : 'var(--green-d)';
+  t.style.display = 'block';
+  clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', 5000);
+}
+function fail(msg){
+  $('err').style.display = 'block'; $('err').textContent = msg;
+  $('main').style.display = 'none'; $('bar').style.display = 'none';
+}
+
+/* ---------- load ---------- */
+const drop = $('drop');
+drop.onclick = () => $('file').click();
+drop.ondragover = e => { e.preventDefault(); drop.classList.add('hover'); };
+drop.ondragleave = () => drop.classList.remove('hover');
+drop.ondrop = e => { e.preventDefault(); drop.classList.remove('hover');
+  const f = e.dataTransfer.files[0]; if (f) loadFile(f); };
+$('file').onchange = e => { const f = e.target.files[0]; if (f) loadFile(f); e.target.value = ''; };
+
+async function loadFile(f){
+  $('err').style.display = 'none';
+  try {
+    const bytes = new Uint8Array(await f.arrayBuffer());
+    const zip = CC.zipOpen(bytes);
+    const wb = await CC.openWorkbook(zip);
+    const td = await wb.grid('Transaction Details');
+    if (!td) throw new Error("No sheet named 'Transaction Details' in this file. Sheets found: " + wb.sheets.map(s => s.name).join(', '));
+    const layout = CC.detectLayout(td.rows);
+
+    const dep = await wb.grid('Departments');
+    const im  = await wb.grid('Item Master');
+    const vm  = await wb.grid('Vendor master');
+    if (!dep || !im) throw new Error("Reference sheet missing — need 'Departments' and 'Item Master'.");
+    const deptList = CC.columnList(dep.rows, 1, 1);            // Departments!A
+    const itemList = CC.columnList(im.rows, 2, 1);             // Item Master!B
+    let vendorList, vendorSrc;
+    if (vm){ vendorList = CC.columnList(vm.rows, 9, 1); vendorSrc = 'Vendor master!I'; }   // the column the workbook's own dropdown uses
+    else   { vendorList = [...new Set(CC.columnList(im.rows, 3, 1))]; vendorSrc = 'Item Master!C (Vendor master sheet not found)'; }
+
+    const classify = CC.buildClassifier(memory(), itemList, vendorList, deptList);
+
+    const rows = layout.dataRows.map(rn => {
+      const C = td.rows.get(rn);
+      const get = ci => ci ? (C.get(ci) ?? null) : null;
+      const desc = String(get(layout.cDesc));
+      const existing = {
+        item:   typeof get(layout.cItem)   === 'string' ? get(layout.cItem)   : null,
+        vendor: typeof get(layout.cVendor) === 'string' ? get(layout.cVendor) : null,
+        dept:   typeof get(layout.cDept)   === 'string' ? get(layout.cDept)   : null,
+      };
+      const row = {
+        rn, desc,
+        ext: typeof get(layout.cExt) === 'string' ? get(layout.cExt) : '',
+        member: typeof get(layout.cMember) === 'string' ? get(layout.cMember) : '',
+        date: get(layout.cDate), amount: get(layout.cAmount),
+        existing, fill: { ...existing }, candidates: [], tier: '', touched: false,
+      };
+      if (existing.item && existing.vendor && existing.dept){
+        row.status = 'kept';
+      } else {
+        const r = classify(desc, row.ext);
+        row.status = r.status; row.tier = r.tier; row.candidates = r.candidates;
+        if (r.fill) for (const k of ['item', 'vendor', 'dept'])
+          if (!row.fill[k] && r.fill[k]) row.fill[k] = r.fill[k];
+      }
+      return row;
+    });
+
+    S = { fileName: f.name, bytes, zip, wb, sheetPath: td.path, sheetXml: td.xml,
+          layout, deptList, itemList, vendorList, rows };
+
+    fillDatalist('dl-items', itemList); fillDatalist('dl-vendors', vendorList); fillDatalist('dl-depts', deptList);
+    $('fileinfo').textContent =
+      `${f.name} — ${rows.length} transactions · headers on row ${layout.headerRow} · ` +
+      `Description=${CC.colLetter(layout.cDesc)}, Item=${CC.colLetter(layout.cItem)}, Vendor=${CC.colLetter(layout.cVendor)}, Dept=${CC.colLetter(layout.cDept)} · ` +
+      `lists: ${itemList.length} items, ${vendorList.length} vendors (${vendorSrc}), ${deptList.length} departments`;
+    $('main').style.display = 'block'; $('bar').style.display = 'block';
+    render();
+    const nAuto = rows.filter(r => r.status === 'auto').length;
+    toast(`Loaded. ${nAuto} of ${rows.length} rows auto-filled from memory.`);
+  } catch (err){
+    console.error(err);
+    fail('Could not process this file.\n\n' + err.message);
+  }
+}
+function fillDatalist(id, list){
+  $(id).innerHTML = [...list].sort((a, b) => a.localeCompare(b))
+    .map(v => `<option value="${CC.xmlEscape(v)}">`).join('');
+}
+
+/* ---------- render ---------- */
+const FIELD_LIST = { item: 'dl-items', vendor: 'dl-vendors', dept: 'dl-depts' };
+const CHIP = { auto:'AUTO', kept:'KEPT', guess:'GUESS', fuzzy:'NEAR', choose:'CHOOSE', done:'OK' };
+
+function counts(){
+  const c = { all: S.rows.length, auto:0, guess:0, choose:0, kept:0, done:0, flag:0 };
+  for (const r of S.rows){
+    if (r.status === 'fuzzy') c.guess++; else c[r.status]++;
+    if (r.status === 'guess' || r.status === 'fuzzy' || r.status === 'choose') c.flag++;
+  }
+  return c;
+}
+function fmtAmount(a){
+  return typeof a === 'number' ? a.toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 }) : (a ?? '');
+}
+function fmtDate(d){
+  if (typeof d === 'number'){ const t = new Date(Date.UTC(1899, 11, 30) + d * 86400000);
+    return String(t.getUTCMonth() + 1).padStart(2, '0') + '/' + String(t.getUTCDate()).padStart(2, '0') + '/' + t.getUTCFullYear(); }
+  return d ?? '';
+}
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]); }
+
+function render(){
+  const c = counts();
+  $('cAll').textContent = c.all; $('cAuto').textContent = c.auto + c.done;
+  $('cGuess').textContent = c.guess; $('cChoose').textContent = c.choose; $('cKept').textContent = c.kept;
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.f === filter));
+  $('barnote').textContent = c.flag
+    ? `${c.choose} row(s) need a choice, ${c.guess} guess(es) to verify — you can still download; unresolved rows are left blank.`
+    : 'All rows resolved. Only Item / Vendor / Department cells are written — formulas, sheets & dropdowns untouched.';
+
+  const show = r =>
+    filter === 'all' ? true :
+    filter === 'flag' ? (r.status === 'guess' || r.status === 'fuzzy' || r.status === 'choose') :
+    filter === 'auto' ? r.status === 'auto' :
+    filter === 'kept' ? r.status === 'kept' :
+    filter === 'done' ? r.status === 'done' : true;
+
+  const html = [];
+  S.rows.forEach((r, i) => {
+    if (!show(r)) return;
+    const cell = (f) => {
+      const v = r.fill[f];
+      return `<div class="cellv ${v ? '' : 'empty'}" data-i="${i}" data-f="${f}" title="click to edit">${v ? esc(v) : '— pick —'}</div>`;
+    };
+    const verify = (r.status === 'guess' || r.status === 'fuzzy')
+      ? `<br><button class="okbtn" data-verify="${i}">✓ verify</button>` : '';
+    html.push(`<tr class="r-${r.status}">
+      <td class="num">${r.rn}</td>
+      <td class="num" style="white-space:nowrap">${esc(fmtDate(r.date))}</td>
+      <td class="desc"><div class="m">${esc(r.desc)}</div>
+        ${r.member ? `<div class="sub">${esc(r.member)}</div>` : ''}
+        ${r.ext ? `<details><summary>details</summary><pre>${esc(r.ext)}</pre></details>` : ''}</td>
+      <td class="amt num">${esc(fmtAmount(r.amount))}</td>
+      <td>${cell('item')}</td><td>${cell('vendor')}</td><td>${cell('dept')}</td>
+      <td><span class="chip ${r.status}">${CHIP[r.status]}</span>${verify}</td>
+    </tr>`);
+    if (r.status === 'choose' && r.candidates.length){
+      const btns = r.candidates.map((t, j) =>
+        `<button class="cand" data-i="${i}" data-c="${j}">use <b>${esc(t.item)}</b> · ${esc(t.vendor)} · ${esc(t.dept)}<span class="x">seen ×${t.count}</span></button>`).join('');
+      html.push(`<tr class="cands"><td></td><td colspan="7">This merchant was booked differently before — pick for this row:${btns}</td></tr>`);
+    }
+  });
+  $('tbody').innerHTML = html.join('');
+}
+
+document.querySelectorAll('.tab').forEach(t => t.onclick = () => { filter = t.dataset.f; render(); });
+
+/* ---------- editing ---------- */
+$('tbody').addEventListener('click', e => {
+  const v = e.target.closest('.cellv');
+  if (v) return editCell(+v.dataset.i, v.dataset.f, v);
+  const cand = e.target.closest('.cand');
+  if (cand){
+    const r = S.rows[+cand.dataset.i], t = r.candidates[+cand.dataset.c];
+    r.fill = { item: t.item, vendor: t.vendor, dept: t.dept };
+    r.status = 'done'; r.touched = true;
+    offerSameMerchant(r); render(); return;
+  }
+  const ver = e.target.closest('[data-verify]');
+  if (ver){ const r = S.rows[+ver.dataset.verify]; r.status = 'done'; r.touched = true; render(); }
+});
+
+function editCell(i, f, el){
+  const r = S.rows[i];
+  const inp = document.createElement('input');
+  inp.className = 'editin'; inp.value = r.fill[f] || '';
+  inp.setAttribute('list', FIELD_LIST[f]);
+  el.replaceWith(inp); inp.focus(); inp.select();
+  let done = false;
+  const commit = () => {
+    if (done) return; done = true;
+    const val = inp.value.trim();
+    const list = f === 'item' ? S.itemList : f === 'vendor' ? S.vendorList : S.deptList;
+    if (val && !list.includes(val)){
+      const m = list.find(x => x.toLowerCase() === val.toLowerCase());
+      if (m) r.fill[f] = m;
+      else { toast(`"${val}" is not in the ${f} list — not saved (pick from the dropdown).`, true); render(); return; }
+    } else r.fill[f] = val || null;
+    if (val) { r.status = 'done'; r.touched = true; }
+    offerSameMerchant(r);
+    render();
+  };
+  inp.onchange = commit; inp.onblur = commit;
+  inp.onkeydown = ev => { if (ev.key === 'Enter') commit(); if (ev.key === 'Escape'){ done = true; render(); } };
+}
+
+function offerSameMerchant(r){
+  if (!(r.fill.item && r.fill.vendor && r.fill.dept)) return;
+  const key = CC.merchantKey(r.desc);
+  const others = S.rows.filter(o => o !== r && CC.merchantKey(o.desc) === key
+    && (o.status === 'choose' || o.status === 'guess' || o.status === 'fuzzy'));
+  if (!others.length) return;
+  if (confirm(`Apply the same Item / Vendor / Department to ${others.length} other unresolved row(s) of "${key}"?`))
+    for (const o of others){ o.fill = { ...r.fill }; o.status = 'done'; o.touched = true; }
+}
+
+$('btnVerifyAll').onclick = () => {
+  let n = 0;
+  for (const r of S.rows)
+    if ((r.status === 'guess' || r.status === 'fuzzy') && r.fill.item && r.fill.vendor && r.fill.dept){
+      r.status = 'done'; r.touched = true; n++;
+    }
+  render(); toast(n ? `Verified ${n} guessed row(s).` : 'No complete guesses to verify.');
+};
+
+/* ---------- download ---------- */
+$('btnDownload').onclick = async () => {
+  if (!S) return;
+  const c = counts();
+  if (c.flag && !confirm(`${c.flag} row(s) are still flagged (${c.choose} unchosen, ${c.guess} unverified guesses). Download anyway? Unresolved cells stay blank.`)) return;
+  try {
+    const L = S.layout;
+    const editsByRow = new Map();
+    for (const r of S.rows){
+      const m = new Map();
+      const want = { [L.cItem]: r.fill.item, [L.cVendor]: r.fill.vendor, [L.cDept]: r.fill.dept };
+      const had  = { [L.cItem]: r.existing.item, [L.cVendor]: r.existing.vendor, [L.cDept]: r.existing.dept };
+      for (const ci of [L.cItem, L.cVendor, L.cDept])
+        if ((want[ci] || null) !== (had[ci] || null)) m.set(+ci, want[ci] || null);
+      if (m.size) editsByRow.set(r.rn, m);
+    }
+    const hints = CC.styleHints(S.sheetXml, [L.cItem, L.cVendor, L.cDept]);
+    const newSheet = CC.patchSheetXml(S.sheetXml, editsByRow, hints);
+    const newWb = CC.ensureFullCalc(S.wb.wbXml);
+    const repl = new Map([[S.sheetPath, new TextEncoder().encode(newSheet)]]);
+    if (newWb !== S.wb.wbXml) repl.set('xl/workbook.xml', new TextEncoder().encode(newWb));
+    const out = await CC.zipRepack(S.zip, repl);
+
+    // learn from confirmed rows
+    let newKeys = 0;
+    for (const r of S.rows){
+      if (!(r.fill.item && r.fill.vendor && r.fill.dept)) continue;
+      if (!(r.status === 'kept' || r.status === 'auto' || r.status === 'done')) continue;
+      const triple = r.fill.item + CC.SEP + r.fill.vendor + CC.SEP + r.fill.dept;
+      const mk = CC.merchantKey(r.desc), nd = CC.normDesc(r.desc);
+      if (!(learned.byMerchant[mk]?.[triple]) && !(CC.SEED.byMerchant[mk]?.[triple])) newKeys++;
+      (learned.byMerchant[mk] ||= {})[triple] = Math.min(999, (learned.byMerchant[mk][triple] || 0) + 1);
+      (learned.byDesc[nd] ||= {})[triple] = Math.min(999, (learned.byDesc[nd][triple] || 0) + 1);
+    }
+    const persisted = saveLearned(learned); memStats();
+
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+    a.download = S.fileName.replace(/\.xlsx$/i, '') + ' (autofilled).xlsx';
+    a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+    toast(`Saved "${a.download}". ${editsByRow.size} row(s) updated · learned ${newKeys} new mapping(s)` +
+          (persisted ? '.' : ' — but this browser blocks localStorage, memory will not survive a reload!'), !persisted);
+  } catch (err){
+    console.error(err); toast('Write failed: ' + err.message, true);
+  }
+};
+})();
+</script>
+</body>
+</html>
