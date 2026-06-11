@@ -313,6 +313,12 @@ html,body{height:100%;font-family:'DM Sans',system-ui,sans-serif;background:var(
   .cards{grid-template-columns:repeat(2,1fr)}
   .sv-table td.sv-label,.sv-table th:first-child{min-width:180px}
 }
+.far-num-cell{text-align:right;padding:4px 5px;border:1px solid var(--border);background:var(--surface2);color:var(--text);width:90px;font-size:10px}
+.far-text-cell{padding:4px 5px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:10px;width:100%}
+.far-select-cell{padding:4px 5px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:10px}
+.far-calc-cell{text-align:right;padding:4px 8px;background:#1a2a1a;color:#4caf50;font-size:10px;white-space:nowrap;font-family:monospace}
+td.far-td{border:1px solid var(--border);padding:2px 3px;vertical-align:middle}
+tr.far-tr:nth-child(even){background:rgba(255,255,255,0.02)}
 </style>
 </head>
 <body>
@@ -390,6 +396,8 @@ html,body{height:100%;font-family:'DM Sans',system-ui,sans-serif;background:var(
       <div class="side-group" style="border-left:3px solid var(--gold);padding-left:8px">
         <div class="side-title" style="color:var(--gold2)">Statutory Reports</div>
         <div class="side-item" onclick="nav('sched3')"><span class="side-icon">📋</span>Schedule III Drafting</div>
+        <div class="side-item" onclick="nav('far')"><span class="side-icon">🏭</span>Fixed Asset Register</div>
+        <div class="side-item" onclick="nav('far')"><span class="side-icon">🏭</span>Fixed Asset Register</div>
       </div>
       <div class="side-group">
         <div class="side-title">Overview</div>
@@ -1000,6 +1008,57 @@ html,body{height:100%;font-family:'DM Sans',system-ui,sans-serif;background:var(
         </div>
       </div>
 
+      <div class="panel" id="panel-far">
+        <div class="page-header">
+          <div class="page-title">Fixed Asset Register (FAR)</div>
+          <div class="page-sub">Complete depreciation working — asset-wise gross block, additions, disposals, write-offs and net block</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+          <button class="btn btn-teal btn-sm" onclick="farAddRow()">+ Add Asset</button>
+          <button class="btn btn-gold btn-sm" onclick="loadFARSample()">&#9654; Load Sample</button>
+          <button class="btn btn-teal btn-sm" onclick="farRecalcAll()">&#8635; Recalculate All</button>
+          <button class="btn btn-ghost btn-sm" onclick="exportFARExcel()">&#8595; Export FAR Excel</button>
+          <span style="color:var(--muted);font-size:11px;margin-left:4px">Default Method:</span>
+          <select id="farDefaultMethod" class="compact-select" style="font-size:11px;padding:4px 8px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:4px">
+            <option value="WDV">WDV (Written Down Value)</option>
+            <option value="SLM">SLM (Straight Line Method)</option>
+          </select>
+        </div>
+        <div style="overflow-x:auto;border-radius:8px;border:1px solid var(--border)">
+          <table id="farTable" style="width:100%;border-collapse:collapse;font-size:11px;min-width:1400px">
+            <thead>
+              <tr style="background:#1F4E79;color:#fff">
+                <th rowspan="2" style="padding:8px 6px;text-align:center;white-space:nowrap;border:1px solid #2E75B6">S.No</th>
+                <th rowspan="2" style="padding:8px 6px;min-width:160px;border:1px solid #2E75B6">Asset Name</th>
+                <th rowspan="2" style="padding:8px 6px;min-width:120px;border:1px solid #2E75B6">Category</th>
+                <th rowspan="2" style="padding:8px 6px;white-space:nowrap;border:1px solid #2E75B6">Date of Acq.</th>
+                <th colspan="5" style="padding:8px 6px;text-align:center;border:1px solid #2E75B6;background:#154360">GROSS BLOCK</th>
+                <th rowspan="2" style="padding:8px 6px;white-space:nowrap;border:1px solid #2E75B6">Method</th>
+                <th rowspan="2" style="padding:8px 6px;white-space:nowrap;border:1px solid #2E75B6">Rate %</th>
+                <th colspan="4" style="padding:8px 6px;text-align:center;border:1px solid #2E75B6;background:#154360">ACCUMULATED DEPRECIATION</th>
+                <th colspan="2" style="padding:8px 6px;text-align:center;border:1px solid #2E75B6;background:#154360">NET BLOCK</th>
+                <th rowspan="2" style="padding:8px 6px;border:1px solid #2E75B6"></th>
+              </tr>
+              <tr style="background:#2E75B6;color:#fff;font-size:10px">
+                <th style="padding:6px 4px;text-align:right;border:1px solid #3a8cc7">Opening</th>
+                <th style="padding:6px 4px;text-align:right;border:1px solid #3a8cc7">Additions</th>
+                <th style="padding:6px 4px;text-align:right;border:1px solid #3a8cc7">Disposals</th>
+                <th style="padding:6px 4px;text-align:right;border:1px solid #3a8cc7">Write Off</th>
+                <th style="padding:6px 4px;text-align:right;border:1px solid #3a8cc7">Closing</th>
+                <th style="padding:6px 4px;text-align:right;border:1px solid #3a8cc7">Opening</th>
+                <th style="padding:6px 4px;text-align:right;border:1px solid #3a8cc7">For Year</th>
+                <th style="padding:6px 4px;text-align:right;border:1px solid #3a8cc7">On Disp/WO</th>
+                <th style="padding:6px 4px;text-align:right;border:1px solid #3a8cc7">Closing</th>
+                <th style="padding:6px 4px;text-align:right;border:1px solid #3a8cc7">Opening</th>
+                <th style="padding:6px 4px;text-align:right;border:1px solid #3a8cc7">Closing</th>
+              </tr>
+            </thead>
+            <tbody id="farTbody"></tbody>
+            <tfoot id="farTfoot" style="background:#BDD7EE;font-weight:bold;font-size:11px"></tfoot>
+          </table>
+        </div>
+        <div id="farSummary" style="margin-top:16px"></div>
+      </div>
       <!-- FINANCIAL DRAFTING (SCHEDULE III) PANEL -->
       <div class="panel" id="panel-sched3">
         <div class="page-header flex-between">
@@ -7198,7 +7257,230 @@ function _s3NoteDefs(){
 
 // Build rows for the PPE / depreciation schedule (Note 6).
 // Returns array of row-arrays: [Description, GrossOpen, GrossAdd, GrossDisp, GrossClose, DepOpen, DepYear, DepDisp, DepClose, NetClose, NetPrev]
+// ─── FIXED ASSET REGISTER MODULE ─────────────────────────────────────────────
+window._farData = [];
+var _farNextId = 1;
+
+var FAR_CATS = ['Plant & Machinery','Furniture & Fixtures','Vehicles','Office Equipment',
+  'Computer & IT Equipment','Buildings','Land','Right-of-Use Assets',
+  'Intangible Assets','Capital Work-in-Progress','Other Fixed Assets'];
+
+function farCalcRow(r){
+  r.grC  = (r.grO||0) + (r.add||0) - (r.disp||0) - (r.wo||0);
+  r.nO   = (r.grO||0) - (r.dO||0);
+  var netForDep = r.nO > 0 ? r.nO : 0;
+  var rate = (r.rate||0)/100;
+  if(r.method==='SLM'){
+    r.dY = (r.grO||0)*rate + (r.add||0)*rate*0.5;
+  } else {
+    r.dY = netForDep*rate + (r.add||0)*rate*0.5;
+  }
+  r.dY = Math.max(0, r.dY);
+  // Depreciation on disposals/write-offs: proportionate to cost
+  var totalCost = (r.grO||0) + (r.add||0);
+  r.dDisp = totalCost > 0 ? ((r.disp||0)+(r.wo||0)) / totalCost * ((r.dO||0)+r.dY) : 0;
+  r.dDisp = Math.min(r.dDisp, (r.dO||0)+r.dY);
+  r.dC   = (r.dO||0) + r.dY - r.dDisp;
+  r.nC   = r.grC - r.dC;
+  return r;
+}
+
+function farRecalcAll(){
+  window._farData.forEach(farCalcRow);
+  renderFAR();
+}
+
+function farAddRow(){
+  var id = _farNextId++;
+  var r = {id:id, name:'New Asset', cat:'Plant & Machinery', dateAcq:'', grO:0, add:0, disp:0, wo:0,
+           method:'WDV', rate:15, dO:0};
+  farCalcRow(r);
+  window._farData.push(r);
+  renderFAR();
+  setTimeout(function(){ var inp=document.getElementById('far-name-'+id); if(inp){inp.focus();inp.select();} },50);
+}
+
+function farDeleteRow(id){
+  window._farData = window._farData.filter(function(r){ return r.id!==id; });
+  renderFAR();
+}
+
+function farOnChange(id, field, val){
+  var r = window._farData.find(function(r){ return r.id===id; });
+  if(!r) return;
+  if(['grO','add','disp','wo','rate','dO'].indexOf(field)!==-1) r[field]=parseFloat(val)||0;
+  else r[field]=val;
+  farCalcRow(r);
+  renderFAR();
+}
+
+function fmtF(v){ return (v||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+
+function renderFAR(){
+  var tbody = document.getElementById('farTbody');
+  var tfoot = document.getElementById('farTfoot');
+  if(!tbody) return;
+  var html = '';
+  var tot = {grO:0,add:0,disp:0,wo:0,grC:0,dO:0,dY:0,dDisp:0,dC:0,nO:0,nC:0};
+  window._farData.forEach(function(r, idx){
+    var catOpts = FAR_CATS.map(function(c){ return '<option value="'+c+'"'+(r.cat===c?' selected':'')+'>'+c+'</option>'; }).join('');
+    var bg = idx%2===0 ? '' : 'style="background:rgba(255,255,255,0.025)"';
+    html += '<tr class="far-tr" '+bg+'>';
+    html += '<td class="far-td" style="text-align:center;color:var(--muted)">'+(idx+1)+'</td>';
+    html += '<td class="far-td"><input id="far-name-'+r.id+'" class="far-text-cell" value="'+r.name+'" onchange="farOnChange('+r.id+',\'name\',this.value)"></td>';
+    html += '<td class="far-td"><select class="far-select-cell" onchange="farOnChange('+r.id+',\'cat\',this.value)">'+catOpts+'</select></td>';
+    html += '<td class="far-td"><input type="date" class="far-text-cell" style="width:108px" value="'+r.dateAcq+'" onchange="farOnChange('+r.id+',\'dateAcq\',this.value)"></td>';
+    html += '<td class="far-td"><input type="number" class="far-num-cell" value="'+(r.grO||0)+'" onchange="farOnChange('+r.id+',\'grO\',this.value)" min="0"></td>';
+    html += '<td class="far-td"><input type="number" class="far-num-cell" value="'+(r.add||0)+'" onchange="farOnChange('+r.id+',\'add\',this.value)" min="0"></td>';
+    html += '<td class="far-td"><input type="number" class="far-num-cell" value="'+(r.disp||0)+'" onchange="farOnChange('+r.id+',\'disp\',this.value)" min="0"></td>';
+    html += '<td class="far-td"><input type="number" class="far-num-cell" value="'+(r.wo||0)+'" onchange="farOnChange('+r.id+',\'wo\',this.value)" min="0"></td>';
+    html += '<td class="far-td far-calc-cell">'+fmtF(r.grC)+'</td>';
+    html += '<td class="far-td"><select class="far-select-cell" onchange="farOnChange('+r.id+',\'method\',this.value)"><option value="WDV"'+(r.method==='WDV'?' selected':'')+'>WDV</option><option value="SLM"'+(r.method==='SLM'?' selected':'')+'>SLM</option></select></td>';
+    html += '<td class="far-td"><input type="number" class="far-num-cell" style="width:60px" value="'+(r.rate||0)+'" onchange="farOnChange('+r.id+',\'rate\',this.value)" min="0" max="100" step="0.01"></td>';
+    html += '<td class="far-td"><input type="number" class="far-num-cell" value="'+(r.dO||0)+'" onchange="farOnChange('+r.id+',\'dO\',this.value)" min="0"></td>';
+    html += '<td class="far-td far-calc-cell">'+fmtF(r.dY)+'</td>';
+    html += '<td class="far-td far-calc-cell">'+fmtF(r.dDisp)+'</td>';
+    html += '<td class="far-td far-calc-cell">'+fmtF(r.dC)+'</td>';
+    html += '<td class="far-td far-calc-cell">'+fmtF(r.nO)+'</td>';
+    html += '<td class="far-td far-calc-cell">'+fmtF(r.nC)+'</td>';
+    html += '<td class="far-td" style="text-align:center"><button class="btn btn-ghost btn-sm" style="padding:2px 8px;font-size:10px;color:#e57373" onclick="farDeleteRow('+r.id+')">&#10005;</button></td>';
+    html += '</tr>';
+    ['grO','add','disp','wo','grC','dO','dY','dDisp','dC','nO','nC'].forEach(function(k){ tot[k]+=(r[k]||0); });
+  });
+  tbody.innerHTML = html;
+  var tfHtml = '<tr><td colspan="4" style="padding:8px;text-align:right;border:1px solid var(--border)">TOTAL</td>';
+  tfHtml += '<td style="text-align:right;padding:6px 5px;border:1px solid var(--border)">'+fmtF(tot.grO)+'</td>';
+  tfHtml += '<td style="text-align:right;padding:6px 5px;border:1px solid var(--border)">'+fmtF(tot.add)+'</td>';
+  tfHtml += '<td style="text-align:right;padding:6px 5px;border:1px solid var(--border)">'+fmtF(tot.disp)+'</td>';
+  tfHtml += '<td style="text-align:right;padding:6px 5px;border:1px solid var(--border)">'+fmtF(tot.wo)+'</td>';
+  tfHtml += '<td style="text-align:right;padding:6px 5px;border:1px solid var(--border)">'+fmtF(tot.grC)+'</td>';
+  tfHtml += '<td colspan="2" style="border:1px solid var(--border)"></td>';
+  tfHtml += '<td style="text-align:right;padding:6px 5px;border:1px solid var(--border)">'+fmtF(tot.dO)+'</td>';
+  tfHtml += '<td style="text-align:right;padding:6px 5px;border:1px solid var(--border)">'+fmtF(tot.dY)+'</td>';
+  tfHtml += '<td style="text-align:right;padding:6px 5px;border:1px solid var(--border)">'+fmtF(tot.dDisp)+'</td>';
+  tfHtml += '<td style="text-align:right;padding:6px 5px;border:1px solid var(--border)">'+fmtF(tot.dC)+'</td>';
+  tfHtml += '<td style="text-align:right;padding:6px 5px;border:1px solid var(--border)">'+fmtF(tot.nO)+'</td>';
+  tfHtml += '<td style="text-align:right;padding:6px 5px;border:1px solid var(--border)">'+fmtF(tot.nC)+'</td>';
+  tfHtml += '<td style="border:1px solid var(--border)"></td></tr>';
+  tfoot.innerHTML = tfHtml;
+  renderFARSummary(tot);
+}
+
+function renderFARSummary(tot){
+  var el = document.getElementById('farSummary');
+  if(!el) return;
+  var cats = {};
+  window._farData.forEach(function(r){
+    if(!cats[r.cat]) cats[r.cat]={grC:0,dY:0,nC:0};
+    cats[r.cat].grC += r.grC||0;
+    cats[r.cat].dY  += r.dY||0;
+    cats[r.cat].nC  += r.nC||0;
+  });
+  var rows = '';
+  Object.keys(cats).forEach(function(cat){
+    rows += '<tr><td style="padding:6px 10px;border-bottom:1px solid var(--border)">'+cat+'</td>';
+    rows += '<td style="text-align:right;padding:6px 10px;border-bottom:1px solid var(--border)">'+fmtF(cats[cat].grC)+'</td>';
+    rows += '<td style="text-align:right;padding:6px 10px;border-bottom:1px solid var(--border)">'+fmtF(cats[cat].dY)+'</td>';
+    rows += '<td style="text-align:right;padding:6px 10px;border-bottom:1px solid var(--border)">'+fmtF(cats[cat].nC)+'</td></tr>';
+  });
+  el.innerHTML = '<div class="box"><div class="box-title">Category Summary</div>' +
+    '<table style="width:100%;border-collapse:collapse;font-size:12px">' +
+    '<thead><tr style="background:#1F4E79;color:#fff">' +
+    '<th style="padding:8px 10px;text-align:left">Category</th>' +
+    '<th style="padding:8px 10px;text-align:right">Gross Block (Closing)</th>' +
+    '<th style="padding:8px 10px;text-align:right">Dep for Year</th>' +
+    '<th style="padding:8px 10px;text-align:right">Net Block (Closing)</th></tr></thead>' +
+    '<tbody>'+rows+'</tbody>' +
+    '<tfoot><tr style="background:#BDD7EE;font-weight:bold"><td style="padding:8px 10px">TOTAL</td>' +
+    '<td style="text-align:right;padding:8px 10px">'+fmtF(tot.grC)+'</td>' +
+    '<td style="text-align:right;padding:8px 10px">'+fmtF(tot.dY)+'</td>' +
+    '<td style="text-align:right;padding:8px 10px">'+fmtF(tot.nC)+'</td></tr></tfoot>' +
+    '</table></div>';
+}
+
+function loadFARSample(){
+  _farNextId = 1;
+  window._farData = [
+    {id:_farNextId++,name:'Plant & Machinery — Production Unit A',cat:'Plant & Machinery',dateAcq:'2019-04-01',grO:5000000,add:0,disp:0,wo:0,method:'WDV',rate:15,dO:1500000},
+    {id:_farNextId++,name:'Plant & Machinery — Packing Line',cat:'Plant & Machinery',dateAcq:'2021-08-01',grO:3000000,add:0,disp:0,wo:0,method:'WDV',rate:15,dO:600000},
+    {id:_farNextId++,name:'Furniture & Fixtures — Head Office',cat:'Furniture & Fixtures',dateAcq:'2020-06-15',grO:300000,add:0,disp:0,wo:0,method:'WDV',rate:10,dO:60000},
+    {id:_farNextId++,name:'Furniture & Fixtures — Factory',cat:'Furniture & Fixtures',dateAcq:'2022-04-01',grO:200000,add:0,disp:0,wo:0,method:'WDV',rate:10,dO:20000},
+    {id:_farNextId++,name:'Computer & IT Equipment',cat:'Computer & IT Equipment',dateAcq:'2022-10-01',grO:150000,add:0,disp:0,wo:0,method:'SLM',rate:33.33,dO:50000},
+    {id:_farNextId++,name:'Vehicle — MD Car',cat:'Vehicles',dateAcq:'2020-09-01',grO:1200000,add:0,disp:0,wo:0,method:'WDV',rate:15,dO:400000},
+    {id:_farNextId++,name:'Air Conditioners & Electrical',cat:'Office Equipment',dateAcq:'2021-04-01',grO:150000,add:80000,disp:0,wo:0,method:'SLM',rate:10,dO:15000}
+  ];
+  window._farData.forEach(farCalcRow);
+  renderFAR();
+  if(typeof showToast==='function') showToast('Sample FAR loaded — 7 assets. Recalculated depreciation.');
+}
+
+function exportFARExcel(){
+  if(!window.XLSX){alert('XLSX not loaded');return;}
+  var wb2 = XLSX.utils.book_new();
+  var co2 = _s3Company();
+  var fy2 = (S&&S.periods&&S.periods[0])||'FY 2024-25';
+  var sH2 = {font:{bold:true,sz:10,color:{rgb:'FFFFFF'}},fill:{patternType:'solid',fgColor:{rgb:'1F4E79'}},border:{top:{style:'thin'},bottom:{style:'thin'},left:{style:'thin'},right:{style:'thin'}},alignment:{horizontal:'center',vertical:'middle',wrapText:true}};
+  var sD2 = {font:{sz:10},border:{bottom:{style:'hair'},left:{style:'thin'},right:{style:'thin'}}};
+  var sR2 = {font:{sz:10},border:{bottom:{style:'hair'},left:{style:'thin'},right:{style:'thin'}},alignment:{horizontal:'right'},numFmt:'#,##0.00'};
+  var sT2 = {font:{bold:true,sz:10},fill:{patternType:'solid',fgColor:{rgb:'BDD7EE'}},border:{top:{style:'thin'},bottom:{style:'double'},left:{style:'thin'},right:{style:'thin'}}};
+  var sTR2 = {font:{bold:true,sz:10},fill:{patternType:'solid',fgColor:{rgb:'BDD7EE'}},border:{top:{style:'thin'},bottom:{style:'double'},left:{style:'thin'},right:{style:'thin'}},alignment:{horizontal:'right'},numFmt:'#,##0.00'};
+  var ws2 = {};
+  ws2['A1']={t:'s',v:co2,s:{font:{bold:true,sz:14,color:{rgb:'1F4E79'}},alignment:{horizontal:'center'}}};
+  for(var ci2=1;ci2<17;ci2++) ws2[String.fromCharCode(65+ci2)+'1']={t:'s',v:'',s:{font:{bold:true,sz:14}}};
+  ws2['A2']={t:'s',v:'Fixed Asset Register — '+fy2,s:{font:{bold:true,sz:11},alignment:{horizontal:'center'}}};
+  for(var ci3=1;ci3<17;ci3++) ws2[String.fromCharCode(65+ci3)+'2']={t:'s',v:'',s:{font:{sz:11}}};
+  ws2['!merges']=[{s:{r:0,c:0},e:{r:0,c:17}},{s:{r:1,c:0},e:{r:1,c:17}}];
+  var hdrRow1=['S.No','Asset Name','Category','Date Acquired',
+    'Gross Opening','Additions','Disposals','Write Off','Gross Closing',
+    'Method','Rate %','Acc Dep Opening','Dep for Year','Dep on Disp/WO','Acc Dep Closing',
+    'Net Block Opening','Net Block Closing','Useful Life (yrs)'];
+  hdrRow1.forEach(function(h,i){ ws2[String.fromCharCode(65+i)+'3']={t:'s',v:h,s:sH2}; });
+  var dataRow=4;
+  var totals={grO:0,add:0,disp:0,wo:0,grC:0,dO:0,dY:0,dDisp:0,dC:0,nO:0,nC:0};
+  window._farData.forEach(function(r,idx){
+    var rn=dataRow+idx;
+    var vals=[idx+1,r.name,r.cat,r.dateAcq,r.grO,r.add,r.disp,r.wo,r.grC,r.method,(r.rate||0),r.dO,r.dY,r.dDisp,r.dC,r.nO,r.nC,r.rate?Math.round(100/r.rate):'-'];
+    vals.forEach(function(v,ci){
+      var isNum=typeof v==='number';
+      ws2[String.fromCharCode(65+ci)+''+rn]={t:isNum?'n':'s',v:v,s:(isNum&&ci>3)?sR2:sD2};
+    });
+    totals.grO+=r.grO||0;totals.add+=r.add||0;totals.disp+=r.disp||0;totals.wo+=r.wo||0;
+    totals.grC+=r.grC||0;totals.dO+=r.dO||0;totals.dY+=r.dY||0;totals.dDisp+=r.dDisp||0;
+    totals.dC+=r.dC||0;totals.nO+=r.nO||0;totals.nC+=r.nC||0;
+  });
+  var totR=dataRow+window._farData.length;
+  ws2['A'+totR]={t:'s',v:'TOTAL',s:sT2};
+  ws2['B'+totR]={t:'s',v:'',s:sT2};ws2['C'+totR]={t:'s',v:'',s:sT2};ws2['D'+totR]={t:'s',v:'',s:sT2};
+  [totals.grO,totals.add,totals.disp,totals.wo,totals.grC,'','',totals.dO,totals.dY,totals.dDisp,totals.dC,totals.nO,totals.nC,''].forEach(function(v,ci){
+    ws2[String.fromCharCode(69+ci)+''+totR]={t:typeof v==='number'?'n':'s',v:v,s:typeof v==='number'?sTR2:sT2};
+  });
+  ws2['!ref']='A1:R'+totR;
+  ws2['!cols']=[{wch:5},{wch:30},{wch:18},{wch:13},{wch:14},{wch:13},{wch:13},{wch:13},{wch:14},{wch:7},{wch:8},{wch:14},{wch:13},{wch:14},{wch:14},{wch:14},{wch:14},{wch:12}];
+  ws2['!rows']=[{hpt:22},{hpt:18},{hpt:50}];
+  XLSX.utils.book_append_sheet(wb2,ws2,'Fixed Asset Register');
+  var fname2='FAR_'+co2.replace(/\s+/g,'_')+'_'+fy2+'.xlsx';
+  XLSX.writeFile(wb2,fname2);
+  if(typeof showToast==='function') showToast('FAR Excel exported: '+fname2);
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 function _s3PPESched(tb, unitDiv, fy){
+  // If FAR data is loaded, use it (one row per asset — detailed)
+  if(window._farData && window._farData.length > 0){
+    var rows = [];
+    var tot={grO:0,grA:0,grD:0,grC:0,dO:0,dY:0,dDisp:0,dC:0,nC:0,nP:0};
+    window._farData.forEach(function(r){
+      var grO=r.grO/unitDiv, grA=r.add/unitDiv, grD=(r.disp+r.wo)/unitDiv;
+      var grC=r.grC/unitDiv, dO=r.dO/unitDiv, dY=r.dY/unitDiv, dDisp=r.dDisp/unitDiv;
+      var dC=r.dC/unitDiv, nC=r.nC/unitDiv, nP=(r.grO-r.dO)/unitDiv;
+      rows.push([r.name+' ('+r.cat+')', grO, grA, grD, grC, dO, dY, dDisp, dC, nC, nP]);
+      tot.grO+=grO;tot.grA+=grA;tot.grD+=grD;tot.grC+=grC;
+      tot.dO+=dO;tot.dY+=dY;tot.dDisp+=dDisp;tot.dC+=dC;tot.nC+=nC;tot.nP+=nP;
+    });
+    rows.push(['TOTAL',tot.grO,tot.grA,tot.grD,tot.grC,tot.dO,tot.dY,tot.dDisp,tot.dC,tot.nC,tot.nP]);
+    return rows;
+  }
+  // Fallback: group by TB asset categories
   var cats = [
     {label:'Plant & Machinery',       fsLine:'tangible',    cls:'Revenue'},
     {label:'Furniture & Fixtures',    fsLine:'tangible',    cls:'Capital'},
@@ -7208,34 +7490,27 @@ function _s3PPESched(tb, unitDiv, fy){
     {label:'Intangible Assets',       fsLine:'intangible',  cls:''},
     {label:'Capital Work-in-Progress',fsLine:'cwip',        cls:''}
   ];
-  var rows = [];
+  var rows2 = [];
   var totGrO=0,totGrA=0,totGrD=0,totGrC=0,totDO=0,totDY=0,totDD=0,totDC=0,totNC=0,totNP=0;
   cats.forEach(function(c){
     var grO=0,grA=0,grD=0,depY=0;
     tb.forEach(function(r){
       if(r.fsLine!==c.fsLine) return;
       if(c.cls && r.classification!==c.cls) return;
-      grO += (r.opening||0);
-      grA += (r.dr||0);
-      grD += (r.cr||0);
+      grO+=(r.opening||0); grA+=(r.dr||0); grD+=(r.cr||0);
     });
-    // Depreciation: look up the P&L depreciation entry that matches this asset fsLine/cls
     tb.forEach(function(r){
-      if(r.fsLine==='depreciation' && (!c.cls || r.classification===c.cls)){
-        depY += (r.dr||0)-(r.cr||0);
-      }
+      if(r.fsLine==='depreciation'&&(!c.cls||r.classification===c.cls)) depY+=(r.dr||0)-(r.cr||0);
     });
-    var grC = grO+grA-grD;
-    var depO=0, depC=depO+depY;
-    var netC = (grC-depC)/unitDiv;
-    var netP = (grO)/unitDiv;
-    grO/=unitDiv; grA/=unitDiv; grD/=unitDiv; grC/=unitDiv; depO/=unitDiv; depY/=unitDiv; var depD=0; depC/=unitDiv;
+    var grC=grO+grA-grD; var depO=0; var depD2=0; var depC=depO+depY;
+    var netC=(grC-depC)/unitDiv, netP=grO/unitDiv;
+    grO/=unitDiv;grA/=unitDiv;grD/=unitDiv;grC/=unitDiv;depO/=unitDiv;depY/=unitDiv;depC/=unitDiv;
     if(grO===0&&grA===0&&grD===0&&netC===0) return;
-    rows.push([c.label, grO, grA, grD, grC, depO, depY, 0, depC, netC, netP]);
+    rows2.push([c.label,grO,grA,grD,grC,depO,depY,0,depC,netC,netP]);
     totGrO+=grO;totGrA+=grA;totGrD+=grD;totGrC+=grC;totDO+=depO;totDY+=depY;totDC+=depC;totNC+=netC;totNP+=netP;
   });
-  rows.push(['TOTAL',totGrO,totGrA,totGrD,totGrC,totDO,totDY,0,totDC,totNC,totNP]);
-  return rows;
+  rows2.push(['TOTAL',totGrO,totGrA,totGrD,totGrC,totDO,totDY,0,totDC,totNC,totNP]);
+  return rows2;
 }
 
 function _s3RatioRows(tb, unitDiv){
@@ -7313,61 +7588,136 @@ function exportSched3Excel(fw, unitChoice){
   var auditorName = _s3Auditor();
   var tb = window._tbData && window._tbData.length ? window._tbData : [{ledger:'[No Trial Balance loaded — enter ledgers here]',code:'',opening:0,dr:0,cr:0,fsLine:'',noteNo:'',classification:''}];
 
-  // ── Sheet 1: Unit ──
-  var wsU = XLSX.utils.aoa_to_sheet([
+  // ── Style constants (xlsx-js-style) ──
+  var NUM_FMT = '#,##0.00';
+  var sBold = {font:{bold:true,sz:10}};
+  var sHdr  = {font:{bold:true,sz:10,color:{rgb:'FFFFFF'}},fill:{patternType:'solid',fgColor:{rgb:'1F4E79'}},
+               border:{top:{style:'thin'},bottom:{style:'thin'},left:{style:'thin'},right:{style:'thin'}},
+               alignment:{horizontal:'center',vertical:'middle',wrapText:true}};
+  var sNoteTitle = {font:{bold:true,sz:11,color:{rgb:'FFFFFF'}},fill:{patternType:'solid',fgColor:{rgb:'2E75B6'}},
+               border:{bottom:{style:'medium'}},alignment:{vertical:'middle'}};
+  var sSec  = {font:{bold:true,italic:true,sz:10},fill:{patternType:'solid',fgColor:{rgb:'D6E4F0'}},
+               border:{top:{style:'thin'},bottom:{style:'thin'},left:{style:'thin'},right:{style:'thin'}}};
+  var sDat  = {font:{sz:10},border:{bottom:{style:'hair'},left:{style:'thin'},right:{style:'thin'}}};
+  var sDatR = {font:{sz:10},numFmt:'#,##0.00',border:{bottom:{style:'hair'},left:{style:'thin'},right:{style:'thin'}},
+               alignment:{horizontal:'right'}};
+  var sTot  = {font:{bold:true,sz:10},fill:{patternType:'solid',fgColor:{rgb:'BDD7EE'}},
+               border:{top:{style:'thin'},bottom:{style:'double'},left:{style:'thin'},right:{style:'thin'}}};
+  var sTotR = {font:{bold:true,sz:10},numFmt:'#,##0.00',fill:{patternType:'solid',fgColor:{rgb:'BDD7EE'}},
+               border:{top:{style:'thin'},bottom:{style:'double'},left:{style:'thin'},right:{style:'thin'}},
+               alignment:{horizontal:'right'}};
+  var sCo   = {font:{bold:true,sz:14,color:{rgb:'1F4E79'}},alignment:{horizontal:'center',vertical:'middle'}};
+  var sTitleRow = {font:{bold:true,sz:11},alignment:{horizontal:'center',vertical:'middle'}};
+  var sSubTitle = {font:{italic:true,sz:10,color:{rgb:'595959'}},alignment:{horizontal:'center'}};
+  function cs(base, extra){ return Object.assign({}, base, extra); }
+
+  // ── Sheet 1: Unit (helper — formula reference) ──
+  var wsU = {};
+  var uData = [
+    ['Field','Value'],
     ['Company', co],
-    ['Unit divisor (change this to convert all figures)', unitDiv],
-    ['Unit label', unitName],
+    ['Unit Divisor (all formulas divide by this)', unitDiv],
+    ['Unit Label', unitName],
     ['Framework', fw],
-    ['Current year', fy],
-    ['Previous year', fyPrev]
-  ]);
-  wsU['!cols'] = [{wch:48},{wch:24}];
+    ['Current Year', fy],
+    ['Previous Year', fyPrev]
+  ];
+  uData.forEach(function(row, ri){
+    var isHdr = ri===0;
+    row.forEach(function(val, ci){
+      var cell = String.fromCharCode(65+ci) + (ri+1);
+      wsU[cell] = {t: typeof val==='number'?'n':'s', v: val,
+        s: isHdr ? sHdr : (ci===0 ? sBold : sDat)};
+    });
+  });
+  wsU['!ref'] = 'A1:B'+uData.length;
+  wsU['!cols'] = [{wch:50},{wch:28}];
+  wsU['!rows'] = [{hpt:24}];
+  // Make B2 the named cell other sheets reference
   XLSX.utils.book_append_sheet(wb, wsU, 'Unit');
 
-  // ── Sheet 2: Auditor (fill once — referenced by signature blocks) ──
-  var wsAud = XLSX.utils.aoa_to_sheet([
-    ['Company', co],
+  // ── Sheet 2: Auditor details ──
+  var wsAud = {};
+  var audData = [
+    ['Field','Details'],
+    ['Company Name', co],
     ['Audit Firm', auditFirm],
-    ['', 'Chartered Accountants'],
-    ['Firm Regn. No.', ''],
-    ['Auditor / Partner', auditorName],
-    ['Membership No.', ''],
-    ['Place', ''],
-    ['Date', ''],
+    ['Designation', 'Chartered Accountants'],
+    ['Firm Registration No.', ''],
+    ['Partner / Auditor Name', auditorName],
+    ['Membership No. (ICAI)', ''],
+    ['Place of Signing', ''],
+    ['Date of Report', ''],
     ['UDIN', '']
-  ]);
-  wsAud['!cols'] = [{wch:24},{wch:36}];
+  ];
+  audData.forEach(function(row, ri){
+    var isHdr = ri===0;
+    row.forEach(function(val, ci){
+      var cell = String.fromCharCode(65+ci) + (ri+1);
+      wsAud[cell] = {t:'s', v: val||'',
+        s: isHdr ? sHdr : (ci===0 ? sBold : sDat)};
+    });
+  });
+  wsAud['!ref'] = 'A1:B'+audData.length;
+  wsAud['!cols'] = [{wch:32},{wch:44}];
+  wsAud['!rows'] = [{hpt:24}];
   XLSX.utils.book_append_sheet(wb, wsAud, 'Auditor');
 
   // ── Sheet 3: Trial Balance ──
-  var tbAoa = [
-    [co],
-    ['Trial Balance for the year ended ' + fy + ' (mapped to Schedule III)'],
-    [''],
-    ['Ledger Name','Account Code','Opening Balance','Debit','Credit','Closing Balance','FS Line (code)','Note No.','Classification']
+  var wsTB = {};
+  var tbHeaders = ['Ledger Name','Account Code','Opening Balance','Debit','Credit','Closing Balance','FS Line','Note No.','Classification'];
+  // Title rows
+  wsTB['A1'] = {t:'s', v:co, s:sCo};
+  for(var c2=1;c2<9;c2++) wsTB[String.fromCharCode(65+c2)+'1']={t:'s',v:'',s:sCo};
+  wsTB['A2'] = {t:'s', v:'Trial Balance for the year ended '+fy+' — Mapped to Schedule III', s:sTitleRow};
+  for(var c3=1;c3<9;c3++) wsTB[String.fromCharCode(65+c3)+'2']={t:'s',v:'',s:sTitleRow};
+  wsTB['A3'] = {t:'s', v:'(All amounts in '+unitName+')', s:sSubTitle};
+  for(var c4=1;c4<9;c4++) wsTB[String.fromCharCode(65+c4)+'3']={t:'s',v:'',s:sSubTitle};
+  wsTB['!merges'] = [
+    {s:{r:0,c:0},e:{r:0,c:8}},
+    {s:{r:1,c:0},e:{r:1,c:8}},
+    {s:{r:2,c:0},e:{r:2,c:8}}
   ];
-  tb.forEach(function(item){
-    tbAoa.push([item.ledger||'', item.code||'', item.opening||0, item.dr||0, item.cr||0, null, item.fsLine||'', item.noteNo||'', item.classification||'']);
+  // Header row 4
+  tbHeaders.forEach(function(h,i){ wsTB[String.fromCharCode(65+i)+'4']={t:'s',v:h,s:sHdr}; });
+  // Data rows starting at row 5
+  var tbFirst = 5;
+  var tbLast = 4 + tb.length;
+  tb.forEach(function(item, idx){
+    var r = tbFirst + idx;
+    var altFill = idx%2===1 ? {patternType:'solid',fgColor:{rgb:'F5F8FF'}} : undefined;
+    var sD = altFill ? Object.assign({},sDat,{fill:altFill}) : sDat;
+    var sDR = altFill ? Object.assign({},sDatR,{fill:altFill}) : sDatR;
+    wsTB['A'+r]={t:'s',v:item.ledger||'',s:sD};
+    wsTB['B'+r]={t:'s',v:item.code||'',s:sD};
+    wsTB['C'+r]={t:'n',v:item.opening||0,z:NUM_FMT,s:sDR};
+    wsTB['D'+r]={t:'n',v:item.dr||0,z:NUM_FMT,s:sDR};
+    wsTB['E'+r]={t:'n',v:item.cr||0,z:NUM_FMT,s:sDR};
+    var closing2=(item.opening||0)+(item.dr||0)-(item.cr||0);
+    wsTB['F'+r]={t:'n',f:'C'+r+'+D'+r+'-E'+r,v:closing2,z:NUM_FMT,s:sDR};
+    wsTB['G'+r]={t:'s',v:item.fsLine||'',s:sD};
+    wsTB['H'+r]={t:'s',v:item.noteNo||'',s:sD};
+    wsTB['I'+r]={t:'s',v:item.classification||'',s:sD};
   });
-  var tbFirst = 5;                       // first data row (1-based)
-  var tbLast = 4 + tb.length;            // last data row
-  tbAoa.push(['TOTALS','',null,null,null,null,'','','']);
-  tbAoa.push(['Dr = Cr?',null,'','','','','','','']);
-  var wsTB = XLSX.utils.aoa_to_sheet(tbAoa);
-  for(var ri=tbFirst; ri<=tbLast; ri++){
-    var tbIdx = ri - tbFirst;
-    var tbRow = tb[tbIdx] || {};
-    var closing = (tbRow.opening||0) + (tbRow.dr||0) - (tbRow.cr||0);
-    wsTB['F'+ri] = {t:'n', f:'C'+ri+'+D'+ri+'-E'+ri, v: closing, z: NUM_FMT};
-  }
+  // Totals row
   var tbTotRow = tbLast + 1;
-  wsTB['C'+tbTotRow] = {t:'n', f:'SUM(C'+tbFirst+':C'+tbLast+')'};
-  wsTB['D'+tbTotRow] = {t:'n', f:'SUM(D'+tbFirst+':D'+tbLast+')'};
-  wsTB['E'+tbTotRow] = {t:'n', f:'SUM(E'+tbFirst+':E'+tbLast+')'};
-  wsTB['F'+tbTotRow] = {t:'n', f:'SUM(F'+tbFirst+':F'+tbLast+')'};
-  wsTB['B'+(tbTotRow+1)] = {t:'s', f:'IF(ABS(D'+tbTotRow+'-E'+tbTotRow+')<0.01,"Tally OK — Dr equals Cr","MISMATCH: "&TEXT(ABS(D'+tbTotRow+'-E'+tbTotRow+'),"#,##0.00"))'};
-  wsTB['!cols'] = [{wch:38},{wch:12},{wch:15},{wch:15},{wch:15},{wch:16},{wch:18},{wch:9},{wch:14}];
+  var tbTotStyle = Object.assign({},sTot,{alignment:{horizontal:'left'}});
+  wsTB['A'+tbTotRow]={t:'s',v:'TOTALS',s:sTot};
+  wsTB['B'+tbTotRow]={t:'s',v:'',s:sTot};
+  wsTB['C'+tbTotRow]={t:'n',f:'SUM(C'+tbFirst+':C'+tbLast+')',s:sTotR,z:NUM_FMT};
+  wsTB['D'+tbTotRow]={t:'n',f:'SUM(D'+tbFirst+':D'+tbLast+')',s:sTotR,z:NUM_FMT};
+  wsTB['E'+tbTotRow]={t:'n',f:'SUM(E'+tbFirst+':E'+tbLast+')',s:sTotR,z:NUM_FMT};
+  wsTB['F'+tbTotRow]={t:'n',f:'SUM(F'+tbFirst+':F'+tbLast+')',s:sTotR,z:NUM_FMT};
+  wsTB['G'+tbTotRow]={t:'s',v:'',s:sTot};
+  wsTB['H'+tbTotRow]={t:'s',v:'',s:sTot};
+  wsTB['I'+tbTotRow]={t:'s',v:'',s:sTot};
+  // Tally check
+  var tcStyle = {font:{bold:true,sz:10,color:{rgb:'1A6B3C'}},fill:{patternType:'solid',fgColor:{rgb:'E8F5E9'}},border:{top:{style:'thin'},bottom:{style:'thin'}}};
+  wsTB['A'+(tbTotRow+1)]={t:'s',v:'Balance Check (Dr = Cr?)',s:sBold};
+  wsTB['B'+(tbTotRow+1)]={t:'s',f:'IF(ABS(D'+tbTotRow+'-E'+tbTotRow+')<1,"Tally OK — Dr equals Cr","MISMATCH: "&TEXT(ABS(D'+tbTotRow+'-E'+tbTotRow+'),"#,##0.00"))',s:tcStyle};
+  wsTB['!ref'] = 'A1:I'+(tbTotRow+1);
+  wsTB['!cols'] = [{wch:40},{wch:14},{wch:16},{wch:16},{wch:16},{wch:16},{wch:18},{wch:10},{wch:16}];
+  wsTB['!rows'] = [{hpt:24},{hpt:20},{hpt:14},{hpt:32}];
   XLSX.utils.book_append_sheet(wb, wsTB, 'Trial Balance');
 
   // ── TB lookup formula helpers (TIER 2: Notes pull from Trial Balance) ──
@@ -7401,29 +7751,6 @@ function exportSched3Excel(fw, unitChoice){
     var v = s / unitDiv;
     return negate ? -v : v;
   }
-  var NUM_FMT = '#,##0.00';
-
-  // ── Style constants (xlsx-js-style) ──
-  var sBold = {font:{bold:true,sz:10}};
-  var sHdr  = {font:{bold:true,sz:10,color:{rgb:'FFFFFF'}},fill:{patternType:'solid',fgColor:{rgb:'1F4E79'}},
-               border:{top:{style:'thin'},bottom:{style:'thin'},left:{style:'thin'},right:{style:'thin'}},
-               alignment:{horizontal:'center',vertical:'middle',wrapText:true}};
-  var sNoteTitle = {font:{bold:true,sz:11,color:{rgb:'FFFFFF'}},fill:{patternType:'solid',fgColor:{rgb:'2E75B6'}},
-               border:{bottom:{style:'medium'}},alignment:{vertical:'middle'}};
-  var sSec  = {font:{bold:true,italic:true,sz:10},fill:{patternType:'solid',fgColor:{rgb:'D6E4F0'}},
-               border:{top:{style:'thin'},bottom:{style:'thin'},left:{style:'thin'},right:{style:'thin'}}};
-  var sDat  = {font:{sz:10},border:{bottom:{style:'hair'},left:{style:'thin'},right:{style:'thin'}}};
-  var sDatR = {font:{sz:10},numFmt:'#,##0.00',border:{bottom:{style:'hair'},left:{style:'thin'},right:{style:'thin'}},
-               alignment:{horizontal:'right'}};
-  var sTot  = {font:{bold:true,sz:10},fill:{patternType:'solid',fgColor:{rgb:'BDD7EE'}},
-               border:{top:{style:'thin'},bottom:{style:'double'},left:{style:'thin'},right:{style:'thin'}}};
-  var sTotR = {font:{bold:true,sz:10},numFmt:'#,##0.00',fill:{patternType:'solid',fgColor:{rgb:'BDD7EE'}},
-               border:{top:{style:'thin'},bottom:{style:'double'},left:{style:'thin'},right:{style:'thin'}},
-               alignment:{horizontal:'right'}};
-  var sCo   = {font:{bold:true,sz:14,color:{rgb:'1F4E79'}},alignment:{horizontal:'center',vertical:'middle'}};
-  var sTitleRow = {font:{bold:true,sz:11},alignment:{horizontal:'center',vertical:'middle'}};
-  var sSubTitle = {font:{italic:true,sz:10,color:{rgb:'595959'}},alignment:{horizontal:'center'}};
-  function cs(base, extra){ return Object.assign({}, base, extra); }
 
   // ── Shared Notes worksheet (all Notes 1-20 on ONE sheet) ──
   var wsNotes = {'!merges':[], '!cols':[{wch:52},{wch:20},{wch:20},{wch:28},{wch:14}], '!rows':[]};
