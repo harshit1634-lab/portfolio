@@ -397,7 +397,6 @@ tr.far-tr:nth-child(even){background:rgba(255,255,255,0.02)}
         <div class="side-title" style="color:var(--gold2)">Statutory Reports</div>
         <div class="side-item" onclick="nav('sched3')"><span class="side-icon">📋</span>Schedule III Drafting</div>
         <div class="side-item" onclick="nav('far')"><span class="side-icon">🏭</span>Fixed Asset Register</div>
-        <div class="side-item" onclick="nav('far')"><span class="side-icon">🏭</span>Fixed Asset Register</div>
       </div>
       <div class="side-group">
         <div class="side-title">Overview</div>
@@ -6828,6 +6827,8 @@ function generateSched3FromTB(){
   });
 
   function gv(id){return byFsLine[id]||0;}
+  // ngv: negate credit-balance items so E&L and revenue show as positive amounts
+  function ngv(id){return -(byFsLine[id]||0);}
 
   // Determine auto-unit
   var maxAbs=0;
@@ -6867,11 +6868,11 @@ function generateSched3FromTB(){
       '<td class="num" style="color:'+col+';font-weight:'+(grand?'800':'700')+'">'+fmtTB(val)+'</td></tr>';
   }
 
-  // Calculate derived P&L values
-  var revNet=gv('rev_gross')-gv('excise_adj');
-  var totalRev=revNet+gv('other_income');
+  // Calculate derived P&L values — revenue/income are credit-side (use ngv to get positive)
+  var revNet=ngv('rev_gross')-gv('excise_adj');
+  var totalRev=revNet+ngv('other_income');
   var totalExp=gv('cost_materials')+gv('purchases_stock')+gv('chg_inventories')+gv('emp_benefits')+gv('finance_costs')+gv('depreciation')+gv('other_exp');
-  var pbt=totalRev-totalExp+gv('exceptional');
+  var pbt=totalRev-totalExp+ngv('exceptional');
   var totalTax=gv('current_tax')+gv('deferred_tax');
   var pat=pbt-totalTax;
 
@@ -6882,8 +6883,8 @@ function generateSched3FromTB(){
   plHTML.push('<tr><th style="text-align:left;width:52%">Particulars</th><th style="width:50px;text-align:center">Note</th><th>('+unitLabel+')</th></tr>');
   plHTML.push('</thead><tbody>');
   plHTML.push(secRow('REVENUE'));
-  plHTML.push(itemRow('I. Revenue from Operations',11,gv('rev_gross'),0));
-  plHTML.push(itemRow('II. Other Income',12,gv('other_income'),0));
+  plHTML.push(itemRow('I. Revenue from Operations',11,ngv('rev_gross'),0));
+  plHTML.push(itemRow('II. Other Income',12,ngv('other_income'),0));
   plHTML.push(totalRow('III. TOTAL INCOME (I+II)',totalRev,false));
   plHTML.push(secRow('IV. EXPENSES'));
   plHTML.push(itemRow('Cost of Materials Consumed','',gv('cost_materials'),1));
@@ -6902,19 +6903,19 @@ function generateSched3FromTB(){
   plHTML.push(totalRow('VII. PROFIT FOR THE PERIOD (PAT)',pat,true));
   plHTML.push('</tbody></table></div>');
 
-  // BS calculations
-  var shareCap=gv('share_capital');
-  var reserves=gv('reserves_surplus')+pat;
+  // BS calculations — E&L items are credit-side (use ngv)
+  var shareCap=ngv('share_capital');
+  var reserves=ngv('reserves_surplus')+pat;
   var equity=shareCap+reserves;
-  var ltBorrow=gv('lt_borrowings');
-  var stBorrow=gv('st_borrowings');
-  var tradeMSME=gv('trade_pay_msme');
-  var tradeOth=gv('trade_pay_others');
-  var otherCL=gv('other_cl');
-  var prov=gv('st_provisions');
-  var dtl=gv('dtl');
-  var ltProv=gv('lt_provisions');
-  var otherLTL=gv('other_ltl');
+  var ltBorrow=ngv('lt_borrowings');
+  var stBorrow=ngv('st_borrowings');
+  var tradeMSME=ngv('trade_pay_msme');
+  var tradeOth=ngv('trade_pay_others');
+  var otherCL=ngv('other_cl');
+  var prov=ngv('st_provisions');
+  var dtl=ngv('dtl');
+  var ltProv=ngv('lt_provisions');
+  var otherLTL=ngv('other_ltl');
   var totalNCL=ltBorrow+dtl+otherLTL+ltProv;
   var totalCL=stBorrow+tradeMSME+tradeOth+otherCL+prov;
   var totalEL=equity+totalNCL+totalCL;
@@ -7611,26 +7612,26 @@ function exportSched3Excel(fw, unitChoice){
   var sSubTitle = {font:{italic:true,sz:10,color:{rgb:'595959'}},alignment:{horizontal:'center'}};
   function cs(base, extra){ return Object.assign({}, base, extra); }
 
-  // ── Sheet 1: Unit (helper — formula reference) ──
+  // ── Sheet 1: Unit (helper — formula reference; B2 MUST stay = unitDiv for all formulas) ──
   var wsU = {};
-  var uData = [
-    ['Field','Value'],
+  // Row layout intentionally matches legacy: B2 = unitDiv (all note/BS/PL formulas use 'Unit'!$B$2)
+  var uRows = [
     ['Company', co],
-    ['Unit Divisor (all formulas divide by this)', unitDiv],
+    ['Unit Divisor (formulas divide by this)', unitDiv],
     ['Unit Label', unitName],
     ['Framework', fw],
     ['Current Year', fy],
     ['Previous Year', fyPrev]
   ];
-  uData.forEach(function(row, ri){
-    var isHdr = ri===0;
-    row.forEach(function(val, ci){
-      var cell = String.fromCharCode(65+ci) + (ri+1);
-      wsU[cell] = {t: typeof val==='number'?'n':'s', v: val,
-        s: isHdr ? sHdr : (ci===0 ? sBold : sDat)};
-    });
+  // Header row appended at the end so it doesn't shift data rows
+  wsU['A1'] = {t:'s', v:'Field', s:sHdr};
+  wsU['B1'] = {t:'s', v:'Value', s:sHdr};
+  uRows.forEach(function(row, idx){
+    var r = idx + 2; // data starts at row 2 so B2 = unitDiv
+    wsU['A'+r] = {t:'s', v:row[0], s:sBold};
+    wsU['B'+r] = {t: typeof row[1]==='number'?'n':'s', v:row[1], s:sDat};
   });
-  wsU['!ref'] = 'A1:B'+uData.length;
+  wsU['!ref'] = 'A1:B'+(uRows.length+1);
   wsU['!cols'] = [{wch:50},{wch:28}];
   wsU['!rows'] = [{hpt:24}];
   // Make B2 the named cell other sheets reference
