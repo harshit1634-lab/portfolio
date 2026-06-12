@@ -211,25 +211,9 @@ a{color:var(--sky2)}
 /* ============ PRINT REPORT ============ */
 #printRoot{display:none}
 @media print{
-  body{overflow:visible;background:#fff;color:#111;font-size:11px}
+  html,body{height:auto!important;overflow:visible!important;background:#fff!important;color:#111!important}
   .topbar,.shell,.toast,.drag-overlay{display:none!important}
-  #printRoot{display:block;color:#111}
-  #printRoot h1{font-family:'Playfair Display',Georgia,serif;font-size:24px;margin-bottom:2px}
-  #printRoot h2{font-family:'Playfair Display',Georgia,serif;font-size:16px;margin:18px 0 8px;border-bottom:2px solid #c8a84b;padding-bottom:3px}
-  #printRoot h3{font-size:13px;margin:12px 0 6px}
-  #printRoot .pmeta{color:#555;font-size:10px;margin-bottom:14px}
-  #printRoot table{width:100%;border-collapse:collapse;font-size:9.5px;margin-bottom:10px}
-  #printRoot th,#printRoot td{border:1px solid #bbb;padding:3px 6px;text-align:left;vertical-align:top}
-  #printRoot th{background:#f0ead8}
-  #printRoot td.num,#printRoot th.num{text-align:right;font-family:ui-monospace,monospace}
-  #printRoot .psev{font-weight:700;font-size:8.5px;letter-spacing:.05em}
-  #printRoot .psev.CRITICAL{color:#b3242f}
-  #printRoot .psev.HIGH{color:#b06d10}
-  #printRoot .psev.MEDIUM{color:#8a7a1e}
-  #printRoot .psev.LOW{color:#1d6da8}
-  #printRoot .psev.INFO{color:#667}
-  #printRoot .pbreak{page-break-before:always}
-  #printRoot .psmall{font-size:9px;color:#555}
+  #printRoot{display:block!important;position:static!important}
 }
 </style>
 </head>
@@ -244,6 +228,7 @@ a{color:var(--sky2)}
   <div class="tb-spacer"></div>
   <button class="tb-btn" id="btnCsv" disabled title="Export findings register as CSV">⬇ CSV</button>
   <button class="tb-btn" id="btnJson" disabled title="Export full analysis as JSON">⬇ JSON</button>
+  <button class="tb-btn" id="btnRep" disabled title="Download the full report as a standalone HTML file — opens in any browser, print to PDF from there">⬇ Report</button>
   <button class="tb-btn primary" id="btnPrint" disabled title="Build full report and print / save as PDF">🖨 Print Report</button>
 </div>
 
@@ -2082,8 +2067,147 @@ function runGroupRules(stmts, out, add, cfg){
   out.rollup = roll;
 }
 
+
+/* ---------------- standalone report builder (pure) ---------------- */
+const REPORT_CSS = `
+.rpt-root{font-family:Georgia,'Times New Roman',serif;color:#1a1a1a;background:#fff;line-height:1.45;font-size:12px;max-width:1000px;margin:0 auto;padding:28px}
+.rpt-root h1{font-size:26px;margin:0 0 2px;color:#1a1a1a}
+.rpt-root h2{font-size:17px;margin:26px 0 8px;border-bottom:2.5px solid #c8a84b;padding-bottom:4px;page-break-after:avoid}
+.rpt-root h3{font-size:13.5px;margin:14px 0 6px;page-break-after:avoid}
+.rpt-root .meta{color:#555;font-size:11px;margin-bottom:18px}
+.rpt-root table{width:100%;border-collapse:collapse;font-size:10.5px;margin:7px 0 14px;page-break-inside:auto}
+.rpt-root th,.rpt-root td{border:1px solid #b9b3a4;padding:4px 7px;text-align:left;vertical-align:top}
+.rpt-root th{background:#f0ead8;font-size:9.5px;text-transform:uppercase;letter-spacing:.06em}
+.rpt-root td.num,.rpt-root th.num{text-align:right;font-family:ui-monospace,Consolas,monospace;white-space:nowrap}
+.rpt-root td.neg{color:#b3242f}
+.rpt-root tr{page-break-inside:avoid}
+.rpt-root .sv{font-weight:700;font-size:9px;letter-spacing:.06em;white-space:nowrap}
+.rpt-root .sv.CRITICAL{color:#b3242f}.rpt-root .sv.HIGH{color:#b06d10}.rpt-root .sv.MEDIUM{color:#8a7a1e}.rpt-root .sv.LOW{color:#1d6da8}.rpt-root .sv.INFO{color:#666}
+.rpt-root .small{font-size:9.5px;color:#555}
+.rpt-root .pbreak{page-break-before:always}
+.rpt-root .ftitle{font-weight:700}
+.rpt-root .fdetail{margin-top:2px}
+.rpt-root .faction{margin-top:2px;font-style:italic;color:#444}
+.rpt-root .fev{margin-top:3px;font-family:ui-monospace,Consolas,monospace;font-size:9px;color:#333;background:#f6f3ea;padding:2px 5px;border-radius:3px;display:inline-block}
+@media print{ .rpt-root{padding:0;max-width:none} }
+`;
+const RPT_SYM = {USD:'$', GBP:'£', INR:'₹', EUR:'€'};
+function rfm(v, cur, dec){
+  if(v===null||v===undefined||isNaN(v)) return '—';
+  const a = Math.abs(v);
+  const d = dec!==undefined?dec:(a<100&&a!==0?2:0);
+  const s = a.toLocaleString(cur==='INR'?'en-IN':'en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
+  return (v<0?'−':'')+(RPT_SYM[cur]||'')+s;
+}
+function rEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function reportBodyHtml(A, opts){
+  opts = opts||{};
+  const SEVD = {CRITICAL:'Act immediately',HIGH:'Investigate this close',MEDIUM:'Review & document',LOW:'Hygiene / watchlist',INFO:'Context only'};
+  const sevRank = s => ['CRITICAL','HIGH','MEDIUM','LOW','INFO'].indexOf(s);
+  const isE = A.entities.filter(e=>e.stmt.type==='IS');
+  const num = (v,cur)=>'<td class="num'+((v||0)<0?' neg':'')+'">'+rfm(v,cur)+'</td>';
+  let h = '<h1>NetSuite Sentinel — Group Red-Flag Report</h1>';
+  h += '<div class="meta">'+rEsc((A.entities[0]&&A.entities[0].stmt.company)||'')+
+    (isE[0]&&isE[0].stmt.period? ' · '+rEsc(isE[0].stmt.period):'')+
+    ' · generated '+new Date().toLocaleString()+
+    ' · '+A.entities.length+' statements · '+A.findings.length+' findings</div>';
+
+  /* 1. executive summary */
+  h += '<h2>1. Executive summary</h2><table><tr><th>Severity</th><th class="num">Count</th><th>Meaning</th></tr>';
+  for(const s of ['CRITICAL','HIGH','MEDIUM','LOW','INFO'])
+    h += '<tr><td><span class="sv '+s+'">'+s+'</span></td><td class="num">'+(A.bySeverity[s]||0)+'</td><td>'+SEVD[s]+'</td></tr>';
+  h += '</table>';
+  if(A.rollup && A.rollup.rows.length){
+    h += '<h3>Group roll-up (USD, indicative)</h3><table><tr><th>Entity</th><th>Cur</th><th class="num">Income</th><th class="num">o/w intercompany</th><th class="num">EBITDA*</th><th class="num">Net result</th><th>Health</th></tr>';
+    for(const r of A.rollup.rows)
+      h += '<tr><td>'+rEsc(r.entity)+'</td><td>'+r.cur+'</td>'+num(r.income,'USD')+num(r.icRev,'USD')+num(r.ebitda,'USD')+num(r.ni,'USD')+'<td>'+r.grade+' ('+r.score+')</td></tr>';
+    const t = A.rollup.totals;
+    h += '<tr><td><b>Group</b></td><td></td>'+num(t.income,'USD')+num(t.icRev,'USD')+num(t.ebitda,'USD')+num(t.ni,'USD')+'<td></td></tr></table>';
+    const fx = A.fx||{};
+    h += '<div class="small">* EBITDA approximated as operating result + D&amp;A + finance cost. FX: INR/USD '+
+      (fx.used&&fx.used.INRUSD?fx.used.INRUSD.toFixed(2)+' ('+fx.source.INRUSD+')':'—')+', INR/GBP '+
+      (fx.used&&fx.used.INRGBP?fx.used.INRGBP.toFixed(2)+' ('+fx.source.INRGBP+')':'—')+
+      '. Intercompany profits are not eliminated.</div>';
+  }
+
+  /* 2..n entity sections — one per entity, findings listed once */
+  const entNames = [...new Set(A.entities.map(e=>e.stmt.entity))];
+  let sec = 2;
+  const findingsTable = list => {
+    if(!list.length) return '<p class="small">No findings.</p>';
+    let t = '<table><tr><th style="width:62px">Severity</th><th style="width:46px">Rule</th><th style="width:190px">Account / scope</th><th>Finding, detail &amp; suggested action</th></tr>';
+    for(const f of list){
+      const ev = (f.ev&&f.ev.length)? '<div class="fev">'+f.ev.map(e=>rEsc(e.m)+': '+(e.v===null||e.v===undefined?'—':Number(e.v).toLocaleString())).join(' · ')+'</div>' : '';
+      t += '<tr><td><span class="sv '+f.sev+'">'+f.sev+'</span></td><td>'+f.rule+'</td><td>'+rEsc(f.account)+'</td>'+
+        '<td><div class="ftitle">'+rEsc(f.title)+'</div>'+
+        (f.detail?'<div class="fdetail">'+rEsc(f.detail)+'</div>':'')+
+        (f.action?'<div class="faction">Action: '+rEsc(f.action)+'</div>':'')+ev+'</td></tr>';
+    }
+    return t+'</table>';
+  };
+  for(const name of entNames){
+    const eIS = A.entities.find(e=>e.stmt.entity===name && e.stmt.type==='IS');
+    const eBS = A.entities.find(e=>e.stmt.entity===name && e.stmt.type==='BS');
+    const any = eIS||eBS;
+    const fs = A.findings.filter(f=>f.entity===name).sort((a,b)=>sevRank(a.sev)-sevRank(b.sev));
+    h += '<div class="pbreak"></div><h2>'+(sec++)+'. '+rEsc(name)+'</h2>';
+    h += '<div class="meta">'+[eIS&&('Income statement: '+rEsc(eIS.stmt.period||'')+' ('+rEsc(eIS.stmt.fileName)+')'),
+      eBS&&('Balance sheet: '+rEsc(eBS.stmt.period||'')+' ('+rEsc(eBS.stmt.fileName)+')')].filter(Boolean).join(' · ')+
+      ' · currency '+rEsc((any.stmt.currency)||'?')+' · health '+any.score+' ('+any.grade+') · materiality '+rfm(any.mat, any.stmt.currency)+'</div>';
+    if(eIS){
+      const M = eIS.metrics, c = eIS.stmt.currency;
+      const ti = M.totalIncome.total;
+      h += '<table><tr><th class="num">Income</th><th class="num">Gross profit</th><th class="num">GM%</th><th class="num">EBITDA*</th><th class="num">Finance cost</th><th class="num">D&amp;A</th><th class="num">Net result</th><th class="num">NM%</th></tr><tr>'+
+        num(ti,c)+num(M.gp.total,c)+'<td class="num">'+(ti? (M.gp.total/ti*100).toFixed(1)+'%':'—')+'</td>'+
+        num(M.ebitda.total,c)+num(M.finCost.total,c)+num(M.da.total,c)+num(M.netIncome.total,c)+
+        '<td class="num'+((M.netIncome.total||0)<0?' neg':'')+'">'+(ti? (M.netIncome.total/ti*100).toFixed(1)+'%':'—')+'</td></tr></table>';
+      h += '<h3>Monthly view ('+rEsc(c||'')+')</h3><table><tr><th>Line</th>'+eIS.stmt.months.map(m=>'<th class="num">'+rEsc(m)+'</th>').join('')+'<th class="num">Total</th></tr>';
+      const rows = [['Operating revenue',M.opRev],['Intercompany revenue',M.icRev],['Other income',M.othInc],['Total income',M.totalIncome],
+        ['Direct costs',M.cogs],['Gross profit',M.gp],['Opex (incl. tax rows)',M.opexTotal],['Net result',M.netIncome]];
+      for(const [lab,o] of rows)
+        h += '<tr><td>'+lab+'</td>'+o.series.map(v=>num(v,c)).join('')+num(o.total,c)+'</tr>';
+      h += '</table>';
+    }
+    if(eBS){
+      const B = eBS.bs, c = eBS.stmt.currency, l = eBS.stmt.months.length-1;
+      const eq = B.equityRow? B.equityRow.values[l] : B.equity.series[l];
+      h += '<h3>Balance sheet snapshot — '+rEsc(eBS.stmt.months[l])+'</h3><table><tr><th class="num">Total assets</th><th class="num">Cash &amp; deposits</th><th class="num">Trade AR</th><th class="num">Unbilled</th><th class="num">Borrowings</th><th class="num">Equity</th></tr><tr>'+
+        num(B.assetsRow?B.assetsRow.values[l]:B.assets.series[l],c)+num(B.cash.series[l],c)+num(B.ar.series[l],c)+num(B.unbilled.series[l],c)+num(B.debt.series[l],c)+num(eq,c)+'</tr></table>';
+    }
+    h += '<h3>Findings ('+fs.length+')</h3>'+findingsTable(fs);
+  }
+
+  /* group & intercompany */
+  const gf = A.findings.filter(f=>f.entity==='GROUP').sort((a,b)=>sevRank(a.sev)-sevRank(b.sev));
+  h += '<div class="pbreak"></div><h2>'+(sec++)+'. Group &amp; intercompany</h2>';
+  for(const pr of (A.icPairs||[])){
+    if(!(pr.s&&pr.b&&pr.rows)) continue;
+    h += '<h3>'+rEsc(pr.s.ic.from)+' → '+rEsc(pr.s.ic.to)+' — seller '+rEsc(pr.s.e.stmt.entity)+' ('+pr.s.cur+') / buyer '+rEsc(pr.b.e.stmt.entity)+' ('+pr.b.cur+')</h3>';
+    h += '<table><tr><th></th>'+pr.s.e.stmt.months.map(m=>'<th class="num">'+rEsc(m)+'</th>').join('')+'<th class="num">Total</th></tr>';
+    h += '<tr><td>Seller books</td>'+pr.rows.map(r=>num(r.sv,pr.s.cur)).join('')+num(pr.sTotal,pr.s.cur)+'</tr>';
+    h += '<tr><td>Buyer books</td>'+pr.rows.map(r=>num(r.bv,pr.b.cur)).join('')+num(pr.bTotal,pr.b.cur)+'</tr>';
+    h += '<tr><td>Implied rate</td>'+pr.rows.map(r=>'<td class="num">'+(r.rate?r.rate.toFixed(2):'—')+'</td>').join('')+
+      '<td class="num">'+(pr.sTotal&&pr.bTotal?(pr.sTotal/pr.bTotal).toFixed(2):'—')+'</td></tr></table>';
+  }
+  h += findingsTable(gf);
+
+  /* appendix */
+  h += '<div class="pbreak"></div><h2>Appendix — rule library &amp; settings</h2>';
+  if(opts.settingsText) h += '<p class="small">'+rEsc(opts.settingsText)+'</p>';
+  h += '<table><tr><th style="width:46px">Rule</th><th style="width:150px">Name</th><th>What it checks</th></tr>'+
+    RULES.map(r=>'<tr><td>'+r[0]+'</td><td>'+rEsc(r[3])+'</td><td class="small">'+rEsc(r[4])+'</td></tr>').join('')+'</table>';
+  h += '<p class="small">Generated by NetSuite Sentinel — analytical screening only; findings require professional judgement and underlying-document verification before conclusions are drawn.</p>';
+  return h;
+}
+function buildReportHtml(A, opts){
+  return '<!DOCTYPE html>\n<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">'+
+    '<title>NetSuite Sentinel — Red-Flag Report</title><style>body{margin:0;background:#e9e6dd}'+REPORT_CSS+'</style></head>'+
+    '<body><div class="rpt-root" style="background:#fff;box-shadow:0 0 24px rgba(0,0,0,.15)">'+reportBodyHtml(A, opts)+'</div></body></html>';
+}
+
 return {parseSpreadsheetML, parseCSV, buildStatement, computeISMetrics, computeBSMetrics,
-        analyzeAll, RULES, RULE_MAP, SEV, num, median, mad, sum, mean, fmtMoneyRaw, lev};
+        analyzeAll, RULES, RULE_MAP, SEV, num, median, mad, sum, mean, fmtMoneyRaw, lev,
+        REPORT_CSS, reportBodyHtml, buildReportHtml};
 })();
 /*__CORE_END__*/
 </script>
@@ -2179,7 +2303,7 @@ function runAnalysis(){
   try{ A = NSX.analyzeAll(stmts, cfgFromUI()); }
   catch(e){ toast('Analysis failed: '+e.message); console.error(e); return; }
   S.analysis = A;
-  $('btnCsv').disabled = $('btnJson').disabled = $('btnPrint').disabled = false;
+  $('btnCsv').disabled = $('btnJson').disabled = $('btnPrint').disabled = $('btnRep').disabled = false;
   $('findTabCnt').textContent = A.findings.length;
   const fx = A.fx||{};
   if(fx.implied){
@@ -2535,51 +2659,30 @@ function exportJson(){
   dl('netsuite-sentinel-analysis.json', JSON.stringify(out,null,2), 'application/json');
   toast('Full analysis JSON downloaded');
 }
-/* ---------- print report ---------- */
-function buildPrint(){
-  const A = S.analysis; if(!A) return;
-  const isE = A.entities.filter(e=>e.stmt.type==='IS');
-  let h = '<h1>NetSuite Sentinel — Group Red-Flag Report</h1>'+
-    '<div class="pmeta">'+esc((A.entities[0]&&A.entities[0].stmt.company)||'')+' · '+esc((isE[0]&&isE[0].stmt.period)||'')+
-    ' · generated '+new Date().toLocaleString()+' · '+A.entities.length+' statements analysed · '+A.findings.length+' findings</div>';
-  h += '<h2>1. Executive summary</h2><table><tr><th>Severity</th><th class="num">Count</th><th>Meaning</th></tr>'+
-    NSX.SEV.slice().reverse().map(s=>'<tr><td><span class="psev '+s+'">'+s+'</span></td><td class="num">'+(A.bySeverity[s]||0)+'</td><td>'+
-    ({CRITICAL:'Act immediately',HIGH:'Investigate this close',MEDIUM:'Review & document',LOW:'Hygiene / watchlist',INFO:'Context only'})[s]+'</td></tr>').join('')+'</table>';
-  if(A.rollup){
-    h += '<table><tr><th>Entity</th><th>Cur</th><th class="num">Income (USD)</th><th class="num">o/w IC</th><th class="num">EBITDA*</th><th class="num">Net result</th><th>Grade</th></tr>'+
-      A.rollup.rows.map(r=>'<tr><td>'+esc(r.entity)+'</td><td>'+r.cur+'</td><td class="num">'+fmtM(r.income,'USD')+'</td><td class="num">'+fmtM(r.icRev,'USD')+'</td><td class="num">'+fmtM(r.ebitda,'USD')+'</td><td class="num">'+fmtM(r.ni,'USD')+'</td><td>'+r.grade+' ('+r.score+')</td></tr>').join('')+
-      '<tr><td><b>Group</b></td><td></td><td class="num"><b>'+fmtM(A.rollup.totals.income,'USD')+'</b></td><td class="num">'+fmtM(A.rollup.totals.icRev,'USD')+'</td><td class="num">'+fmtM(A.rollup.totals.ebitda,'USD')+'</td><td class="num"><b>'+fmtM(A.rollup.totals.ni,'USD')+'</b></td><td></td></tr></table>'+
-      '<div class="psmall">* EBITDA approximated as operating result + D&A + finance cost. FX: INR/USD '+(A.fx.used.INRUSD?A.fx.used.INRUSD.toFixed(2):'—')+' ('+A.fx.source.INRUSD+'), INR/GBP '+(A.fx.used.INRGBP?A.fx.used.INRGBP.toFixed(2):'—')+' ('+A.fx.source.INRGBP+'). Intercompany profits are not eliminated.</div>';
-  }
-  let sec = 2;
-  for(const e of A.entities){
-    const fs = A.findings.filter(f=>f.entity===e.stmt.entity).sort((a,b)=>SEV_ORDER[a.sev]-SEV_ORDER[b.sev]);
-    h += '<div class="pbreak"></div><h2>'+sec+++'. '+esc(e.stmt.entity)+' — '+(e.stmt.type==='IS'?'Income Statement':'Balance Sheet')+'</h2>'+
-      '<div class="pmeta">'+esc(e.stmt.period||'')+' · currency '+(e.stmt.currency||'?')+' · health score '+e.score+' ('+e.grade+') · materiality '+fmtM(e.mat,e.stmt.currency)+' · file: '+esc(e.stmt.fileName)+'</div>';
-    if(e.stmt.type==='IS'){
-      const M = e.metrics, c = e.stmt.currency;
-      h += '<table><tr><th>Income</th><th>Gross profit</th><th>EBITDA*</th><th>Finance cost</th><th>D&A</th><th>Net result</th></tr>'+
-        '<tr><td class="num">'+fmtM(M.totalIncome.total,c)+'</td><td class="num">'+fmtM(M.gp.total,c)+'</td><td class="num">'+fmtM(M.ebitda.total,c)+'</td><td class="num">'+fmtM(M.finCost.total,c)+'</td><td class="num">'+fmtM(M.da.total,c)+'</td><td class="num">'+fmtM(M.netIncome.total,c)+'</td></tr></table>';
-    }
-    if(!fs.length){ h += '<p class="psmall">No findings.</p>'; continue; }
-    h += '<table><tr><th style="width:64px">Severity</th><th style="width:50px">Rule</th><th style="width:200px">Account / scope</th><th>Finding, detail & suggested action</th></tr>'+
-      fs.map(f=>'<tr><td><span class="psev '+f.sev+'">'+f.sev+'</span></td><td>'+f.rule+'</td><td>'+esc(f.account)+'</td><td><b>'+esc(f.title)+'</b>'+
-        (f.detail?'<br>'+esc(f.detail):'')+(f.action?'<br><i>Action: '+esc(f.action)+'</i>':'')+'</td></tr>').join('')+'</table>';
-  }
-  const gf = A.findings.filter(f=>f.entity==='GROUP');
-  if(gf.length){
-    h += '<div class="pbreak"></div><h2>'+sec+++'. Group & intercompany</h2>'+
-      '<table><tr><th style="width:64px">Severity</th><th style="width:50px">Rule</th><th style="width:200px">Scope</th><th>Finding & action</th></tr>'+
-      gf.map(f=>'<tr><td><span class="psev '+f.sev+'">'+f.sev+'</span></td><td>'+f.rule+'</td><td>'+esc(f.account)+'</td><td><b>'+esc(f.title)+'</b>'+(f.detail?'<br>'+esc(f.detail):'')+(f.action?'<br><i>Action: '+esc(f.action)+'</i>':'')+'</td></tr>').join('')+'</table>';
-  }
-  h += '<div class="pbreak"></div><h2>Appendix — rule library & settings</h2>';
+/* ---------- report build / print ---------- */
+function settingsText(){
   const c = cfgFromUI();
-  h += '<p class="psmall">Materiality '+c.matPct+'% of income (floor '+c.minAbs+') · MoM trigger '+c.spikePct+'% · payroll trigger '+c.payrollPct+'% · last-month drop trigger '+c.cliffPct+'%'+(c.disabled.size?' · disabled rules: '+[...c.disabled].join(', '):'')+'</p>';
-  h += '<table><tr><th style="width:50px">Rule</th><th style="width:150px">Name</th><th>What it checks</th></tr>'+
-    NSX.RULES.map(r=>'<tr><td>'+r[0]+'</td><td>'+esc(r[3])+'</td><td class="psmall">'+esc(r[4])+'</td></tr>').join('')+'</table>';
-  h += '<p class="psmall">Generated by NetSuite Sentinel — analytical screening only; findings require professional judgement and underlying-document verification before conclusions are drawn.</p>';
-  $('printRoot').innerHTML = h;
+  return 'Materiality '+c.matPct+'% of income (floor '+c.minAbs+') · MoM trigger '+c.spikePct+'% · payroll trigger '+c.payrollPct+'% · last-month drop trigger '+c.cliffPct+'%'+(c.disabled.size?' · disabled rules: '+[...c.disabled].join(', '):'');
 }
+function buildPrint(){
+  const A = S.analysis; if(!A) return false;
+  $('printRoot').className = 'rpt-root';
+  $('printRoot').innerHTML = NSX.reportBodyHtml(A, {settingsText: settingsText()});
+  return true;
+}
+function exportReport(){
+  const A = S.analysis; if(!A) return;
+  try{
+    dl('netsuite-sentinel-report.html', NSX.buildReportHtml(A, {settingsText: settingsText()}), 'text/html');
+    toast('Report downloaded — open it in any browser; print to PDF from there.');
+  }catch(e){ toast('Report build failed: '+e.message); console.error(e); }
+}
+function printReport(){
+  try{ if(!buildPrint()){ toast('Run the analysis first.'); return; } }
+  catch(e){ toast('Report build failed: '+e.message); console.error(e); return; }
+  window.print();
+}
+window.addEventListener('beforeprint', ()=>{ try{ if(S.analysis && !$('printRoot').innerHTML) buildPrint(); }catch(e){} });
 
 /* ---------- tabs & events ---------- */
 function switchTab(name){
@@ -2598,12 +2701,14 @@ window.addEventListener('drop', e=>{ e.preventDefault(); dragDepth=0; $('dragOve
 $('analyseBtn').onclick = runAnalysis;
 $('btnCsv').onclick = exportCsv;
 $('btnJson').onclick = exportJson;
-$('btnPrint').onclick = ()=>{ buildPrint(); window.print(); };
+$('btnPrint').onclick = printReport;
+$('btnRep').onclick = exportReport;
 document.querySelectorAll('#findFilters .fchip').forEach(c=>c.onclick=()=>{ c.classList.toggle('on'); renderFindings(); });
 $('fEnt').onchange = $('fCat').onchange = renderFindings;
 $('fSearch').oninput = ()=>{ clearTimeout(S._st); S._st=setTimeout(renderFindings,180); };
 $('entSelect').onchange = renderEntityDetail;
 $('stmtSelect').onchange = renderStmtDetail;
+document.head.insertAdjacentHTML('beforeend','<style>'+NSX.REPORT_CSS+'</style>');
 renderRules();
 renderFiles();
 })();
