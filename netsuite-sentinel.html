@@ -2678,9 +2678,23 @@ function exportReport(){
   }catch(e){ toast('Report build failed: '+e.message); console.error(e); }
 }
 function printReport(){
-  try{ if(!buildPrint()){ toast('Run the analysis first.'); return; } }
+  const A = S.analysis;
+  if(!A){ toast('Run the analysis first.'); return; }
+  let html;
+  try{ html = NSX.buildReportHtml(A, {settingsText: settingsText()}); }
   catch(e){ toast('Report build failed: '+e.message); console.error(e); return; }
-  window.print();
+  /* print the report as its own clean document — most reliable PDF output */
+  const w = window.open('', '_blank');
+  if(w){
+    w.document.open(); w.document.write(html); w.document.close();
+    w.document.title = 'NetSuite Sentinel — Red-Flag Report';
+    setTimeout(()=>{ try{ w.focus(); w.print(); }catch(e){} }, 500);
+    toast('Report opened in a new tab — choose “Save as PDF” in the print dialog.');
+  } else {
+    /* popup blocked: print in-page via printRoot */
+    try{ buildPrint(); }catch(e){ toast('Report build failed: '+e.message); return; }
+    window.print();
+  }
 }
 window.addEventListener('beforeprint', ()=>{ try{ if(S.analysis && !$('printRoot').innerHTML) buildPrint(); }catch(e){} });
 
