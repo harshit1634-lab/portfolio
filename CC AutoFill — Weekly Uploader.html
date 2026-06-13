@@ -124,8 +124,18 @@
   .slot .val{font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--ink)}
   .slot.ok .val{color:var(--green)}
   .card.orange .v{color:var(--orange)}
-  tr.r-conflict td:first-child{box-shadow:inset 3px 0 0 var(--orange)}
-  .chip.conflict{color:var(--orange);border-color:var(--orange)}
+  /* self-training panel */
+  .train{margin:18px 0 6px;border:1px solid var(--line);border-radius:14px;background:
+      linear-gradient(180deg, rgba(127,176,201,.06), transparent 70%), var(--panel);padding:14px 16px}
+  .train-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+  .train-head span:first-child{font-family:'Fraunces',serif;font-weight:900;font-size:16px}
+  #trainHint{color:var(--dim);font-size:12.5px}
+  .traindrop{border:1.5px dashed var(--line);border-radius:10px;padding:18px 16px;text-align:center;
+    cursor:pointer;color:var(--ink);font-size:13.5px;transition:border-color .15s, background .15s}
+  .traindrop:hover{border-color:var(--blue)} .traindrop.hover{border-color:var(--blue);background:var(--panel2)}
+  .traindrop .mono{color:var(--faint);font-size:12px}
+  .trainreport{margin-top:10px;font-size:13px;color:var(--ink);min-height:0}
+  .trainreport:empty{display:none}
 </style>
 </head>
 <body>
@@ -139,9 +149,19 @@
     </div>
   </header>
 
+  <div class="train" id="train">
+    <div class="train-head"><span>🎓 Self-training</span><span id="trainHint">teach it from past filled uploaders — the more you feed it, the more it auto-fills</span></div>
+    <div id="trainDrop" class="traindrop">
+      <b>Drop previously-filled uploader files here</b> (or click) — one or many.<br>
+      <span class="mono">It reads how Item name · Vendor name · DEPARTMENT were filled for each Description and remembers it, so next week it fills the same way. Learning is cumulative and stored in this browser.</span>
+    </div>
+    <input type="file" id="trainFile" accept=".xlsx" multiple style="display:none">
+    <div id="trainReport" class="trainreport"></div>
+  </div>
+
   <div id="drop">
     <h2>Drop the weekly <b>raw file</b> and the <b>uploader</b> here — or click to browse</h2>
-    <p>The tool copies the raw Amex columns into the uploader (<b>B → N</b>), then auto-fills <b>Item name · Vendor name · DEPARTMENT</b> (S/T/U) from the Description and the card-holder. All NetSuite formula columns are rebuilt for every row and kept live.</p>
+    <p>The tool copies the raw Amex columns into the uploader (<b>B → N</b>), then auto-fills <b>Item name · Vendor name · DEPARTMENT</b> (S/T/U) from the Description and the card-holder, using everything it has been trained on. All NetSuite formula columns are rebuilt for every row and kept live.</p>
     <p class="mono">Reference lists &amp; dropdowns come from the uploader itself: Item Master!B · Vendor master!I · Departments!A.<br>
     You can also drop just the uploader (already merged) to only fill S/T/U.</p>
     <input type="file" id="file" accept=".xlsx" multiple style="display:none">
@@ -159,16 +179,14 @@
     <div class="cards">
       <div class="card"><div class="k">Transactions</div><div class="v num" id="cAll">0</div></div>
       <div class="card green"><div class="k">Auto-filled</div><div class="v num" id="cAuto">0</div></div>
-      <div class="card amber"><div class="k">To verify</div><div class="v num" id="cGuess">0</div></div>
-      <div class="card orange"><div class="k">Dept conflict</div><div class="v num" id="cConflict">0</div></div>
-      <div class="card blue"><div class="k">Needs choice</div><div class="v num" id="cChoose">0</div></div>
+      <div class="card blue"><div class="k">Pre-filled · review</div><div class="v num" id="cChoose">0</div></div>
+      <div class="card amber"><div class="k">New · verify</div><div class="v num" id="cGuess">0</div></div>
       <div class="card grey"><div class="k">Already filled</div><div class="v num" id="cKept">0</div></div>
     </div>
     <div class="legend">
-      <i style="color:var(--green);border-color:var(--green-d)">AUTO</i> seen before, one known mapping &nbsp;
-      <i style="color:var(--amber);border-color:var(--amber)">GUESS</i> new merchant, best guess — verify &nbsp;
-      <i style="color:var(--orange);border-color:var(--orange)">CONFLICT</i> card-holder dept vs a past booking — confirm &nbsp;
-      <i style="color:var(--blue);border-color:var(--blue)">CHOOSE</i> booked differently before — pick one &nbsp;
+      <i style="color:var(--green);border-color:var(--green-d)">AUTO</i> trained — filled exactly as before &nbsp;
+      <i style="color:var(--blue);border-color:var(--blue)">CHOOSE</i> booked &gt;1 way before — pre-filled with the most frequent, change if needed &nbsp;
+      <i style="color:var(--amber);border-color:var(--amber)">NEW</i> never trained — best guess + card-holder dept, please verify &nbsp;
       <i style="color:var(--dim);border-color:var(--faint)">KEPT</i> already filled &nbsp;
       <i style="color:#0e120a;background:var(--green);border-color:var(--green)">OK</i> confirmed by you
     </div>
@@ -179,7 +197,7 @@
       <button class="tab" data-f="kept">Kept</button>
       <button class="tab" data-f="done">Confirmed</button>
       <span class="spacer"></span>
-      <button class="btn" id="btnVerifyAll">✓ Verify all guesses</button>
+      <button class="btn" id="btnVerifyAll">✓ Confirm all pre-filled</button>
     </div>
     <table>
       <thead><tr>
@@ -195,9 +213,10 @@
     <ul>
       <li><b>Raw → uploader.</b> Every column of the raw Amex export is copied into the uploader shifted one column right (raw A→B … raw M→N), matching the uploader's blue headings. Row count adapts to the raw file; extra last-week rows are cleared.</li>
       <li><b>Formula columns.</b> For every data row the tool regenerates the NetSuite formulas (vendor &amp; item internal-ID XLOOKUPs, =C, AF*F, =U, project/customer XLOOKUPs) and the standing defaults (Uploader, credit-card account, US Dollar, New York, entry date, etc.), captured live from your uploader so they always match its current layout. A full recalculation is requested on open.</li>
-      <li><b>Department.</b> Defaults to the card-holder's role (Arielle → Admin, Himanshu → CXO, the marketing cards → Marketing, Umesh → CXO, Steve → Operations : COE : Managed Services). If that exact merchant was booked to a <i>different</i> department before, the row is flagged CONFLICT so you confirm.</li>
-      <li><b>Item &amp; Vendor.</b> From merchant history first; new merchants get a flagged best guess (vendor-name match, item keywords). Merchants booked inconsistently before (Amazon, Uber Eats, AmexGBT…) are never guessed — you pick from their history.</li>
-      <li><b>Learning &amp; safety.</b> Confirmed rows are remembered in this browser; export/import to move between machines. Output is your uploader with only the touched cells rewritten — all other sheets, styles and dropdown validations are preserved.</li>
+      <li><b>Self-training.</b> Drop past filled uploaders into the training box and the tool records, for every Description, exactly how Item / Vendor / Department were filled (and which department each card-holder tends to use). Training is cumulative, stored in this browser, and applied immediately to anything already loaded.</li>
+      <li><b>How it fills.</b> Trained data always wins: a Description seen before is filled exactly as before (AUTO). A merchant booked more than one way is pre-filled with the most frequent and flagged CHOOSE so you can switch. A brand-new merchant gets a best-guess Item/Vendor plus the card-holder's usual Department, flagged NEW to verify (card-holder roles: Arielle → Admin, Himanshu → CXO, the marketing cards → Marketing, Umesh → CXO, Steve → Operations : COE : Managed Services; new card-holders are learned from training too).</li>
+      <li><b>Raw → uploader &amp; formulas.</b> The raw Amex export is copied into the uploader's blue headings (raw A→B … M→N); row count adapts. For every row the NetSuite formulas (vendor &amp; item internal-ID XLOOKUPs, =C, AF*F, =U, project/customer XLOOKUPs) and standing defaults (Uploader, credit-card account, US Dollar, New York, entry date) are rebuilt from your uploader and recalculated on open.</li>
+      <li><b>Safety.</b> Confirmed rows are also remembered; export/import memory to move between machines. Output is your uploader with only the touched cells rewritten — all other sheets, styles and dropdown validations are preserved byte-for-byte.</li>
     </ul>
   </details>
 </div>
@@ -643,28 +662,36 @@ function buildClassifier2(mem, itemList, vendorList, deptList){
   const base = buildClassifier(mem, itemList, vendorList, deptList);
   const lookupPerson = buildPersonLookup(mem.personDept || {});
   const deptSet = new Set(deptList);
+  const strip = t => ({ item: t.item || null, vendor: t.vendor || null, dept: t.dept || null });
+  /* Priority (per the user's training rules):
+     1. exact description seen before, one consistent way  -> replicate it (AUTO)
+     2. exact description seen more than one way           -> pre-fill the most frequent, flag (CHOOSE)
+     3. merchant seen, one way (or strong near match)      -> replicate it (AUTO / NEAR)
+     4. merchant seen more than one way                    -> pre-fill the most frequent, flag (CHOOSE)
+     5. brand-new merchant                                 -> guess item/vendor; dept = card-holder's role (GUESS)
+     Trained data always wins for anything seen; the card-holder role only fills new merchants. */
   return function(desc, ext, member){
-    const r = base(desc, typeof ext === 'string' ? ext : '');
-    const fill = r.fill ? { item: r.fill.item || null, vendor: r.fill.vendor || null, dept: r.fill.dept || null }
-                        : { item: null, vendor: null, dept: null };
-    const candidates = r.candidates || [];
-    let status = r.status, tier = r.tier, deptCands = null;
+    const nd = normDesc(desc);
     const personD = lookupPerson(member);
-    // merchant-history department (only when unambiguous)
-    const nd = normDesc(desc), key = merchantKey(desc);
-    let histD = null;
-    const entry = mem.byMerchant[key];
-    if (entry){ const trips = triplesOf(entry); if (trips.length === 1) histD = trips[0].dept;
-      const ex = triplesOf(mem.byDesc[nd]); if (ex.length === 1) histD = ex[0].dept; }
-    if (personD && deptSet.has(personD)){
-      fill.dept = personD;
-      if (histD && histD !== personD && status !== 'choose'){
-        status = 'conflict'; tier = (tier || '') + '|dept-conflict';
-        deptCands = [ { item: fill.item, vendor: fill.vendor, dept: personD, count: 1, label: 'card-holder default' },
-                      { item: fill.item, vendor: fill.vendor, dept: histD,   count: 1, label: 'past booking' } ];
-      }
-    } else if (!fill.dept && histD){ fill.dept = histD; }
-    return { status, tier, fill, candidates, deptCands, personD };
+    const exact = triplesOf(mem.byDesc[nd]);
+    if (exact.length === 1)
+      return { status: 'auto', tier: 'exact', fill: strip(exact[0]), candidates: exact, personD };
+    if (exact.length > 1)
+      return { status: 'choose', tier: 'exact-multi', fill: strip(exact[0]), candidates: exact.slice(0, 6), personD };
+
+    const r = base(desc, typeof ext === 'string' ? ext : '');
+    let status = r.status, tier = r.tier;
+    const candidates = r.candidates || [];
+    const fill = { item: null, vendor: null, dept: null };
+    if (status === 'auto' || status === 'fuzzy'){
+      if (r.fill){ fill.item = r.fill.item || null; fill.vendor = r.fill.vendor || null; fill.dept = r.fill.dept || null; }
+    } else if (status === 'choose'){
+      const top = candidates[0]; if (top){ fill.item = top.item || null; fill.vendor = top.vendor || null; fill.dept = top.dept || null; }
+    } else { // guess / fuzzy-fallback — brand-new merchant
+      if (r.fill){ fill.item = r.fill.item || null; fill.vendor = r.fill.vendor || null; fill.dept = r.fill.dept || null; }
+      if (personD && deptSet.has(personD)) fill.dept = personD; // card-holder default only here
+    }
+    return { status, tier, fill, candidates, personD };
   };
 }
 
@@ -823,25 +850,102 @@ if (typeof DecompressionStream === 'undefined'){
 }
 
 /* ---------- memory ---------- */
-function loadLearned(){ try { return JSON.parse(localStorage.getItem(MEM_KEY) || 'null') || { byDesc:{}, byMerchant:{} }; }
-  catch { return { byDesc:{}, byMerchant:{} }; } }
+function blankMem(){ return { byDesc:{}, byMerchant:{}, personDept:{} }; }
+function loadLearned(){ try { const m = JSON.parse(localStorage.getItem(MEM_KEY) || 'null') || blankMem();
+  m.byDesc ||= {}; m.byMerchant ||= {}; m.personDept ||= {}; return m; } catch { return blankMem(); } }
 function saveLearned(m){ try { localStorage.setItem(MEM_KEY, JSON.stringify(m)); return true; } catch { return false; } }
 let learned = loadLearned();
-function memory(){ const m = CC.mergeMemory(CC.SEED, learned); m.personDept = CC.SEED.personDept || {}; return m; }
+/* combine seed + learned; resolve a single department per card-holder
+   (the fixed seed roles win; learned roles cover any new card-holders) */
+function resolvePersonDept(){
+  const out = { ...(CC.SEED.personDept || {}) };
+  const seedKeys = new Set(Object.keys(out).map(k => CC.personKey(k)));
+  for (const raw in (learned.personDept || {})){
+    if (seedKeys.has(CC.personKey(raw))) continue;
+    const counts = learned.personDept[raw]; let best = null, bc = -1;
+    for (const d in counts) if (counts[d] > bc){ best = d; bc = counts[d]; }
+    if (best) out[raw] = best;
+  }
+  return out;
+}
+function memory(){ const m = CC.mergeMemory(CC.SEED, learned); m.personDept = resolvePersonDept(); return m; }
 function memStats(){ const m = memory(); const lm = Object.keys(learned.byMerchant || {}).length;
   $('memstats').innerHTML = `memory: <b>${Object.keys(m.byMerchant).length}</b> merchants · <b>${Object.keys(m.byDesc).length}</b> exact texts · learned here: <b>${lm}</b>`; }
 memStats();
 
-$('btnExport').onclick = () => { const blob = new Blob([JSON.stringify({ format:'cc-autofill-memory@1', exported:new Date().toISOString(), ...memory() }, null, 1)], { type:'application/json' });
+$('btnExport').onclick = () => { const blob = new Blob([JSON.stringify({ format:'cc-autofill-memory@2', exported:new Date().toISOString(), byDesc:learned.byDesc, byMerchant:learned.byMerchant, personDept:learned.personDept, seedPersonDept:CC.SEED.personDept }, null, 1)], { type:'application/json' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'cc-autofill-memory.json'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); };
 $('btnImport').onclick = () => $('memfile').click();
 $('memfile').onchange = async e => { const f = e.target.files[0]; if (!f) return;
   try { const j = JSON.parse(await f.text()); if (!j.byMerchant) throw new Error('no byMerchant section');
-    learned = CC.mergeMemory(learned, { byDesc: j.byDesc || {}, byMerchant: j.byMerchant }); saveLearned(learned); memStats();
+    learned = CC.mergeMemory(learned, { byDesc: j.byDesc || {}, byMerchant: j.byMerchant }); learned.personDept ||= {};
+    for (const p in (j.personDept || {})){ learned.personDept[p] ||= {}; for (const d in j.personDept[p]) learned.personDept[p][d] = Math.min(999,(learned.personDept[p][d]||0)+j.personDept[p][d]); }
+    saveLearned(learned); memStats(); if (S) reclassify();
     toast(`Imported memory — now ${Object.keys(memory().byMerchant).length} merchants known.`);
   } catch (err){ toast('Import failed: ' + err.message, true); } e.target.value = ''; };
-$('btnReset').onclick = () => { if (!confirm('Forget everything learned in this browser? (Built-in seed stays.)')) return;
-  learned = { byDesc:{}, byMerchant:{} }; saveLearned(learned); memStats(); toast('Learned memory cleared.'); };
+$('btnReset').onclick = () => { if (!confirm('Forget everything learned/trained in this browser? (The built-in seed stays.)')) return;
+  learned = blankMem(); saveLearned(learned); memStats(); if (S) reclassify(); toast('Learned memory cleared.'); };
+
+/* ---------- self-training: learn from past filled uploader files ---------- */
+const trainDrop = $('trainDrop');
+trainDrop.onclick = () => $('trainFile').click();
+trainDrop.ondragover = e => { e.preventDefault(); trainDrop.classList.add('hover'); };
+trainDrop.ondragleave = () => trainDrop.classList.remove('hover');
+trainDrop.ondrop = e => { e.preventDefault(); trainDrop.classList.remove('hover'); trainFiles(e.dataTransfer.files); };
+$('trainFile').onchange = e => { trainFiles(e.target.files); e.target.value = ''; };
+
+async function trainFromFile(f){
+  const bytes = new Uint8Array(await f.arrayBuffer());
+  const wb = await CC.openWorkbook(CC.zipOpen(bytes));
+  const td = await wb.grid('Transaction Details');
+  if (!td) throw new Error('no "Transaction Details" sheet');
+  const L = CC.detectLayout(td.rows); L.cMember = L.cDesc + 1;
+  let rows = 0, newKeys = 0;
+  for (const rn of L.dataRows){
+    const C = td.rows.get(rn);
+    const item = C.get(L.cItem), vendor = C.get(L.cVendor), dept = C.get(L.cDept);
+    if (!(typeof item === 'string' && item.trim() && typeof vendor === 'string' && vendor.trim() && typeof dept === 'string' && dept.trim())) continue;
+    const desc = String(C.get(L.cDesc) || ''); if (!desc.trim()) continue;
+    const member = C.get(L.cMember);
+    const triple = item + CC.SEP + vendor + CC.SEP + dept;
+    const mk = CC.merchantKey(desc), nd = CC.normDesc(desc);
+    if (!learned.byMerchant[mk] && !CC.SEED.byMerchant[mk]) newKeys++;
+    (learned.byMerchant[mk] ||= {})[triple] = Math.min(999, (learned.byMerchant[mk][triple] || 0) + 1);
+    (learned.byDesc[nd] ||= {})[triple] = Math.min(999, (learned.byDesc[nd][triple] || 0) + 1);
+    if (typeof member === 'string' && member.trim()){ const pk = CC.personKey(member);
+      (learned.personDept[pk] ||= {})[dept] = Math.min(999, (learned.personDept[pk][dept] || 0) + 1); }
+    rows++;
+  }
+  return { rows, newKeys };
+}
+async function trainFiles(fileList){
+  const files = [...fileList]; if (!files.length) return;
+  const before = Object.keys(memory().byMerchant).length;
+  let okFiles = 0, totalRows = 0; const errs = [];
+  $('trainReport').innerHTML = `<span class="mono">training on ${files.length} file(s)…</span>`;
+  for (const f of files){ try { const rep = await trainFromFile(f); okFiles++; totalRows += rep.rows; }
+    catch (err){ console.error(err); errs.push(`${f.name}: ${err.message}`); } }
+  saveLearned(learned); memStats();
+  const after = Object.keys(memory().byMerchant).length;
+  $('trainReport').innerHTML =
+    `<b>Trained on ${okFiles} file(s).</b> Learned ${totalRows} filled rows · ${after - before} new merchant(s) · memory now knows ${after} merchants.` +
+    (errs.length ? `<br><span style="color:var(--red)">Skipped: ${errs.map(esc).join('; ')}</span>` : '') +
+    `<br><span class="mono">Stored in this browser. Use “Export memory” to back it up or move it to another machine.</span>`;
+  if (S){ reclassify(); toast('Re-applied training to the loaded sheet.'); }
+}
+/* re-run classification on the loaded sheet after memory changes (keeps your edits) */
+function reclassify(){
+  if (!S || !upDoc.lists) return;
+  const lists = upDoc.lists; const mem = memory();
+  const classify = CC.buildClassifier2(mem, lists.itemList, lists.vendorList, lists.deptList);
+  for (const r of S.rows){
+    if (r.touched || r.status === 'done' || r.status === 'kept') continue;
+    const cr = classify(r.desc, r.ext, r.member);
+    r.fill = { item: cr.fill.item || null, vendor: cr.fill.vendor || null, dept: cr.fill.dept || null };
+    r.status = cr.status; r.tier = cr.tier; r.candidates = cr.candidates || [];
+  }
+  render();
+}
 
 /* ---------- state ---------- */
 let rawDoc = null;   // { fileName, rows, layout }
@@ -974,11 +1078,11 @@ function fillDatalist(id, list){ $(id).innerHTML = [...list].sort((a,b)=>a.local
 
 /* ---------- render ---------- */
 const FIELD_LIST = { item:'dl-items', vendor:'dl-vendors', dept:'dl-depts' };
-const CHIP = { auto:'AUTO', kept:'KEPT', guess:'GUESS', fuzzy:'NEAR', choose:'CHOOSE', conflict:'CONFLICT', done:'OK' };
+const CHIP = { auto:'AUTO', kept:'KEPT', guess:'NEW', fuzzy:'NEW', choose:'CHOOSE', done:'OK' };
 
-function counts(){ const c = { all:S.rows.length, auto:0, guess:0, choose:0, conflict:0, kept:0, done:0, flag:0 };
+function counts(){ const c = { all:S.rows.length, auto:0, guess:0, choose:0, kept:0, done:0, flag:0 };
   for (const r of S.rows){ if (r.status==='fuzzy') c.guess++; else c[r.status]++;
-    if (r.status==='guess'||r.status==='fuzzy'||r.status==='choose'||r.status==='conflict') c.flag++; } return c; }
+    if (r.status==='guess'||r.status==='fuzzy'||r.status==='choose') c.flag++; } return c; }
 function fmtAmount(a){ return typeof a==='number' ? a.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) : (a ?? ''); }
 function fmtDate(d){ if (typeof d==='number'){ const t = new Date(Date.UTC(1899,11,30)+d*86400000);
     return String(t.getUTCMonth()+1).padStart(2,'0')+'/'+String(t.getUTCDate()).padStart(2,'0')+'/'+t.getUTCFullYear(); } return d ?? ''; }
@@ -987,13 +1091,13 @@ function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;',
 function render(){
   const c = counts();
   $('cAll').textContent = c.all; $('cAuto').textContent = c.auto + c.done;
-  $('cGuess').textContent = c.guess; $('cConflict').textContent = c.conflict; $('cChoose').textContent = c.choose; $('cKept').textContent = c.kept;
+  $('cGuess').textContent = c.guess; $('cChoose').textContent = c.choose; $('cKept').textContent = c.kept;
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.f === filter));
   $('barnote').textContent = c.flag
-    ? `${c.choose} to choose · ${c.conflict} dept conflict · ${c.guess} guess(es) to verify. You can download now; unresolved Item/Vendor cells stay blank.`
+    ? `${c.choose} pre-filled to review · ${c.guess} new merchant(s) to verify. All are pre-filled where possible; download whenever you like.`
     : 'All rows resolved.';
   const show = r => filter==='all' ? true
-    : filter==='flag' ? ['guess','fuzzy','choose','conflict'].includes(r.status)
+    : filter==='flag' ? ['guess','fuzzy','choose'].includes(r.status)
     : filter==='auto' ? r.status==='auto'
     : filter==='kept' ? r.status==='kept'
     : filter==='done' ? r.status==='done' : true;
@@ -1002,7 +1106,7 @@ function render(){
   S.rows.forEach((r, i) => {
     if (!show(r)) return;
     const cell = f => { const v = r.fill[f]; return `<div class="cellv ${v?'':'empty'}" data-i="${i}" data-f="${f}" title="click to edit">${v?esc(v):'— pick —'}</div>`; };
-    const verify = (r.status==='guess'||r.status==='fuzzy'||r.status==='conflict') ? `<br><button class="okbtn" data-verify="${i}">✓ confirm</button>` : '';
+    const verify = (r.status==='guess'||r.status==='fuzzy'||r.status==='choose') ? `<br><button class="okbtn" data-verify="${i}">✓ confirm</button>` : '';
     html.push(`<tr class="r-${r.status}">
       <td class="num">${r.upRow}</td>
       <td class="num" style="white-space:nowrap">${esc(fmtDate(r.date))}</td>
@@ -1012,12 +1116,9 @@ function render(){
       <td>${cell('item')}</td><td>${cell('vendor')}</td><td>${cell('dept')}</td>
       <td><span class="chip ${r.status}">${CHIP[r.status]}</span>${verify}</td>
     </tr>`);
-    if ((r.status==='choose' && r.candidates.length) || (r.status==='conflict' && r.deptCands)){
-      const cands = r.status==='conflict' ? r.deptCands : r.candidates;
-      const intro = r.status==='conflict' ? 'Card-holder department vs how this merchant was booked before — pick one:'
-                                          : 'This merchant was booked differently before — pick for this row:';
-      const btns = cands.map((t,j) => `<button class="cand" data-i="${i}" data-c="${j}">use <b>${esc(t.dept)}</b>${t.item?` · ${esc(t.item)} · ${esc(t.vendor)}`:''}<span class="x">${t.label?esc(t.label):'seen ×'+t.count}</span></button>`).join('');
-      html.push(`<tr class="cands"><td></td><td colspan="8">${intro}${btns}</td></tr>`);
+    if (r.status==='choose' && r.candidates.length){
+      const btns = r.candidates.map((t,j) => `<button class="cand" data-i="${i}" data-c="${j}">use <b>${esc(t.item)}</b> · ${esc(t.vendor)} · ${esc(t.dept)}<span class="x">seen ×${t.count}</span></button>`).join('');
+      html.push(`<tr class="cands"><td></td><td colspan="8">Booked more than one way before — pre-filled with the most frequent; pick another if needed:${btns}</td></tr>`);
     }
   });
   $('tbody').innerHTML = html.join('');
@@ -1028,8 +1129,8 @@ document.querySelectorAll('.tab').forEach(t => t.onclick = () => { filter = t.da
 $('tbody').addEventListener('click', e => {
   const v = e.target.closest('.cellv'); if (v) return editCell(+v.dataset.i, v.dataset.f, v);
   const cand = e.target.closest('.cand');
-  if (cand){ const r = S.rows[+cand.dataset.i]; const list = r.status==='conflict'?r.deptCands:r.candidates; const t = list[+cand.dataset.c];
-    if (t.item != null){ r.fill = { item:t.item, vendor:t.vendor, dept:t.dept }; } else { r.fill.dept = t.dept; }
+  if (cand){ const r = S.rows[+cand.dataset.i]; const t = r.candidates[+cand.dataset.c];
+    r.fill = { item:t.item, vendor:t.vendor, dept:t.dept };
     r.status = 'done'; r.touched = true; offerSameMerchant(r); render(); return; }
   const ver = e.target.closest('[data-verify]');
   if (ver){ const r = S.rows[+ver.dataset.verify]; r.status='done'; r.touched=true; render(); }
@@ -1051,14 +1152,14 @@ function editCell(i, f, el){
 function offerSameMerchant(r){
   if (!(r.fill.item && r.fill.vendor && r.fill.dept)) return;
   const key = CC.merchantKey(r.desc);
-  const others = S.rows.filter(o => o!==r && CC.merchantKey(o.desc)===key && ['choose','guess','fuzzy','conflict'].includes(o.status));
+  const others = S.rows.filter(o => o!==r && CC.merchantKey(o.desc)===key && ['choose','guess','fuzzy'].includes(o.status));
   if (!others.length) return;
   if (confirm(`Apply the same Item / Vendor / Department to ${others.length} other unresolved row(s) of "${key}"?`))
     for (const o of others){ o.fill = { ...r.fill }; o.status = 'done'; o.touched = true; }
 }
 $('btnVerifyAll').onclick = () => { let n = 0;
-  for (const r of S.rows) if (['guess','fuzzy','conflict'].includes(r.status) && r.fill.item && r.fill.vendor && r.fill.dept){ r.status='done'; r.touched=true; n++; }
-  render(); toast(n ? `Confirmed ${n} row(s).` : 'No complete guesses to confirm.'); };
+  for (const r of S.rows) if (['guess','fuzzy','choose'].includes(r.status) && r.fill.item && r.fill.vendor && r.fill.dept){ r.status='done'; r.touched=true; n++; }
+  render(); toast(n ? `Confirmed ${n} pre-filled row(s).` : 'No complete rows to confirm.'); };
 
 /* ---------- download ---------- */
 $('btnDownload').onclick = async () => {
