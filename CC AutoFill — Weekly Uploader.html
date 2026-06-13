@@ -144,13 +144,13 @@
     <h1>CC AutoFill<small>raw → credit-card uploader · auto-fills item / vendor / department</small></h1>
     <div class="memops">
       <span id="memstats">memory: …</span><br>
-      <button class="btn" id="btnExport">Export memory</button><button class="btn" id="btnImport">Import memory</button><button class="btn" id="btnReset">Reset learned</button>
+      <button class="btn" id="btnExport" title="Optional: save a backup file (to move to another computer or keep a safety copy). Not needed for normal use — learning is saved automatically.">⤓ Backup</button><button class="btn" id="btnImport" title="Restore learning from a backup file, or merge in someone else's.">⤒ Restore</button><button class="btn" id="btnReset" title="Forget everything learned on this machine (the built-in starter set stays).">Reset</button>
       <input type="file" id="memfile" accept=".json" style="display:none">
     </div>
   </header>
 
   <div class="train" id="train">
-    <div class="train-head"><span>🎓 Self-training</span><span id="trainHint">teach it from past filled uploaders — the more you feed it, the more it auto-fills</span></div>
+    <div class="train-head"><span>🎓 Self-training</span><span id="trainHint">teach it from past filled uploaders — learning is saved automatically in this browser, so you only train each file once</span></div>
     <div id="trainDrop" class="traindrop">
       <b>Drop previously-filled uploader files here</b> (or click) — one or many.<br>
       <span class="mono">It reads how Item name · Vendor name · DEPARTMENT were filled for each Description and remembers it, so next week it fills the same way. Learning is cumulative and stored in this browser.</span>
@@ -853,8 +853,17 @@ if (typeof DecompressionStream === 'undefined'){
 function blankMem(){ return { byDesc:{}, byMerchant:{}, personDept:{} }; }
 function loadLearned(){ try { const m = JSON.parse(localStorage.getItem(MEM_KEY) || 'null') || blankMem();
   m.byDesc ||= {}; m.byMerchant ||= {}; m.personDept ||= {}; return m; } catch { return blankMem(); } }
-function saveLearned(m){ try { localStorage.setItem(MEM_KEY, JSON.stringify(m)); return true; } catch { return false; } }
+let STORAGE_OK = true;
+function saveLearned(m){ try { localStorage.setItem(MEM_KEY, JSON.stringify(m)); STORAGE_OK = true; return true; }
+  catch { STORAGE_OK = false; return false; } }
 let learned = loadLearned();
+/* ask the browser to keep this storage durable (don't evict under pressure) */
+(async () => { try { if (navigator.storage && navigator.storage.persist){
+  const already = navigator.storage.persisted ? await navigator.storage.persisted() : false;
+  if (!already) await navigator.storage.persist(); } } catch {} })();
+/* verify storage actually works in this context (warn on private mode / blocked) */
+(() => { try { localStorage.setItem('__cc_probe','1'); localStorage.removeItem('__cc_probe'); STORAGE_OK = true; }
+  catch { STORAGE_OK = false; } })();
 /* combine seed + learned; resolve a single department per card-holder
    (the fixed seed roles win; learned roles cover any new card-holders) */
 function resolvePersonDept(){
@@ -870,8 +879,33 @@ function resolvePersonDept(){
 }
 function memory(){ const m = CC.mergeMemory(CC.SEED, learned); m.personDept = resolvePersonDept(); return m; }
 function memStats(){ const m = memory(); const lm = Object.keys(learned.byMerchant || {}).length;
-  $('memstats').innerHTML = `memory: <b>${Object.keys(m.byMerchant).length}</b> merchants · <b>${Object.keys(m.byDesc).length}</b> exact texts · learned here: <b>${lm}</b>`; }
+  const when = learned._updated ? new Date(learned._updated).toLocaleString() : 'just the built-in starter set so far';
+  const save = STORAGE_OK
+    ? `<span style="color:var(--green)">● auto-saved in this browser</span>`
+    : `<span style="color:var(--red)">● NOT saving — private window or storage blocked; use Backup</span>`;
+  $('memstats').innerHTML =
+    `🧠 <b>${Object.keys(m.byMerchant).length}</b> merchants · <b>${Object.keys(m.byDesc).length}</b> exact descriptions known · ${save}<br>` +
+    `<span style="color:var(--faint)">learned on this machine: ${lm} merchants · last updated ${when}</span>`; }
 memStats();
+
+/* continuous learning: persist one row's mapping the moment it is confirmed,
+   so nothing depends on downloading or re-uploading past files next session */
+function learnRow(r){
+  if (!(r.fill.item && r.fill.vendor && r.fill.dept)) return false;
+  const triple = r.fill.item + CC.SEP + r.fill.vendor + CC.SEP + r.fill.dept;
+  const sig = CC.merchantKey(r.desc) + '' + triple;
+  if (r._learnedSig === sig) return false;            // already stored this exact mapping for this row
+  r._learnedSig = sig;
+  const mk = CC.merchantKey(r.desc), nd = CC.normDesc(r.desc);
+  const isNew = !learned.byMerchant[mk] && !CC.SEED.byMerchant[mk];
+  (learned.byMerchant[mk] ||= {})[triple] = Math.min(999, (learned.byMerchant[mk][triple] || 0) + 1);
+  (learned.byDesc[nd] ||= {})[triple] = Math.min(999, (learned.byDesc[nd][triple] || 0) + 1);
+  if (typeof r.member === 'string' && r.member.trim()){ const pk = CC.personKey(r.member);
+    (learned.personDept[pk] ||= {})[r.fill.dept] = Math.min(999, (learned.personDept[pk][r.fill.dept] || 0) + 1); }
+  learned._updated = new Date().toISOString();
+  saveLearned(learned); memStats();
+  return isNew;
+}
 
 $('btnExport').onclick = () => { const blob = new Blob([JSON.stringify({ format:'cc-autofill-memory@2', exported:new Date().toISOString(), byDesc:learned.byDesc, byMerchant:learned.byMerchant, personDept:learned.personDept, seedPersonDept:CC.SEED.personDept }, null, 1)], { type:'application/json' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'cc-autofill-memory.json'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); };
@@ -925,10 +959,12 @@ async function trainFiles(fileList){
   $('trainReport').innerHTML = `<span class="mono">training on ${files.length} file(s)…</span>`;
   for (const f of files){ try { const rep = await trainFromFile(f); okFiles++; totalRows += rep.rows; }
     catch (err){ console.error(err); errs.push(`${f.name}: ${err.message}`); } }
-  saveLearned(learned); memStats();
+  learned._updated = new Date().toISOString();
+  const persisted = saveLearned(learned); memStats();
   const after = Object.keys(memory().byMerchant).length;
   $('trainReport').innerHTML =
     `<b>Trained on ${okFiles} file(s).</b> Learned ${totalRows} filled rows · ${after - before} new merchant(s) · memory now knows ${after} merchants.` +
+    (persisted ? '' : `<br><span style="color:var(--red)">⚠ Could not auto-save (private window or storage blocked) — use “Backup” to keep this, or reopen in a normal window.</span>`) +
     (errs.length ? `<br><span style="color:var(--red)">Skipped: ${errs.map(esc).join('; ')}</span>` : '') +
     `<br><span class="mono">Stored in this browser. Use “Export memory” to back it up or move it to another machine.</span>`;
   if (S){ reclassify(); toast('Re-applied training to the loaded sheet.'); }
@@ -1131,9 +1167,9 @@ $('tbody').addEventListener('click', e => {
   const cand = e.target.closest('.cand');
   if (cand){ const r = S.rows[+cand.dataset.i]; const t = r.candidates[+cand.dataset.c];
     r.fill = { item:t.item, vendor:t.vendor, dept:t.dept };
-    r.status = 'done'; r.touched = true; offerSameMerchant(r); render(); return; }
+    r.status = 'done'; r.touched = true; learnRow(r); offerSameMerchant(r); render(); return; }
   const ver = e.target.closest('[data-verify]');
-  if (ver){ const r = S.rows[+ver.dataset.verify]; r.status='done'; r.touched=true; render(); }
+  if (ver){ const r = S.rows[+ver.dataset.verify]; r.status='done'; r.touched=true; learnRow(r); render(); }
 });
 function editCell(i, f, el){
   const r = S.rows[i]; const inp = document.createElement('input');
@@ -1145,7 +1181,7 @@ function editCell(i, f, el){
     if (val && !list.includes(val)){ const m = list.find(x => x.toLowerCase()===val.toLowerCase());
       if (m) r.fill[f] = m; else { toast(`"${val}" is not in the ${f} list — not saved (pick from the dropdown).`, true); render(); return; } }
     else r.fill[f] = val || null;
-    if (val){ r.status = 'done'; r.touched = true; } offerSameMerchant(r); render(); };
+    if (val){ r.status = 'done'; r.touched = true; learnRow(r); } offerSameMerchant(r); render(); };
   inp.onchange = commit; inp.onblur = commit;
   inp.onkeydown = ev => { if (ev.key==='Enter') commit(); if (ev.key==='Escape'){ done = true; render(); } };
 }
@@ -1155,11 +1191,11 @@ function offerSameMerchant(r){
   const others = S.rows.filter(o => o!==r && CC.merchantKey(o.desc)===key && ['choose','guess','fuzzy'].includes(o.status));
   if (!others.length) return;
   if (confirm(`Apply the same Item / Vendor / Department to ${others.length} other unresolved row(s) of "${key}"?`))
-    for (const o of others){ o.fill = { ...r.fill }; o.status = 'done'; o.touched = true; }
+    for (const o of others){ o.fill = { ...r.fill }; o.status = 'done'; o.touched = true; learnRow(o); }
 }
 $('btnVerifyAll').onclick = () => { let n = 0;
-  for (const r of S.rows) if (['guess','fuzzy','choose'].includes(r.status) && r.fill.item && r.fill.vendor && r.fill.dept){ r.status='done'; r.touched=true; n++; }
-  render(); toast(n ? `Confirmed ${n} pre-filled row(s).` : 'No complete rows to confirm.'); };
+  for (const r of S.rows) if (['guess','fuzzy','choose'].includes(r.status) && r.fill.item && r.fill.vendor && r.fill.dept){ r.status='done'; r.touched=true; learnRow(r); n++; }
+  render(); toast(n ? `Confirmed & saved ${n} pre-filled row(s).` : 'No complete rows to confirm.'); };
 
 /* ---------- download ---------- */
 $('btnDownload').onclick = async () => {
@@ -1192,14 +1228,8 @@ $('btnDownload').onclick = async () => {
     const out = await CC.zipRepack(upDoc.zip, repl);
 
     let newKeys = 0;
-    for (const r of S.rows){ if (!(r.fill.item && r.fill.vendor && r.fill.dept)) continue;
-      if (!['kept','auto','done'].includes(r.status)) continue;
-      const triple = r.fill.item + CC.SEP + r.fill.vendor + CC.SEP + r.fill.dept;
-      const mk = CC.merchantKey(r.desc), nd = CC.normDesc(r.desc);
-      if (!(learned.byMerchant[mk]?.[triple]) && !(CC.SEED.byMerchant[mk]?.[triple])) newKeys++;
-      (learned.byMerchant[mk] ||= {})[triple] = Math.min(999, (learned.byMerchant[mk][triple]||0)+1);
-      (learned.byDesc[nd] ||= {})[triple] = Math.min(999, (learned.byDesc[nd][triple]||0)+1); }
-    const persisted = saveLearned(learned); memStats();
+    for (const r of S.rows){ if (!['kept','done'].includes(r.status)) continue; if (learnRow(r)) newKeys++; }
+    const persisted = STORAGE_OK;
 
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([out], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
