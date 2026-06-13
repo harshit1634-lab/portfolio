@@ -114,12 +114,24 @@
   details.help summary{cursor:pointer;color:var(--ink);font-weight:600}
   details.help li{margin:5px 0}
   #main{display:none}
+
+  /* v2 additions */
+  :root{ --orange:#e08b4a; }
+  .slots{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0 4px}
+  .slot{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:12px}
+  .slot.ok{border-color:var(--green-d)}
+  .slot .lbl{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:1px;color:var(--dim)}
+  .slot .val{font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--ink)}
+  .slot.ok .val{color:var(--green)}
+  .card.orange .v{color:var(--orange)}
+  tr.r-conflict td:first-child{box-shadow:inset 3px 0 0 var(--orange)}
+  .chip.conflict{color:var(--orange);border-color:var(--orange)}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header class="top">
-    <h1>CC AutoFill<small>weekly credit card uploader · item / vendor / department</small></h1>
+    <h1>CC AutoFill<small>raw → credit-card uploader · auto-fills item / vendor / department</small></h1>
     <div class="memops">
       <span id="memstats">memory: …</span><br>
       <button class="btn" id="btnExport">Export memory</button><button class="btn" id="btnImport">Import memory</button><button class="btn" id="btnReset">Reset learned</button>
@@ -128,11 +140,16 @@
   </header>
 
   <div id="drop">
-    <h2>Drop the weekly workbook here — or click to browse</h2>
-    <p>Reads <b>Transaction Details</b> and fills <b>Item name · Vendor name · DEPARTMENT</b> from the Description, using everything it has learned so far.</p>
-    <p class="mono">Lists come from the file itself: Item Master!B (items) · Vendor master!I (vendors) · Departments!A (departments).<br>
-    Only those three columns are written back — every formula, sheet, style and dropdown in the file is preserved untouched.</p>
-    <input type="file" id="file" accept=".xlsx" style="display:none">
+    <h2>Drop the weekly <b>raw file</b> and the <b>uploader</b> here — or click to browse</h2>
+    <p>The tool copies the raw Amex columns into the uploader (<b>B → N</b>), then auto-fills <b>Item name · Vendor name · DEPARTMENT</b> (S/T/U) from the Description and the card-holder. All NetSuite formula columns are rebuilt for every row and kept live.</p>
+    <p class="mono">Reference lists &amp; dropdowns come from the uploader itself: Item Master!B · Vendor master!I · Departments!A.<br>
+    You can also drop just the uploader (already merged) to only fill S/T/U.</p>
+    <input type="file" id="file" accept=".xlsx" multiple style="display:none">
+  </div>
+
+  <div class="slots" id="slots">
+    <div class="slot" id="slotRaw"><span class="lbl">RAW FILE</span><span class="val" id="slotRawV">— not loaded —</span></div>
+    <div class="slot" id="slotUp"><span class="lbl">UPLOADER</span><span class="val" id="slotUpV">— not loaded —</span></div>
   </div>
 
   <div class="err" id="err"></div>
@@ -143,14 +160,16 @@
       <div class="card"><div class="k">Transactions</div><div class="v num" id="cAll">0</div></div>
       <div class="card green"><div class="k">Auto-filled</div><div class="v num" id="cAuto">0</div></div>
       <div class="card amber"><div class="k">To verify</div><div class="v num" id="cGuess">0</div></div>
+      <div class="card orange"><div class="k">Dept conflict</div><div class="v num" id="cConflict">0</div></div>
       <div class="card blue"><div class="k">Needs choice</div><div class="v num" id="cChoose">0</div></div>
       <div class="card grey"><div class="k">Already filled</div><div class="v num" id="cKept">0</div></div>
     </div>
     <div class="legend">
       <i style="color:var(--green);border-color:var(--green-d)">AUTO</i> seen before, one known mapping &nbsp;
-      <i style="color:var(--amber);border-color:var(--amber)">GUESS</i> new merchant, best guess — please verify &nbsp;
-      <i style="color:var(--blue);border-color:var(--blue)">CHOOSE</i> this merchant maps differently on different rows — pick one &nbsp;
-      <i style="color:var(--dim);border-color:var(--faint)">KEPT</i> was already filled in the file &nbsp;
+      <i style="color:var(--amber);border-color:var(--amber)">GUESS</i> new merchant, best guess — verify &nbsp;
+      <i style="color:var(--orange);border-color:var(--orange)">CONFLICT</i> card-holder dept vs a past booking — confirm &nbsp;
+      <i style="color:var(--blue);border-color:var(--blue)">CHOOSE</i> booked differently before — pick one &nbsp;
+      <i style="color:var(--dim);border-color:var(--faint)">KEPT</i> already filled &nbsp;
       <i style="color:#0e120a;background:var(--green);border-color:var(--green)">OK</i> confirmed by you
     </div>
     <div class="toolbar">
@@ -164,7 +183,7 @@
     </div>
     <table>
       <thead><tr>
-        <th>#</th><th>Date</th><th>Description</th><th style="text-align:right">Amount</th>
+        <th>#</th><th>Date</th><th>Card holder</th><th>Description</th><th style="text-align:right">Amount</th>
         <th>Item name</th><th>Vendor name</th><th>Department</th><th>Status</th>
       </tr></thead>
       <tbody id="tbody"></tbody>
@@ -174,17 +193,17 @@
   <details class="help">
     <summary>How it works</summary>
     <ul>
-      <li><b>Matching.</b> The first 20 characters of the Description are the card network's merchant field. The tool keys on that (digits/punctuation ignored), so appended notes or changing invoice numbers don't break recognition.</li>
-      <li><b>Auto:</b> merchant seen before with exactly one historical mapping → filled silently. <b>Choose:</b> merchant has more than one historical mapping (e.g. Amazon as snacks vs IT) → never guessed, you pick from its history. <b>Guess:</b> never-seen merchant → vendor/keyword heuristics propose values, flagged amber for your review.</li>
-      <li><b>Learning.</b> When you download, every confirmed row (auto, kept, or edited/verified by you) is added to memory in this browser (localStorage). Unverified guesses are <i>not</i> learned. Use Export/Import memory to move it between machines or keep a backup.</li>
-      <li><b>Safety.</b> The output file is your original workbook with only the Item/Vendor/Department cells rewritten inside the sheet XML — formulas (vendor & item internal-ID lookups, amounts), all other sheets, styles and dropdown validations are byte-for-byte preserved. A full recalculation is requested on open so the lookup columns refresh.</li>
-      <li><b>Dropdowns.</b> Editing a cell offers the same lists as the workbook's own validations: Item Master column B, Vendor master column I, Departments column A.</li>
+      <li><b>Raw → uploader.</b> Every column of the raw Amex export is copied into the uploader shifted one column right (raw A→B … raw M→N), matching the uploader's blue headings. Row count adapts to the raw file; extra last-week rows are cleared.</li>
+      <li><b>Formula columns.</b> For every data row the tool regenerates the NetSuite formulas (vendor &amp; item internal-ID XLOOKUPs, =C, AF*F, =U, project/customer XLOOKUPs) and the standing defaults (Uploader, credit-card account, US Dollar, New York, entry date, etc.), captured live from your uploader so they always match its current layout. A full recalculation is requested on open.</li>
+      <li><b>Department.</b> Defaults to the card-holder's role (Arielle → Admin, Himanshu → CXO, the marketing cards → Marketing, Umesh → CXO, Steve → Operations : COE : Managed Services). If that exact merchant was booked to a <i>different</i> department before, the row is flagged CONFLICT so you confirm.</li>
+      <li><b>Item &amp; Vendor.</b> From merchant history first; new merchants get a flagged best guess (vendor-name match, item keywords). Merchants booked inconsistently before (Amazon, Uber Eats, AmexGBT…) are never guessed — you pick from their history.</li>
+      <li><b>Learning &amp; safety.</b> Confirmed rows are remembered in this browser; export/import to move between machines. Output is your uploader with only the touched cells rewritten — all other sheets, styles and dropdown validations are preserved.</li>
     </ul>
   </details>
 </div>
 
 <div id="bar"><div class="inner">
-  <button class="btn primary" id="btnDownload">⬇ Download updated workbook</button>
+  <button class="btn primary" id="btnDownload">⬇ Download updated uploader</button>
   <span class="note" id="barnote"></span>
 </div></div>
 <div id="toast"></div>
@@ -192,8 +211,9 @@
 <datalist id="dl-vendors"></datalist>
 <datalist id="dl-depts"></datalist>
 
-<script id="cc-seed" type="application/json">{"byDesc":{"AURA PRO SINGAPORE SG":{"Advertising & Marketing - Misc\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"APLPAY NJT RAIL MY TNEWARK NJ":{"Domestic Travel - Local Transport/Car - Support\u0001Miscellaneous Vendors - US\u0001Support : CXO":3},"CHECKLY UTRECHT UT":{"Software License  expense - miscellaneous\u0001Miscellaneous Vendors - US\u0001Support : IT":1},"JASPER AI SAN FRANCISCO CA":{"Advertising & Marketing - Misc\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"ADOBE ADOBE SYSTEMS SAN JOSE CA":{"Software Subcription - Adobe\u0001Adobe\u0001Support : IT":1},"AMAZON COM AMZN COM BILL WA COLD BREW PURCHASE FOR OFFICE":{"Office Snacks & Meals\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"AMEXGBT PHOENIX AZ ERIKA TRAVEL FOR QBR FROM GR TO NY AND RETURN TO GR FROM 31ST MAY 26 TO 2ND JUNE 26":{"Domestic Travel - Airfare - Support\u0001Miscellaneous Vendors - US\u0001Support : Sales":1},"AMEX GBT US SCOTTSDALE AZ ERIKA TRAVEL FOR QBR FROM GR TO NY AND RETURN TO GR FROM 31ST MAY 26 TO 2ND JUNE 26":{"Domestic Travel - Airfare - Support\u0001Miscellaneous Vendors - US\u0001Support : Sales":1},"FEDEX255611889 FEDEXMEMPHIS TN":{"Courier/Postage Charges\u0001Fedex\u0001Support : Admin":1},"LINKEDIN P3019093164SAN FRANCISCO":{"Advertising and Marketing - Linkedin\u0001Linkedin\u0001Support : Marketing":1},"NPM INC SAN FRANCISCO CA":{"Software Subscription – Navicat\u0001Navicat\u0001Support : IT":1},"AMAZON MARKEPLACE NA PA WALL LED LIGHT PURCHASE FOR PHONE BOOTH":{"Office Maintenance Expense - Misc.\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"AMAZON MARKEPLACE NA PA":{"Office Snacks & Meals\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"AMAZON COM AMZN COM BILL WA":{"IT Consumable\u0001Miscellaneous Vendors - US\u0001Support : IT":1},"APLPAY TRADER JOE S NEW YORK NY":{"Office Snacks & Meals\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"C4MEDIA INC ETOBICOKE REGISTRATION OF SANDEEP SAWHNEY FOR QCON CONFRENCE IN CANADA ON 1ST AND 2ND JUNE 26":{"Advertising and Marketing - Events & Seminars\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"COMCAST XFINITY 800 266 2278 NJ":{"Mobile Expense\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"OPENAI CHATGPT SUBSSAN FRANCISCO CA":{"ChatGPT\u0001Miscellaneous Vendors - US\u0001Support : IT":1},"PAYPAL OPENAIOPCOL 8002428478 CA":{"ChatGPT\u0001Miscellaneous Vendors - US\u0001Support : IT":1},"STRATECHERY DITHERINCLAYMONT DE":{"Advertising & Marketing - Misc\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"STREAMLINE DESIGN INSHERIDAN WY":{"Advertising & Marketing - Misc\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"TRAVEL RESERVATION 877 283 5585 WA SANDEEP STAYING FOR QCON AI CONFRANCE FROM 31ST MAY 26 TO 1ST JUNE 26":{"Domestic Travel - Hotel/Lodging - Support\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"HUNTER IO STARTER WILMINGTON DE":{"Advertising & Marketing - Misc\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"TYPEFORM WILMINGTON DE":{"Software Subscription - Typeform\u0001Typeform\u0001Support : IT":1},"AMEXGBT PHOENIX AZ MR RITESH KUMAR TRAVEL FOR GME PROJECT FROM NEWARK TO SOUTH LUIS AND RETURN TO NEWARK ON 26TH MAY 36 TO 28TH MAYU 26":{"Domestic Travel - Airfare - Direct\u0001Miscellaneous Vendors - US\u0001Operations : Practices : DXP/Content":2},"AMEXGBT PHOENIX AZ MR KETAN SETHI TRAVEL FOR GME PROJECT FROM NEWARK TO SOUTH LUIS AND RETURN TO NEWARK ON 26TH MAY 36 TO 28TH MAYU 26":{"Domestic Travel - Airfare - Direct\u0001Miscellaneous Vendors - US\u0001Operations : Practices : DXP/Content":1},"AMEXGBT PHOENIX MR KETAN SETHI TRAVEL FOR GME PROJECT FROM NEWARK TO SOUTH LUIS AND RETURN TO NEWARK ON 26TH MAY 36 TO 28TH MAYU 26":{"Domestic Travel - Airfare - Direct\u0001Miscellaneous Vendors - US\u0001Operations : Practices : DXP/Content":1},"AMEX GBT US SCOTTSDALE AZ MR KETAN SETHI TRAVEL FOR GME PROJECT FROM NEWARK TO SOUTH LUIS AND RETURN TO NEWARK ON 26TH MAY 36 TO 28TH MAYU 26":{"Domestic Travel - Airfare - Direct\u0001Miscellaneous Vendors - US\u0001Operations : Practices : DXP/Content":2},"AMEX GBT US SCOTTSDALE AZ MR RITESH KUMAR TRAVEL FOR GME PROJECT FROM NEWARK TO SOUTH LUIS AND RETURN TO NEWARK ON 26TH MAY 36 TO 28TH MAYU 26":{"Domestic Travel - Airfare - Direct\u0001Miscellaneous Vendors - US\u0001Operations : Practices : DXP/Content":2},"ELEVENLABS IO NEW YORK NY":{"Advertising & Marketing - Misc\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"RC NEW YORK NY":{"Bank Charges & Fees\u0001Miscellaneous Vendors - US\u0001Support : Finance":1},"APLPAY APPLE STORE NEW YORK NY APPLE MACBOOK PURCHASE FOR SACHIN SINGH":{"Laptops\u0001Miscellaneous Vendors - US\u0001Support : IT":1},"APLPAY USPS PO 35964NEW YORK NY POSTAGE CHARGES FOR TAXES COMPTROLLER FILLING":{"Courier/Postage Charges\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"COSSETTA INC 00 0803SAINT PAUL MN":{"Business - Meals & entertainment\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"FEDEX 800 463 3339 TN":{"Courier/Postage Charges\u0001Fedex\u0001Support : Admin":1},"HUDSON FAO SCHAWARZ CHICAGO IL":{"Business - Meals & entertainment\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"LYFT 855 280 0278 CA":{"Domestic Travel - Local Transport/Car - Support\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"NYTIMES COM NY TIMES 800 698 4637 NY":{"Housekeeping Material\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"OPENVPN SUBSCRIPTIONLAS VEGAS NV":{"Software Subscription - OpenVPN\u0001Miscellaneous Vendors - US\u0001Support : IT":1},"SPOTIFY P4257BF88D 6NEW YORK NY":{"Software Subscription – Spotify\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"SQSP INV 234101550 NEW YORK NY":{"Advertising and Marketing - Squarespace\u0001Squarespace\u0001Support : IT":1},"APLPAY AMTRAK MOBILEWASHINGTON DC":{"Domestic Travel - Local Transport/Car - Support\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1}},"byMerchant":{"AURA PRO":{"Advertising & Marketing - Misc\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"APLPAY NJT RAIL MY T":{"Domestic Travel - Local Transport/Car - Support\u0001Miscellaneous Vendors - US\u0001Support : CXO":3},"CHECKLY":{"Software License  expense - miscellaneous\u0001Miscellaneous Vendors - US\u0001Support : IT":1},"JASPER AI":{"Advertising & Marketing - Misc\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"ADOBE ADOBE SYSTEMS":{"Software Subcription - Adobe\u0001Adobe\u0001Support : IT":1},"AMAZON COM":{"Office Snacks & Meals\u0001Miscellaneous Vendors - US\u0001Support : Admin":1,"IT Consumable\u0001Miscellaneous Vendors - US\u0001Support : IT":1},"AMEXGBT":{"Domestic Travel - Airfare - Support\u0001Miscellaneous Vendors - US\u0001Support : Sales":1,"Domestic Travel - Airfare - Direct\u0001Miscellaneous Vendors - US\u0001Operations : Practices : DXP/Content":4},"AMEX GBT US":{"Domestic Travel - Airfare - Support\u0001Miscellaneous Vendors - US\u0001Support : Sales":1,"Domestic Travel - Airfare - Direct\u0001Miscellaneous Vendors - US\u0001Operations : Practices : DXP/Content":4},"FEDEX FEDEX":{"Courier/Postage Charges\u0001Fedex\u0001Support : Admin":1},"LINKEDIN P":{"Advertising and Marketing - Linkedin\u0001Linkedin\u0001Support : Marketing":1},"NPM INC":{"Software Subscription – Navicat\u0001Navicat\u0001Support : IT":1},"AMAZON MARKEPLACE NA":{"Office Maintenance Expense - Misc.\u0001Miscellaneous Vendors - US\u0001Support : Admin":1,"Office Snacks & Meals\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"APLPAY TRADER JOE S":{"Office Snacks & Meals\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"C MEDIA INC":{"Advertising and Marketing - Events & Seminars\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"COMCAST XFINITY":{"Mobile Expense\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"OPENAI CHATGPT SUBS":{"ChatGPT\u0001Miscellaneous Vendors - US\u0001Support : IT":1},"PAYPAL OPENAIOPCOL":{"ChatGPT\u0001Miscellaneous Vendors - US\u0001Support : IT":1},"STRATECHERY DITHERIN":{"Advertising & Marketing - Misc\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"STREAMLINE DESIGN IN":{"Advertising & Marketing - Misc\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"TRAVEL RESERVATION":{"Domestic Travel - Hotel/Lodging - Support\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"HUNTER IO STARTER":{"Advertising & Marketing - Misc\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"TYPEFORM":{"Software Subscription - Typeform\u0001Typeform\u0001Support : IT":1},"ELEVENLABS IO":{"Advertising & Marketing - Misc\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"RC":{"Bank Charges & Fees\u0001Miscellaneous Vendors - US\u0001Support : Finance":1},"APLPAY APPLE STORE":{"Laptops\u0001Miscellaneous Vendors - US\u0001Support : IT":1},"APLPAY USPS PO":{"Courier/Postage Charges\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"COSSETTA INC":{"Business - Meals & entertainment\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"FEDEX":{"Courier/Postage Charges\u0001Fedex\u0001Support : Admin":1},"HUDSON FAO SCHAWARZ":{"Business - Meals & entertainment\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"LYFT":{"Domestic Travel - Local Transport/Car - Support\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"NYTIMES COM NY TIMES":{"Housekeeping Material\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"OPENVPN SUBSCRIPTION":{"Software Subscription - OpenVPN\u0001Miscellaneous Vendors - US\u0001Support : IT":1},"SPOTIFY P BF D":{"Software Subscription – Spotify\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"SQSP INV":{"Advertising and Marketing - Squarespace\u0001Squarespace\u0001Support : IT":1},"APLPAY AMTRAK MOBILE":{"Domestic Travel - Local Transport/Car - Support\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1}}}</script>
+<script id="cc-seed" type="application/json">{"byDesc":{"AURA PRO SINGAPORE SG":{"Advertising & Marketing - Misc\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"APLPAY NJT RAIL MY TNEWARK NJ":{"Domestic Travel - Local Transport/Car - Support\u0001Miscellaneous Vendors - US\u0001Support : CXO":5},"CHECKLY UTRECHT UT":{"Software License  expense - miscellaneous\u0001Miscellaneous Vendors - US\u0001Support : IT":1},"JASPER AI SAN FRANCISCO CA":{"Advertising & Marketing - Misc\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"ADOBE ADOBE SYSTEMS SAN JOSE CA":{"Software Subcription - Adobe\u0001Adobe\u0001Support : IT":1},"AMAZON COM AMZN COM BILL WA COLD BREW PURCHASE FOR OFFICE":{"Office Snacks & Meals\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"AMEXGBT PHOENIX AZ ERIKA TRAVEL FOR QBR FROM GR TO NY AND RETURN TO GR FROM 31ST MAY 26 TO 2ND JUNE 26":{"Domestic Travel - Airfare - Support\u0001Miscellaneous Vendors - US\u0001Support : Sales":1},"AMEX GBT US SCOTTSDALE AZ ERIKA TRAVEL FOR QBR FROM GR TO NY AND RETURN TO GR FROM 31ST MAY 26 TO 2ND JUNE 26":{"Domestic Travel - Airfare - Support\u0001Miscellaneous Vendors - US\u0001Support : Sales":1},"FEDEX255611889 FEDEXMEMPHIS TN":{"Courier/Postage Charges\u0001Fedex\u0001Support : Admin":1},"LINKEDIN P3019093164SAN FRANCISCO":{"Advertising and Marketing - Linkedin\u0001Linkedin\u0001Support : Marketing":1},"NPM INC SAN FRANCISCO CA":{"Software Subscription – Navicat\u0001Navicat\u0001Support : IT":1},"AMAZON MARKEPLACE NA PA WALL LED LIGHT PURCHASE FOR PHONE BOOTH":{"Office Maintenance Expense - Misc.\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"AMAZON MARKEPLACE NA PA":{"Office Snacks & Meals\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"AMAZON COM AMZN COM BILL WA":{"IT Consumable\u0001Miscellaneous Vendors - US\u0001Support : IT":1,"Office Snacks & Meals\u0001Miscellaneous Vendors - US\u0001Support : Admin":2},"APLPAY TRADER JOE S NEW YORK NY":{"Office Snacks & Meals\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"C4MEDIA INC ETOBICOKE REGISTRATION OF SANDEEP SAWHNEY FOR QCON CONFRENCE IN CANADA ON 1ST AND 2ND JUNE 26":{"Advertising and Marketing - Events & Seminars\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"COMCAST XFINITY 800 266 2278 NJ":{"Mobile Expense\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"OPENAI CHATGPT SUBSSAN FRANCISCO CA":{"ChatGPT\u0001Miscellaneous Vendors - US\u0001Support : IT":1},"PAYPAL OPENAIOPCOL 8002428478 CA":{"ChatGPT\u0001Miscellaneous Vendors - US\u0001Support : IT":1},"STRATECHERY DITHERINCLAYMONT DE":{"Advertising & Marketing - Misc\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"STREAMLINE DESIGN INSHERIDAN WY":{"Advertising & Marketing - Misc\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"TRAVEL RESERVATION 877 283 5585 WA SANDEEP STAYING FOR QCON AI CONFRANCE FROM 31ST MAY 26 TO 1ST JUNE 26":{"Domestic Travel - Hotel/Lodging - Support\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"HUNTER IO STARTER WILMINGTON DE":{"Advertising & Marketing - Misc\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"TYPEFORM WILMINGTON DE":{"Software Subscription - Typeform\u0001Typeform\u0001Support : IT":1},"AMEXGBT PHOENIX AZ MR RITESH KUMAR TRAVEL FOR GME PROJECT FROM NEWARK TO SOUTH LUIS AND RETURN TO NEWARK ON 26TH MAY 36 TO 28TH MAYU 26":{"Domestic Travel - Airfare - Direct\u0001Miscellaneous Vendors - US\u0001Operations : Practices : DXP/Content":2},"AMEXGBT PHOENIX AZ MR KETAN SETHI TRAVEL FOR GME PROJECT FROM NEWARK TO SOUTH LUIS AND RETURN TO NEWARK ON 26TH MAY 36 TO 28TH MAYU 26":{"Domestic Travel - Airfare - Direct\u0001Miscellaneous Vendors - US\u0001Operations : Practices : DXP/Content":1},"AMEXGBT PHOENIX MR KETAN SETHI TRAVEL FOR GME PROJECT FROM NEWARK TO SOUTH LUIS AND RETURN TO NEWARK ON 26TH MAY 36 TO 28TH MAYU 26":{"Domestic Travel - Airfare - Direct\u0001Miscellaneous Vendors - US\u0001Operations : Practices : DXP/Content":1},"AMEX GBT US SCOTTSDALE AZ MR KETAN SETHI TRAVEL FOR GME PROJECT FROM NEWARK TO SOUTH LUIS AND RETURN TO NEWARK ON 26TH MAY 36 TO 28TH MAYU 26":{"Domestic Travel - Airfare - Direct\u0001Miscellaneous Vendors - US\u0001Operations : Practices : DXP/Content":2},"AMEX GBT US SCOTTSDALE AZ MR RITESH KUMAR TRAVEL FOR GME PROJECT FROM NEWARK TO SOUTH LUIS AND RETURN TO NEWARK ON 26TH MAY 36 TO 28TH MAYU 26":{"Domestic Travel - Airfare - Direct\u0001Miscellaneous Vendors - US\u0001Operations : Practices : DXP/Content":2},"ELEVENLABS IO NEW YORK NY":{"Advertising & Marketing - Misc\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"RC NEW YORK NY":{"Bank Charges & Fees\u0001Miscellaneous Vendors - US\u0001Support : Finance":1},"APLPAY APPLE STORE NEW YORK NY APPLE MACBOOK PURCHASE FOR SACHIN SINGH":{"Laptops\u0001Miscellaneous Vendors - US\u0001Support : IT":1},"APLPAY USPS PO 35964NEW YORK NY POSTAGE CHARGES FOR TAXES COMPTROLLER FILLING":{"Courier/Postage Charges\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"COSSETTA INC 00 0803SAINT PAUL MN":{"Business - Meals & entertainment\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"FEDEX 800 463 3339 TN":{"Courier/Postage Charges\u0001Fedex\u0001Support : Admin":1},"HUDSON FAO SCHAWARZ CHICAGO IL":{"Business - Meals & entertainment\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"LYFT 855 280 0278 CA":{"Domestic Travel - Local Transport/Car - Support\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"NYTIMES COM NY TIMES 800 698 4637 NY":{"Housekeeping Material\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"OPENVPN SUBSCRIPTIONLAS VEGAS NV":{"Software Subscription - OpenVPN\u0001Miscellaneous Vendors - US\u0001Support : IT":1},"SPOTIFY P4257BF88D 6NEW YORK NY":{"Software Subscription – Spotify\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"SQSP INV 234101550 NEW YORK NY":{"Advertising and Marketing - Squarespace\u0001Squarespace\u0001Support : IT":1},"APLPAY AMTRAK MOBILEWASHINGTON DC":{"Domestic Travel - Local Transport/Car - Support\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"BT WEGMANS ROCHESTER NY OFFICE FOR SNACKS":{"Office Snacks & Meals\u0001Miscellaneous Vendors - US\u0001Support : Admin":2},"DUNBAR BENDER ZAPFPITTSBURGH PA":{"Consultancy - Support - Legal fee\u0001Miscellaneous Vendors - US\u0001Support : Finance":1},"SLACK T01PC0LHWF3 SAN FRANCISCO CA":{"Software Subscription- Slack\u0001Slack\u0001Support : Admin":1},"UBER EATS SAN FRANCISCO CA DINNER FOR 700 GROVES":{"Meals & Entertainment\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"UBER EATS SAN FRANCISCO CA GROCERY SUPPLY":{"Office Snacks & Meals\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"AMAZON COM AMZN COM BILL WA OFFICE SNACKS":{"Office Snacks & Meals\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"AMAZON COM AMZN COM BILL WA DRINKS":{"Office Snacks & Meals\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"APLPAY DUNKIN 33026WILLINGTON CT":{"Business - Meals & entertainment\u0001Miscellaneous Vendors - US\u0001Support : CXO":1},"APLPAY GSU UNION COUBOSTON MA":{"Business - Meals & entertainment\u0001Miscellaneous Vendors - US\u0001Support : CXO":2},"UBER EATS SAN FRANCISCO CA":{"Office Snacks & Meals\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"AMAZON MARKEPLACE NA PA LOTION FOR 700 GROVES":{"Housekeeping Material\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"AMAZON MARKEPLACE NA PA CALANDER FOR 2027":{"Printing & Stationery\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"AMAZON MARKEPLACE NA PA 700 GROVES SUPPLIES":{"Office Snacks & Meals\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"APLPAY TA 154 MILLIMILLDALE CT":{"Business - Meals & entertainment\u0001Miscellaneous Vendors - US\u0001Support : CXO":1},"APLPAY TST NAMASTAYBOSTON MA":{"Business - Meals & entertainment\u0001Miscellaneous Vendors - US\u0001Support : CXO":1},"HULLMARK EAST ROOM 5TORONTO":{"Courier/Postage Charges\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"THE IVORY PEACOCK NEW YORK NY OPTIMIZELY HAPPY HOUR DINNER":{"Advertising and Marketing - Events & Seminars\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"YWW WEWORK LEGACYTENNEW YORK NY":{"Rent & Lease -  Wework\u0001Wework\u0001Support : Admin":1}},"byMerchant":{"AURA PRO":{"Advertising & Marketing - Misc\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"APLPAY NJT RAIL MY T":{"Domestic Travel - Local Transport/Car - Support\u0001Miscellaneous Vendors - US\u0001Support : CXO":5},"CHECKLY":{"Software License  expense - miscellaneous\u0001Miscellaneous Vendors - US\u0001Support : IT":1},"JASPER AI":{"Advertising & Marketing - Misc\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"ADOBE ADOBE SYSTEMS":{"Software Subcription - Adobe\u0001Adobe\u0001Support : IT":1},"AMAZON COM":{"Office Snacks & Meals\u0001Miscellaneous Vendors - US\u0001Support : Admin":5,"IT Consumable\u0001Miscellaneous Vendors - US\u0001Support : IT":1},"AMEXGBT":{"Domestic Travel - Airfare - Support\u0001Miscellaneous Vendors - US\u0001Support : Sales":1,"Domestic Travel - Airfare - Direct\u0001Miscellaneous Vendors - US\u0001Operations : Practices : DXP/Content":4},"AMEX GBT US":{"Domestic Travel - Airfare - Support\u0001Miscellaneous Vendors - US\u0001Support : Sales":1,"Domestic Travel - Airfare - Direct\u0001Miscellaneous Vendors - US\u0001Operations : Practices : DXP/Content":4},"FEDEX FEDEX":{"Courier/Postage Charges\u0001Fedex\u0001Support : Admin":1},"LINKEDIN P":{"Advertising and Marketing - Linkedin\u0001Linkedin\u0001Support : Marketing":1},"NPM INC":{"Software Subscription – Navicat\u0001Navicat\u0001Support : IT":1},"AMAZON MARKEPLACE NA":{"Office Maintenance Expense - Misc.\u0001Miscellaneous Vendors - US\u0001Support : Admin":1,"Office Snacks & Meals\u0001Miscellaneous Vendors - US\u0001Support : Admin":2,"Housekeeping Material\u0001Miscellaneous Vendors - US\u0001Support : Admin":1,"Printing & Stationery\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"APLPAY TRADER JOE S":{"Office Snacks & Meals\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"C MEDIA INC":{"Advertising and Marketing - Events & Seminars\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"COMCAST XFINITY":{"Mobile Expense\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"OPENAI CHATGPT SUBS":{"ChatGPT\u0001Miscellaneous Vendors - US\u0001Support : IT":1},"PAYPAL OPENAIOPCOL":{"ChatGPT\u0001Miscellaneous Vendors - US\u0001Support : IT":1},"STRATECHERY DITHERIN":{"Advertising & Marketing - Misc\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"STREAMLINE DESIGN IN":{"Advertising & Marketing - Misc\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"TRAVEL RESERVATION":{"Domestic Travel - Hotel/Lodging - Support\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"HUNTER IO STARTER":{"Advertising & Marketing - Misc\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"TYPEFORM":{"Software Subscription - Typeform\u0001Typeform\u0001Support : IT":1},"ELEVENLABS IO":{"Advertising & Marketing - Misc\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"RC":{"Bank Charges & Fees\u0001Miscellaneous Vendors - US\u0001Support : Finance":1},"APLPAY APPLE STORE":{"Laptops\u0001Miscellaneous Vendors - US\u0001Support : IT":1},"APLPAY USPS PO":{"Courier/Postage Charges\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"COSSETTA INC":{"Business - Meals & entertainment\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"FEDEX":{"Courier/Postage Charges\u0001Fedex\u0001Support : Admin":1},"HUDSON FAO SCHAWARZ":{"Business - Meals & entertainment\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"LYFT":{"Domestic Travel - Local Transport/Car - Support\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"NYTIMES COM NY TIMES":{"Housekeeping Material\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"OPENVPN SUBSCRIPTION":{"Software Subscription - OpenVPN\u0001Miscellaneous Vendors - US\u0001Support : IT":1},"SPOTIFY P BF D":{"Software Subscription – Spotify\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"SQSP INV":{"Advertising and Marketing - Squarespace\u0001Squarespace\u0001Support : IT":1},"APLPAY AMTRAK MOBILE":{"Domestic Travel - Local Transport/Car - Support\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"BT WEGMANS":{"Office Snacks & Meals\u0001Miscellaneous Vendors - US\u0001Support : Admin":2},"DUNBAR BENDER ZAPF":{"Consultancy - Support - Legal fee\u0001Miscellaneous Vendors - US\u0001Support : Finance":1},"SLACK T PC LHWF":{"Software Subscription- Slack\u0001Slack\u0001Support : Admin":1},"UBER EATS":{"Meals & Entertainment\u0001Miscellaneous Vendors - US\u0001Support : Admin":1,"Office Snacks & Meals\u0001Miscellaneous Vendors - US\u0001Support : Admin":2},"APLPAY DUNKIN":{"Business - Meals & entertainment\u0001Miscellaneous Vendors - US\u0001Support : CXO":1},"APLPAY GSU UNION COU":{"Business - Meals & entertainment\u0001Miscellaneous Vendors - US\u0001Support : CXO":2},"APLPAY TA MILLI":{"Business - Meals & entertainment\u0001Miscellaneous Vendors - US\u0001Support : CXO":1},"APLPAY TST NAMASTAY":{"Business - Meals & entertainment\u0001Miscellaneous Vendors - US\u0001Support : CXO":1},"HULLMARK EAST ROOM":{"Courier/Postage Charges\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"THE IVORY PEACOCK":{"Advertising and Marketing - Events & Seminars\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"YWW WEWORK LEGACYTEN":{"Rent & Lease -  Wework\u0001Wework\u0001Support : Admin":1}},"personDept":{"ARIELLE SMITH":"Support : Admin","KENNETH PARKS":"Support : Marketing","LISA SALTSMAN":"Support : Marketing","PRASANT VARGHEASE":"Support : Marketing","HIMANSHU SAREEN":"Support : CXO","STEVE LAMENSDORF":"Operations : COE : COE – Managed Services","UMESH C JOSHI":"Support : CXO"}}</script>
 <script id="cc-core">
+
 /* ============================================================
    CC AutoFill core — pure logic, no DOM. Runs in browser & Node.
    ============================================================ */
@@ -435,7 +455,7 @@ function detectLayout(rows){
     headerRow: hr, cDesc, cItem, cVendor, cDept,
     cDate: one(named('bill date')) ?? one(named('date')),
     cAmount: one(named('amount')),
-    cMember: vendors.length > 1 ? vendors[0] : one(named('card member')),
+    cMember: cDesc + 1,
     cExt: one(named('extended details')),
     dataRows: []
   };
@@ -604,41 +624,147 @@ function buildClassifier(mem, itemList, vendorList, deptList){
   };
 }
 
-/* ---------- writing ---------- */
-/* Surgical in-place patch of a worksheet XML: only the addressed cells are
-   rewritten (as inline strings); every other byte of the sheet is untouched. */
+/* ---------- person -> department ---------- */
+function personKey(name){ return String(name || '').toUpperCase().replace(/[^A-Z ]+/g, ' ').replace(/\s+/g, ' ').trim(); }
+function buildPersonLookup(personDept){
+  const exact = new Map(), byFL = new Map();
+  for (const k in (personDept || {})){ const pk = personKey(k); exact.set(pk, personDept[k]);
+    const t = pk.split(' '); if (t.length >= 2) byFL.set(t[0] + ' ' + t[t.length - 1], personDept[k]); }
+  return name => { const pk = personKey(name); if (!pk) return null;
+    if (exact.has(pk)) return exact.get(pk);
+    const t = pk.split(' ');
+    if (t.length >= 2){ const fl = t[0] + ' ' + t[t.length - 1]; if (byFL.has(fl)) return byFL.get(fl);
+      for (const [k, v] of exact){ const kt = k.split(' '); if (kt[0] === t[0] && kt[kt.length - 1] === t[t.length - 1]) return v; } }
+    return null; };
+}
+/* Wraps the base classifier: adds card-holder department defaults + conflict flagging.
+   Returns classify(desc, ext, member) -> { status, tier, fill:{item,vendor,dept}, candidates, deptCands, personD } */
+function buildClassifier2(mem, itemList, vendorList, deptList){
+  const base = buildClassifier(mem, itemList, vendorList, deptList);
+  const lookupPerson = buildPersonLookup(mem.personDept || {});
+  const deptSet = new Set(deptList);
+  return function(desc, ext, member){
+    const r = base(desc, typeof ext === 'string' ? ext : '');
+    const fill = r.fill ? { item: r.fill.item || null, vendor: r.fill.vendor || null, dept: r.fill.dept || null }
+                        : { item: null, vendor: null, dept: null };
+    const candidates = r.candidates || [];
+    let status = r.status, tier = r.tier, deptCands = null;
+    const personD = lookupPerson(member);
+    // merchant-history department (only when unambiguous)
+    const nd = normDesc(desc), key = merchantKey(desc);
+    let histD = null;
+    const entry = mem.byMerchant[key];
+    if (entry){ const trips = triplesOf(entry); if (trips.length === 1) histD = trips[0].dept;
+      const ex = triplesOf(mem.byDesc[nd]); if (ex.length === 1) histD = ex[0].dept; }
+    if (personD && deptSet.has(personD)){
+      fill.dept = personD;
+      if (histD && histD !== personD && status !== 'choose'){
+        status = 'conflict'; tier = (tier || '') + '|dept-conflict';
+        deptCands = [ { item: fill.item, vendor: fill.vendor, dept: personD, count: 1, label: 'card-holder default' },
+                      { item: fill.item, vendor: fill.vendor, dept: histD,   count: 1, label: 'past booking' } ];
+      }
+    } else if (!fill.dept && histD){ fill.dept = histD; }
+    return { status, tier, fill, candidates, deptCands, personD };
+  };
+}
+
+/* ---------- raw Amex file layout ---------- */
+function detectRawLayout(rows){
+  let hr = -1;
+  for (let r = 1; r <= 15 && hr < 0; r++){ const c = rows.get(r); if (!c) continue;
+    for (const [, v] of c) if (typeof v === 'string' && v.trim().toLowerCase() === 'description'){ hr = r; break; } }
+  if (hr < 0) throw new Error("Raw file: no 'Description' header found (searched rows 1–15).");
+  const H = rows.get(hr); let cDesc = null, cMember = null, cAmount = null, cExt = null, minC = 1e9, maxC = 0;
+  for (const [ci, v] of H){ if (typeof v !== 'string') continue; const l = v.trim().toLowerCase();
+    if (ci < minC) minC = ci; if (ci > maxC) maxC = ci;
+    if (l === 'description') cDesc = ci;
+    if (l === 'card member') cMember = ci;
+    if (l === 'amount') cAmount = ci;
+    if (l === 'extended details') cExt = ci; }
+  let last = 0; for (const rn of rows.keys()) if (rn > last) last = rn;
+  const dataRows = []; for (let r = hr + 1; r <= last; r++){ const d = rows.get(r)?.get(cDesc);
+    if (typeof d === 'string' && d.trim() !== '') dataRows.push(r); }
+  return { headerRow: hr, cDesc, cMember, cAmount, cExt, firstCol: minC, lastCol: maxC, dataRows };
+}
+
+/* ---------- row-template capture + formula-aware, append-capable writer ---------- */
+function cellsByRow(xml){
+  const map = new Map(); const rowRe = /<row\b[^>]*?\br="(\d+)"[^>]*?(?:\/>|>([\s\S]*?)<\/row>)/g; let rm;
+  while ((rm = rowRe.exec(xml))){ const rn = +rm[1], inner = rm[2] || ''; const cells = new Map(); let cm;
+    const cellRe = /<c\b[^>]*?(?:\/>|>[\s\S]*?<\/c>)/g;
+    while ((cm = cellRe.exec(inner))){ const ref = /\br="([A-Z]+)\d+"/.exec(cm[0]); if (ref) cells.set(colIndex(ref[1]), cm[0]); }
+    map.set(rn, cells); }
+  return map;
+}
+/* For each generated column build a reusable cell template:
+   - if any data row holds a real formula body -> {kind:'f'} with row refs tokenised to #ROW#
+     (this dodges shared-formula stubs like <f t="shared" si="5"/>)
+   - else the most common literal value -> {kind:'n'|'s'|'blank'} */
+function captureTemplate(xml, parsedRows, dataRows, genCols){
+  const cells = cellsByRow(xml); const tmpl = new Map();
+  for (const ci of genCols){
+    let fdef = null;
+    for (const rn of dataRows){ const c = cells.get(rn)?.get(ci); if (!c) continue;
+      const fm = /<f\b[^>]*>([\s\S]*?)<\/f>/.exec(c);
+      if (fm && fm[1].trim() !== ''){ const refRe = new RegExp('(\\$?[A-Z]{1,3})' + rn + '(?![0-9])', 'g');
+        const sm = /\bs="(\d+)"/.exec(c); fdef = { kind: 'f', f: fm[1].replace(refRe, '$1#ROW#'), s: sm ? sm[1] : null }; break; } }
+    if (fdef){ tmpl.set(ci, fdef); continue; }
+    const counts = new Map(); let styleSeen = null;
+    for (const rn of dataRows){ const v = parsedRows.get(rn)?.get(ci); if (v == null || v === '') continue; counts.set(v, (counts.get(v) || 0) + 1); }
+    for (const rn of dataRows){ const c = cells.get(rn)?.get(ci); if (c){ const sm = /\bs="(\d+)"/.exec(c); if (sm){ styleSeen = sm[1]; break; } } }
+    let best = null, bc = -1; for (const [v, n] of counts) if (n > bc){ best = v; bc = n; }
+    if (best == null) tmpl.set(ci, { kind: 'blank', s: styleSeen });
+    else if (typeof best === 'number') tmpl.set(ci, { kind: 'n', v: best, s: styleSeen });
+    else tmpl.set(ci, { kind: 's', v: String(best), s: styleSeen });
+  }
+  return tmpl;
+}
+function renderCell(ci, rn, val, styleByCol){
+  const ref = colLetter(ci) + rn;
+  let sAttr = styleByCol.has(ci) ? ` s="${styleByCol.get(ci)}"` : '';
+  if (val == null || val === '' || (typeof val === 'object' && val.kind === 'blank')){
+    if (typeof val === 'object' && val && val.s != null) sAttr = ` s="${val.s}"`;
+    return `<c r="${ref}"${sAttr}/>`;
+  }
+  if (typeof val === 'object'){
+    if (val.s != null) sAttr = ` s="${val.s}"`;
+    if (val.kind === 'f') return `<c r="${ref}"${sAttr}><f>${xmlEscape(val.f.replace(/#ROW#/g, rn))}</f></c>`;
+    if (val.kind === 'n') return `<c r="${ref}"${sAttr}><v>${val.v}</v></c>`;
+    return `<c r="${ref}"${sAttr} t="inlineStr"><is><t xml:space="preserve">${xmlEscape(String(val.v))}</t></is></c>`;
+  }
+  if (typeof val === 'number') return `<c r="${ref}"${sAttr}><v>${val}</v></c>`;
+  return `<c r="${ref}"${sAttr} t="inlineStr"><is><t xml:space="preserve">${xmlEscape(String(val))}</t></is></c>`;
+}
+/* Edits existing rows in place AND appends rows beyond the sheet's range.
+   editsByRow: Map<rowNum, Map<colIdx, value>>; value = string|number|null|{kind...} */
 function patchSheetXml(xml, editsByRow, styleByCol){
   const missing = new Set(editsByRow.keys());
-  const out = xml.replace(/<row\b[^>]*?\br="(\d+)"[^>]*?(?:\/>|>([\s\S]*?)<\/row>)/g, (whole, rStr, inner) => {
-    const rn = +rStr; const edits = editsByRow.get(rn);
-    if (!edits) return whole;
-    missing.delete(rn);
+  let out = xml.replace(/<row\b[^>]*?\br="(\d+)"[^>]*?(?:\/>|>([\s\S]*?)<\/row>)/g, (whole, rStr, inner) => {
+    const rn = +rStr; const edits = editsByRow.get(rn); if (!edits) return whole; missing.delete(rn);
     let openTag = whole.slice(0, whole.indexOf('>') + 1);
     if (openTag.endsWith('/>')){ openTag = openTag.slice(0, -2) + '>'; inner = ''; }
-    const byCol = new Map(); let cm;
-    const cellRe = /<c\b[^>]*?(?:\/>|>[\s\S]*?<\/c>)/g;
-    while ((cm = cellRe.exec(inner || ''))){
-      const ref = /\br="([A-Z]+)\d+"/.exec(cm[0]);
-      if (!ref) return whole;                       // unexpected shape — leave row untouched
-      byCol.set(colIndex(ref[1]), cm[0]);
-    }
+    const byCol = new Map(); let cm; const cellRe = /<c\b[^>]*?(?:\/>|>[\s\S]*?<\/c>)/g;
+    while ((cm = cellRe.exec(inner || ''))){ const ref = /\br="([A-Z]+)\d+"/.exec(cm[0]); if (ref) byCol.set(colIndex(ref[1]), cm[0]); }
     for (const [ci, val] of edits){
-      const ref = colLetter(ci) + rn;
-      const prev = byCol.get(ci);
-      let sAttr = '';
-      const sm = prev && /\bs="(\d+)"/.exec(prev);
-      if (sm) sAttr = ` s="${sm[1]}"`;
-      else if (styleByCol.has(ci)) sAttr = ` s="${styleByCol.get(ci)}"`;
-      byCol.set(ci, (val == null || val === '')
-        ? `<c r="${ref}"${sAttr}/>`
-        : `<c r="${ref}"${sAttr} t="inlineStr"><is><t xml:space="preserve">${xmlEscape(val)}</t></is></c>`);
+      const prev = byCol.get(ci); const sm = prev && /\bs="(\d+)"/.exec(prev);
+      const local = new Map(styleByCol);
+      if (sm && !(val && typeof val === 'object' && val.s != null)) local.set(ci, sm[1]);
+      byCol.set(ci, renderCell(ci, rn, val, local));
     }
     const cells = [...byCol.entries()].sort((a, b) => a[0] - b[0]).map(e => e[1]).join('');
     return openTag + cells + '</row>';
   });
-  if (missing.size) throw new Error('Rows not found in sheet XML: ' + [...missing].join(', '));
+  if (missing.size){
+    const rowsXml = [...missing].sort((a, b) => a - b).map(rn => {
+      const edits = editsByRow.get(rn);
+      const cells = [...edits.entries()].sort((a, b) => a[0] - b[0]).map(([ci, val]) => renderCell(ci, rn, val, styleByCol)).join('');
+      return `<row r="${rn}">${cells}</row>`;
+    }).join('');
+    out = out.replace('</sheetData>', rowsXml + '</sheetData>');
+  }
   return out;
 }
+
 /* style hints: per target column, the s= attribute most used by existing cells */
 function styleHints(xml, colIdxs){
   const counts = new Map(colIdxs.map(c => [c, new Map()]));
@@ -663,7 +789,7 @@ function ensureFullCalc(wbXml){
   return wbXml.replace('</sheets>', '</sheets><calcPr fullCalcOnLoad="1"/>');
 }
 
-/* ---------- seed memory (generated from the 20 May 26 uploader file) ---------- */
+
 const seedEl = (typeof document !== 'undefined') && document.getElementById && document.getElementById('cc-seed');
 const SEED = JSON.parse(seedEl ? seedEl.textContent : globalThis.CC_SEED_JSON);
 
@@ -671,339 +797,318 @@ globalThis.CC = {
   crc32, inflateRaw, deflateRaw, zipOpen, zipRepack,
   xmlEscape, xmlUnescape, colIndex, colLetter,
   parseSharedStrings, parseSheetCells, openWorkbook,
-  detectLayout, columnList,
+  detectLayout, detectRawLayout, columnList,
   SEP, normDesc, merchantKey, tokens, mergeMemory, triplesOf,
-  buildClassifier, patchSheetXml, styleHints, ensureFullCalc, SEED
+  buildClassifier, buildClassifier2, buildPersonLookup, personKey,
+  captureTemplate, renderCell, patchSheetXml, styleHints, ensureFullCalc, SEED
 };
 })();
 </script>
 
-
 <script>
 /* ============================================================
-   UI layer
+   UI layer — raw→uploader merge + S/T/U auto-fill
    ============================================================ */
 (function(){
 'use strict';
 const CC = globalThis.CC;
 const $ = id => document.getElementById(id);
 const MEM_KEY = 'ccAutofillMemory.v1';
+const TE = new TextEncoder();
+const ci = s => CC.colIndex(s), cl = n => CC.colLetter(n);
 
 if (typeof DecompressionStream === 'undefined'){
   $('err').style.display = 'block';
-  $('err').textContent = 'This browser is too old for CC AutoFill — it needs Chrome/Edge 88+, Safari 16.4+ or Firefox 113+.';
+  $('err').textContent = 'This browser is too old for CC AutoFill — needs Chrome/Edge 88+, Safari 16.4+ or Firefox 113+.';
 }
 
 /* ---------- memory ---------- */
-function loadLearned(){
-  try { return JSON.parse(localStorage.getItem(MEM_KEY) || 'null') || { byDesc:{}, byMerchant:{} }; }
-  catch { return { byDesc:{}, byMerchant:{} }; }
-}
-function saveLearned(m){
-  try { localStorage.setItem(MEM_KEY, JSON.stringify(m)); return true; }
-  catch { return false; }
-}
+function loadLearned(){ try { return JSON.parse(localStorage.getItem(MEM_KEY) || 'null') || { byDesc:{}, byMerchant:{} }; }
+  catch { return { byDesc:{}, byMerchant:{} }; } }
+function saveLearned(m){ try { localStorage.setItem(MEM_KEY, JSON.stringify(m)); return true; } catch { return false; } }
 let learned = loadLearned();
-const memory = () => CC.mergeMemory(CC.SEED, learned);
-function memStats(){
-  const m = memory();
-  const lm = Object.keys(learned.byMerchant || {}).length;
-  $('memstats').innerHTML = `memory: <b>${Object.keys(m.byMerchant).length}</b> merchants · <b>${Object.keys(m.byDesc).length}</b> exact texts · learned here: <b>${lm}</b>`;
-}
+function memory(){ const m = CC.mergeMemory(CC.SEED, learned); m.personDept = CC.SEED.personDept || {}; return m; }
+function memStats(){ const m = memory(); const lm = Object.keys(learned.byMerchant || {}).length;
+  $('memstats').innerHTML = `memory: <b>${Object.keys(m.byMerchant).length}</b> merchants · <b>${Object.keys(m.byDesc).length}</b> exact texts · learned here: <b>${lm}</b>`; }
 memStats();
 
-$('btnExport').onclick = () => {
-  const blob = new Blob([JSON.stringify({ format:'cc-autofill-memory@1', exported:new Date().toISOString(), ...memory() }, null, 1)], { type:'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob); a.download = 'cc-autofill-memory.json'; a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-};
+$('btnExport').onclick = () => { const blob = new Blob([JSON.stringify({ format:'cc-autofill-memory@1', exported:new Date().toISOString(), ...memory() }, null, 1)], { type:'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'cc-autofill-memory.json'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); };
 $('btnImport').onclick = () => $('memfile').click();
-$('memfile').onchange = async e => {
-  const f = e.target.files[0]; if (!f) return;
-  try {
-    const j = JSON.parse(await f.text());
-    if (!j.byMerchant) throw new Error('no byMerchant section');
-    learned = CC.mergeMemory(learned, { byDesc: j.byDesc || {}, byMerchant: j.byMerchant });
-    saveLearned(learned); memStats();
+$('memfile').onchange = async e => { const f = e.target.files[0]; if (!f) return;
+  try { const j = JSON.parse(await f.text()); if (!j.byMerchant) throw new Error('no byMerchant section');
+    learned = CC.mergeMemory(learned, { byDesc: j.byDesc || {}, byMerchant: j.byMerchant }); saveLearned(learned); memStats();
     toast(`Imported memory — now ${Object.keys(memory().byMerchant).length} merchants known.`);
-  } catch (err){ toast('Import failed: ' + err.message, true); }
-  e.target.value = '';
-};
-$('btnReset').onclick = () => {
-  if (!confirm('Forget everything learned in this browser? (The built-in seed memory stays.)')) return;
-  learned = { byDesc:{}, byMerchant:{} }; saveLearned(learned); memStats();
-  toast('Learned memory cleared.');
-};
+  } catch (err){ toast('Import failed: ' + err.message, true); } e.target.value = ''; };
+$('btnReset').onclick = () => { if (!confirm('Forget everything learned in this browser? (Built-in seed stays.)')) return;
+  learned = { byDesc:{}, byMerchant:{} }; saveLearned(learned); memStats(); toast('Learned memory cleared.'); };
 
 /* ---------- state ---------- */
-let S = null;   // { fileName, bytes, zip, wb, sheetPath, sheetXml, layout, lists, classify, rows[] }
+let rawDoc = null;   // { fileName, rows, layout }
+let upDoc = null;    // { fileName, bytes, zip, wb, sheetPath, sheetXml, rows, layout, lists }
+let S = null;        // working set after build()
 let filter = 'all';
 
-function toast(msg, bad){
-  const t = $('toast'); t.textContent = msg;
-  t.style.borderColor = bad ? 'var(--red)' : 'var(--green-d)';
-  t.style.display = 'block';
-  clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', 5000);
-}
-function fail(msg){
-  $('err').style.display = 'block'; $('err').textContent = msg;
-  $('main').style.display = 'none'; $('bar').style.display = 'none';
-}
+function toast(msg, bad){ const t = $('toast'); t.textContent = msg;
+  t.style.borderColor = bad ? 'var(--red)' : 'var(--green-d)'; t.style.display = 'block';
+  clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', 6000); }
+function fail(msg){ $('err').style.display = 'block'; $('err').textContent = msg; }
 
-/* ---------- load ---------- */
+/* ---------- file intake ---------- */
 const drop = $('drop');
 drop.onclick = () => $('file').click();
 drop.ondragover = e => { e.preventDefault(); drop.classList.add('hover'); };
 drop.ondragleave = () => drop.classList.remove('hover');
-drop.ondrop = e => { e.preventDefault(); drop.classList.remove('hover');
-  const f = e.dataTransfer.files[0]; if (f) loadFile(f); };
-$('file').onchange = e => { const f = e.target.files[0]; if (f) loadFile(f); e.target.value = ''; };
+drop.ondrop = e => { e.preventDefault(); drop.classList.remove('hover'); handleFiles(e.dataTransfer.files); };
+$('file').onchange = e => { handleFiles(e.target.files); e.target.value = ''; };
 
-async function loadFile(f){
+async function handleFiles(fileList){
+  $('err').style.display = 'none';
+  for (const f of [...fileList]){ try { await intake(f); } catch (err){ console.error(err); fail('Could not read ' + f.name + '\n\n' + err.message); } }
+  tryBuild();
+}
+async function intake(f){
+  const bytes = new Uint8Array(await f.arrayBuffer());
+  const zip = CC.zipOpen(bytes);
+  const wb = await CC.openWorkbook(zip);
+  const hasRefs = wb.sheets.some(s => s.name.trim().toLowerCase() === 'item master')
+               && wb.sheets.some(s => s.name.trim().toLowerCase() === 'departments');
+  const td = await wb.grid('Transaction Details');
+  if (!td) throw new Error("No 'Transaction Details' sheet in this file.");
+  if (hasRefs){
+    const layout = CC.detectLayout(td.rows); layout.cMember = layout.cDesc + 1;
+    upDoc = { fileName: f.name, bytes, zip, wb, sheetPath: td.path, sheetXml: td.xml, rows: td.rows, layout };
+    $('slotUp').classList.add('ok'); $('slotUpV').textContent = f.name;
+  } else {
+    const layout = CC.detectRawLayout(td.rows);
+    rawDoc = { fileName: f.name, rows: td.rows, layout };
+    $('slotRaw').classList.add('ok'); $('slotRawV').textContent = `${f.name} · ${layout.dataRows.length} rows`;
+  }
+}
+
+/* ---------- build working set ---------- */
+async function ensureLists(){
+  if (upDoc.lists) return upDoc.lists;
+  const [dep, im, vm] = await Promise.all([upDoc.wb.grid('Departments'), upDoc.wb.grid('Item Master'), upDoc.wb.grid('Vendor master')]);
+  if (!dep || !im) throw new Error("Reference sheet missing — need 'Departments' and 'Item Master' in the uploader.");
+  const deptList = CC.columnList(dep.rows, 1, 1);
+  const itemList = CC.columnList(im.rows, 2, 1);
+  let vendorList, vendorSrc;
+  if (vm){ vendorList = CC.columnList(vm.rows, 9, 1); vendorSrc = 'Vendor master!I'; }
+  else { vendorList = [...new Set(CC.columnList(im.rows, 3, 1))]; vendorSrc = 'Item Master!C'; }
+  upDoc.lists = { deptList, itemList, vendorList, vendorSrc };
+  return upDoc.lists;
+}
+async function tryBuild(){
+  if (!upDoc){ if (rawDoc) toast('Raw file loaded — now drop the uploader (.xlsx with the reference sheets).'); return; }
   $('err').style.display = 'none';
   try {
-    const bytes = new Uint8Array(await f.arrayBuffer());
-    const zip = CC.zipOpen(bytes);
-    const wb = await CC.openWorkbook(zip);
-    const td = await wb.grid('Transaction Details');
-    if (!td) throw new Error("No sheet named 'Transaction Details' in this file. Sheets found: " + wb.sheets.map(s => s.name).join(', '));
-    const layout = CC.detectLayout(td.rows);
-
-    const dep = await wb.grid('Departments');
-    const im  = await wb.grid('Item Master');
-    const vm  = await wb.grid('Vendor master');
-    if (!dep || !im) throw new Error("Reference sheet missing — need 'Departments' and 'Item Master'.");
-    const deptList = CC.columnList(dep.rows, 1, 1);            // Departments!A
-    const itemList = CC.columnList(im.rows, 2, 1);             // Item Master!B
-    let vendorList, vendorSrc;
-    if (vm){ vendorList = CC.columnList(vm.rows, 9, 1); vendorSrc = 'Vendor master!I'; }   // the column the workbook's own dropdown uses
-    else   { vendorList = [...new Set(CC.columnList(im.rows, 3, 1))]; vendorSrc = 'Item Master!C (Vendor master sheet not found)'; }
-
-    const classify = CC.buildClassifier(memory(), itemList, vendorList, deptList);
-
-    const rows = layout.dataRows.map(rn => {
-      const C = td.rows.get(rn);
-      const get = ci => ci ? (C.get(ci) ?? null) : null;
-      const desc = String(get(layout.cDesc));
-      const existing = {
-        item:   typeof get(layout.cItem)   === 'string' ? get(layout.cItem)   : null,
-        vendor: typeof get(layout.cVendor) === 'string' ? get(layout.cVendor) : null,
-        dept:   typeof get(layout.cDept)   === 'string' ? get(layout.cDept)   : null,
-      };
-      const row = {
-        rn, desc,
-        ext: typeof get(layout.cExt) === 'string' ? get(layout.cExt) : '',
-        member: typeof get(layout.cMember) === 'string' ? get(layout.cMember) : '',
-        date: get(layout.cDate), amount: get(layout.cAmount),
-        existing, fill: { ...existing }, candidates: [], tier: '', touched: false,
-      };
-      if (existing.item && existing.vendor && existing.dept){
-        row.status = 'kept';
-      } else {
-        const r = classify(desc, row.ext);
-        row.status = r.status; row.tier = r.tier; row.candidates = r.candidates;
-        if (r.fill) for (const k of ['item', 'vendor', 'dept'])
-          if (!row.fill[k] && r.fill[k]) row.fill[k] = r.fill[k];
-      }
-      return row;
-    });
-
-    S = { fileName: f.name, bytes, zip, wb, sheetPath: td.path, sheetXml: td.xml,
-          layout, deptList, itemList, vendorList, rows };
-
-    fillDatalist('dl-items', itemList); fillDatalist('dl-vendors', vendorList); fillDatalist('dl-depts', deptList);
-    $('fileinfo').textContent =
-      `${f.name} — ${rows.length} transactions · headers on row ${layout.headerRow} · ` +
-      `Description=${CC.colLetter(layout.cDesc)}, Item=${CC.colLetter(layout.cItem)}, Vendor=${CC.colLetter(layout.cVendor)}, Dept=${CC.colLetter(layout.cDept)} · ` +
-      `lists: ${itemList.length} items, ${vendorList.length} vendors (${vendorSrc}), ${deptList.length} departments`;
-    $('main').style.display = 'block'; $('bar').style.display = 'block';
+    const lists = await ensureLists();
+    const mem = memory();
+    const classify = CC.buildClassifier2(mem, lists.itemList, lists.vendorList, lists.deptList);
+    S = rawDoc ? doMerge(lists, classify) : doSuOnly(lists, classify);
+    fillDatalist('dl-items', lists.itemList); fillDatalist('dl-vendors', lists.vendorList); fillDatalist('dl-depts', lists.deptList);
     render();
-    const nAuto = rows.filter(r => r.status === 'auto').length;
-    toast(`Loaded. ${nAuto} of ${rows.length} rows auto-filled from memory.`);
-  } catch (err){
-    console.error(err);
-    fail('Could not process this file.\n\n' + err.message);
-  }
+    $('main').style.display = 'block'; $('bar').style.display = 'block';
+    const a = S.rows.filter(r => r.status === 'auto').length;
+    toast(S.mode === 'merge'
+      ? `Merged ${S.rows.length} transactions. ${a} auto-filled — review the flagged rows, then download.`
+      : `Loaded uploader. ${a} of ${S.rows.length} rows auto-filled.`);
+  } catch (err){ console.error(err); fail('Could not build the uploader.\n\n' + err.message); }
 }
-function fillDatalist(id, list){
-  $(id).innerHTML = [...list].sort((a, b) => a.localeCompare(b))
-    .map(v => `<option value="${CC.xmlEscape(v)}">`).join('');
+
+function doMerge(lists, classify){
+  const L = upDoc.layout, R = rawDoc.layout;
+  // raw col -> uploader col (positional shift +1, over raw's used column span)
+  const rawMap = [];
+  for (let rc = R.firstCol; rc <= R.lastCol; rc++) rawMap.push([rc + 1, rc]);
+  const upBN = rawMap.map(x => x[0]);
+  const stu = [L.cItem, L.cVendor, L.cDept];
+  const clearCols = [1, ci('O'), ci('P'), ci('AN')];
+  const genCols = [];
+  const maxGen = ci('AM');
+  for (let c = 1; c <= maxGen; c++){ if (upBN.includes(c) || stu.includes(c) || clearCols.includes(c)) continue; genCols.push(c); }
+  const tmpl = CC.captureTemplate(upDoc.sheetXml, upDoc.rows, L.dataRows, genCols);
+  const styleByCol = CC.styleHints(upDoc.sheetXml, [...upBN, ...stu, ...genCols]);
+  let upLast = 0; for (const rn of upDoc.rows.keys()) if (rn > upLast) upLast = rn;
+
+  const rows = R.dataRows.map((rawRow, k) => {
+    const upRow = 3 + k; const RC = rawDoc.rows.get(rawRow);
+    const bn = new Map(); for (const [upc, rc] of rawMap){ const v = RC.get(rc); bn.set(upc, v == null ? '' : v); }
+    const desc = String(RC.get(R.cDesc) || '');
+    const ext = typeof RC.get(R.cExt) === 'string' ? RC.get(R.cExt) : '';
+    const member = RC.get(R.cMember) != null ? String(RC.get(R.cMember)) : '';
+    const cr = classify(desc, ext, member);
+    return { upRow, desc, ext, member, amount: RC.get(R.cAmount), date: RC.get(R.cDate ?? null) ?? bn.get(2),
+      bn, existing: { item:null, vendor:null, dept:null },
+      fill: { item: cr.fill.item || null, vendor: cr.fill.vendor || null, dept: cr.fill.dept || null },
+      status: cr.status, tier: cr.tier, candidates: cr.candidates || [], deptCands: cr.deptCands || null, touched: false };
+  });
+  return { mode:'merge', L, R, rawMap, upBN, stu, clearCols, genCols, tmpl, styleByCol, upLast, ...lists, rows };
 }
+
+function doSuOnly(lists, classify){
+  const L = upDoc.layout;
+  const stu = [L.cItem, L.cVendor, L.cDept];
+  const styleByCol = CC.styleHints(upDoc.sheetXml, stu);
+  const rows = L.dataRows.map(upRow => {
+    const C = upDoc.rows.get(upRow); const get = c => c ? (C.get(c) ?? null) : null;
+    const desc = String(get(L.cDesc));
+    const existing = { item: typeof get(L.cItem)==='string'?get(L.cItem):null,
+                       vendor: typeof get(L.cVendor)==='string'?get(L.cVendor):null,
+                       dept: typeof get(L.cDept)==='string'?get(L.cDept):null };
+    const member = typeof get(L.cMember)==='string'?get(L.cMember):'';
+    const ext = typeof get(L.cExt)==='string'?get(L.cExt):'';
+    const row = { upRow, desc, ext, member, amount: get(L.cAmount), date: get(L.cDate),
+      existing, fill: { ...existing }, candidates: [], deptCands:null, tier:'', touched:false };
+    if (existing.item && existing.vendor && existing.dept){ row.status = 'kept'; }
+    else { const cr = classify(desc, ext, member); row.status = cr.status; row.tier = cr.tier;
+      row.candidates = cr.candidates || []; row.deptCands = cr.deptCands || null;
+      for (const k of ['item','vendor','dept']) if (!row.fill[k] && cr.fill[k]) row.fill[k] = cr.fill[k]; }
+    return row;
+  });
+  return { mode:'su', L, stu, styleByCol, ...lists, rows };
+}
+
+function fillDatalist(id, list){ $(id).innerHTML = [...list].sort((a,b)=>a.localeCompare(b)).map(v => `<option value="${CC.xmlEscape(v)}">`).join(''); }
 
 /* ---------- render ---------- */
-const FIELD_LIST = { item: 'dl-items', vendor: 'dl-vendors', dept: 'dl-depts' };
-const CHIP = { auto:'AUTO', kept:'KEPT', guess:'GUESS', fuzzy:'NEAR', choose:'CHOOSE', done:'OK' };
+const FIELD_LIST = { item:'dl-items', vendor:'dl-vendors', dept:'dl-depts' };
+const CHIP = { auto:'AUTO', kept:'KEPT', guess:'GUESS', fuzzy:'NEAR', choose:'CHOOSE', conflict:'CONFLICT', done:'OK' };
 
-function counts(){
-  const c = { all: S.rows.length, auto:0, guess:0, choose:0, kept:0, done:0, flag:0 };
-  for (const r of S.rows){
-    if (r.status === 'fuzzy') c.guess++; else c[r.status]++;
-    if (r.status === 'guess' || r.status === 'fuzzy' || r.status === 'choose') c.flag++;
-  }
-  return c;
-}
-function fmtAmount(a){
-  return typeof a === 'number' ? a.toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 }) : (a ?? '');
-}
-function fmtDate(d){
-  if (typeof d === 'number'){ const t = new Date(Date.UTC(1899, 11, 30) + d * 86400000);
-    return String(t.getUTCMonth() + 1).padStart(2, '0') + '/' + String(t.getUTCDate()).padStart(2, '0') + '/' + t.getUTCFullYear(); }
-  return d ?? '';
-}
-function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]); }
+function counts(){ const c = { all:S.rows.length, auto:0, guess:0, choose:0, conflict:0, kept:0, done:0, flag:0 };
+  for (const r of S.rows){ if (r.status==='fuzzy') c.guess++; else c[r.status]++;
+    if (r.status==='guess'||r.status==='fuzzy'||r.status==='choose'||r.status==='conflict') c.flag++; } return c; }
+function fmtAmount(a){ return typeof a==='number' ? a.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) : (a ?? ''); }
+function fmtDate(d){ if (typeof d==='number'){ const t = new Date(Date.UTC(1899,11,30)+d*86400000);
+    return String(t.getUTCMonth()+1).padStart(2,'0')+'/'+String(t.getUTCDate()).padStart(2,'0')+'/'+t.getUTCFullYear(); } return d ?? ''; }
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]); }
 
 function render(){
   const c = counts();
   $('cAll').textContent = c.all; $('cAuto').textContent = c.auto + c.done;
-  $('cGuess').textContent = c.guess; $('cChoose').textContent = c.choose; $('cKept').textContent = c.kept;
+  $('cGuess').textContent = c.guess; $('cConflict').textContent = c.conflict; $('cChoose').textContent = c.choose; $('cKept').textContent = c.kept;
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.f === filter));
   $('barnote').textContent = c.flag
-    ? `${c.choose} row(s) need a choice, ${c.guess} guess(es) to verify — you can still download; unresolved rows are left blank.`
-    : 'All rows resolved. Only Item / Vendor / Department cells are written — formulas, sheets & dropdowns untouched.';
-
-  const show = r =>
-    filter === 'all' ? true :
-    filter === 'flag' ? (r.status === 'guess' || r.status === 'fuzzy' || r.status === 'choose') :
-    filter === 'auto' ? r.status === 'auto' :
-    filter === 'kept' ? r.status === 'kept' :
-    filter === 'done' ? r.status === 'done' : true;
+    ? `${c.choose} to choose · ${c.conflict} dept conflict · ${c.guess} guess(es) to verify. You can download now; unresolved Item/Vendor cells stay blank.`
+    : 'All rows resolved.';
+  const show = r => filter==='all' ? true
+    : filter==='flag' ? ['guess','fuzzy','choose','conflict'].includes(r.status)
+    : filter==='auto' ? r.status==='auto'
+    : filter==='kept' ? r.status==='kept'
+    : filter==='done' ? r.status==='done' : true;
 
   const html = [];
   S.rows.forEach((r, i) => {
     if (!show(r)) return;
-    const cell = (f) => {
-      const v = r.fill[f];
-      return `<div class="cellv ${v ? '' : 'empty'}" data-i="${i}" data-f="${f}" title="click to edit">${v ? esc(v) : '— pick —'}</div>`;
-    };
-    const verify = (r.status === 'guess' || r.status === 'fuzzy')
-      ? `<br><button class="okbtn" data-verify="${i}">✓ verify</button>` : '';
+    const cell = f => { const v = r.fill[f]; return `<div class="cellv ${v?'':'empty'}" data-i="${i}" data-f="${f}" title="click to edit">${v?esc(v):'— pick —'}</div>`; };
+    const verify = (r.status==='guess'||r.status==='fuzzy'||r.status==='conflict') ? `<br><button class="okbtn" data-verify="${i}">✓ confirm</button>` : '';
     html.push(`<tr class="r-${r.status}">
-      <td class="num">${r.rn}</td>
+      <td class="num">${r.upRow}</td>
       <td class="num" style="white-space:nowrap">${esc(fmtDate(r.date))}</td>
-      <td class="desc"><div class="m">${esc(r.desc)}</div>
-        ${r.member ? `<div class="sub">${esc(r.member)}</div>` : ''}
-        ${r.ext ? `<details><summary>details</summary><pre>${esc(r.ext)}</pre></details>` : ''}</td>
+      <td style="white-space:nowrap">${esc(r.member||'')}</td>
+      <td class="desc"><div class="m">${esc(r.desc)}</div>${r.ext?`<details><summary>details</summary><pre>${esc(r.ext)}</pre></details>`:''}</td>
       <td class="amt num">${esc(fmtAmount(r.amount))}</td>
       <td>${cell('item')}</td><td>${cell('vendor')}</td><td>${cell('dept')}</td>
       <td><span class="chip ${r.status}">${CHIP[r.status]}</span>${verify}</td>
     </tr>`);
-    if (r.status === 'choose' && r.candidates.length){
-      const btns = r.candidates.map((t, j) =>
-        `<button class="cand" data-i="${i}" data-c="${j}">use <b>${esc(t.item)}</b> · ${esc(t.vendor)} · ${esc(t.dept)}<span class="x">seen ×${t.count}</span></button>`).join('');
-      html.push(`<tr class="cands"><td></td><td colspan="7">This merchant was booked differently before — pick for this row:${btns}</td></tr>`);
+    if ((r.status==='choose' && r.candidates.length) || (r.status==='conflict' && r.deptCands)){
+      const cands = r.status==='conflict' ? r.deptCands : r.candidates;
+      const intro = r.status==='conflict' ? 'Card-holder department vs how this merchant was booked before — pick one:'
+                                          : 'This merchant was booked differently before — pick for this row:';
+      const btns = cands.map((t,j) => `<button class="cand" data-i="${i}" data-c="${j}">use <b>${esc(t.dept)}</b>${t.item?` · ${esc(t.item)} · ${esc(t.vendor)}`:''}<span class="x">${t.label?esc(t.label):'seen ×'+t.count}</span></button>`).join('');
+      html.push(`<tr class="cands"><td></td><td colspan="8">${intro}${btns}</td></tr>`);
     }
   });
   $('tbody').innerHTML = html.join('');
 }
-
 document.querySelectorAll('.tab').forEach(t => t.onclick = () => { filter = t.dataset.f; render(); });
 
 /* ---------- editing ---------- */
 $('tbody').addEventListener('click', e => {
-  const v = e.target.closest('.cellv');
-  if (v) return editCell(+v.dataset.i, v.dataset.f, v);
+  const v = e.target.closest('.cellv'); if (v) return editCell(+v.dataset.i, v.dataset.f, v);
   const cand = e.target.closest('.cand');
-  if (cand){
-    const r = S.rows[+cand.dataset.i], t = r.candidates[+cand.dataset.c];
-    r.fill = { item: t.item, vendor: t.vendor, dept: t.dept };
-    r.status = 'done'; r.touched = true;
-    offerSameMerchant(r); render(); return;
-  }
+  if (cand){ const r = S.rows[+cand.dataset.i]; const list = r.status==='conflict'?r.deptCands:r.candidates; const t = list[+cand.dataset.c];
+    if (t.item != null){ r.fill = { item:t.item, vendor:t.vendor, dept:t.dept }; } else { r.fill.dept = t.dept; }
+    r.status = 'done'; r.touched = true; offerSameMerchant(r); render(); return; }
   const ver = e.target.closest('[data-verify]');
-  if (ver){ const r = S.rows[+ver.dataset.verify]; r.status = 'done'; r.touched = true; render(); }
+  if (ver){ const r = S.rows[+ver.dataset.verify]; r.status='done'; r.touched=true; render(); }
 });
-
 function editCell(i, f, el){
-  const r = S.rows[i];
-  const inp = document.createElement('input');
-  inp.className = 'editin'; inp.value = r.fill[f] || '';
-  inp.setAttribute('list', FIELD_LIST[f]);
-  el.replaceWith(inp); inp.focus(); inp.select();
-  let done = false;
-  const commit = () => {
-    if (done) return; done = true;
-    const val = inp.value.trim();
-    const list = f === 'item' ? S.itemList : f === 'vendor' ? S.vendorList : S.deptList;
-    if (val && !list.includes(val)){
-      const m = list.find(x => x.toLowerCase() === val.toLowerCase());
-      if (m) r.fill[f] = m;
-      else { toast(`"${val}" is not in the ${f} list — not saved (pick from the dropdown).`, true); render(); return; }
-    } else r.fill[f] = val || null;
-    if (val) { r.status = 'done'; r.touched = true; }
-    offerSameMerchant(r);
-    render();
-  };
+  const r = S.rows[i]; const inp = document.createElement('input');
+  inp.className = 'editin'; inp.value = r.fill[f] || ''; inp.setAttribute('list', FIELD_LIST[f]);
+  el.replaceWith(inp); inp.focus(); inp.select(); let done = false;
+  const lists = upDoc.lists;
+  const commit = () => { if (done) return; done = true; const val = inp.value.trim();
+    const list = f==='item'?lists.itemList : f==='vendor'?lists.vendorList : lists.deptList;
+    if (val && !list.includes(val)){ const m = list.find(x => x.toLowerCase()===val.toLowerCase());
+      if (m) r.fill[f] = m; else { toast(`"${val}" is not in the ${f} list — not saved (pick from the dropdown).`, true); render(); return; } }
+    else r.fill[f] = val || null;
+    if (val){ r.status = 'done'; r.touched = true; } offerSameMerchant(r); render(); };
   inp.onchange = commit; inp.onblur = commit;
-  inp.onkeydown = ev => { if (ev.key === 'Enter') commit(); if (ev.key === 'Escape'){ done = true; render(); } };
+  inp.onkeydown = ev => { if (ev.key==='Enter') commit(); if (ev.key==='Escape'){ done = true; render(); } };
 }
-
 function offerSameMerchant(r){
   if (!(r.fill.item && r.fill.vendor && r.fill.dept)) return;
   const key = CC.merchantKey(r.desc);
-  const others = S.rows.filter(o => o !== r && CC.merchantKey(o.desc) === key
-    && (o.status === 'choose' || o.status === 'guess' || o.status === 'fuzzy'));
+  const others = S.rows.filter(o => o!==r && CC.merchantKey(o.desc)===key && ['choose','guess','fuzzy','conflict'].includes(o.status));
   if (!others.length) return;
   if (confirm(`Apply the same Item / Vendor / Department to ${others.length} other unresolved row(s) of "${key}"?`))
     for (const o of others){ o.fill = { ...r.fill }; o.status = 'done'; o.touched = true; }
 }
-
-$('btnVerifyAll').onclick = () => {
-  let n = 0;
-  for (const r of S.rows)
-    if ((r.status === 'guess' || r.status === 'fuzzy') && r.fill.item && r.fill.vendor && r.fill.dept){
-      r.status = 'done'; r.touched = true; n++;
-    }
-  render(); toast(n ? `Verified ${n} guessed row(s).` : 'No complete guesses to verify.');
-};
+$('btnVerifyAll').onclick = () => { let n = 0;
+  for (const r of S.rows) if (['guess','fuzzy','conflict'].includes(r.status) && r.fill.item && r.fill.vendor && r.fill.dept){ r.status='done'; r.touched=true; n++; }
+  render(); toast(n ? `Confirmed ${n} row(s).` : 'No complete guesses to confirm.'); };
 
 /* ---------- download ---------- */
 $('btnDownload').onclick = async () => {
-  if (!S) return;
-  const c = counts();
-  if (c.flag && !confirm(`${c.flag} row(s) are still flagged (${c.choose} unchosen, ${c.guess} unverified guesses). Download anyway? Unresolved cells stay blank.`)) return;
+  if (!S) return; const c = counts();
+  if (c.flag && !confirm(`${c.flag} row(s) still flagged. Download anyway? Unresolved Item/Vendor cells stay blank.`)) return;
   try {
-    const L = S.layout;
     const editsByRow = new Map();
-    for (const r of S.rows){
-      const m = new Map();
-      const want = { [L.cItem]: r.fill.item, [L.cVendor]: r.fill.vendor, [L.cDept]: r.fill.dept };
-      const had  = { [L.cItem]: r.existing.item, [L.cVendor]: r.existing.vendor, [L.cDept]: r.existing.dept };
-      for (const ci of [L.cItem, L.cVendor, L.cDept])
-        if ((want[ci] || null) !== (had[ci] || null)) m.set(+ci, want[ci] || null);
-      if (m.size) editsByRow.set(r.rn, m);
+    if (S.mode === 'merge'){
+      const { L, rawMap, clearCols, genCols, tmpl, upLast, rows } = S;
+      const N = rows.length;
+      rows.forEach(r => { const m = new Map();
+        for (const [upc] of rawMap){ const v = r.bn.get(upc); m.set(upc, v == null ? '' : v); }
+        m.set(L.cItem, r.fill.item || ''); m.set(L.cVendor, r.fill.vendor || ''); m.set(L.cDept, r.fill.dept || '');
+        for (const cc of clearCols) m.set(cc, '');
+        for (const cc of genCols){ const t = tmpl.get(cc); m.set(cc, t == null ? '' : t); }
+        editsByRow.set(r.upRow, m); });
+      for (let rn = 3 + N; rn <= upLast; rn++){ const m = new Map(); for (let cc = 1; cc <= ci('AN'); cc++) m.set(cc, ''); editsByRow.set(rn, m); }
+    } else {
+      const L = S.L;
+      for (const r of S.rows){ const m = new Map();
+        const want = { [L.cItem]: r.fill.item, [L.cVendor]: r.fill.vendor, [L.cDept]: r.fill.dept };
+        const had  = { [L.cItem]: r.existing.item, [L.cVendor]: r.existing.vendor, [L.cDept]: r.existing.dept };
+        for (const cc of [L.cItem, L.cVendor, L.cDept]) if ((want[cc]||null)!==(had[cc]||null)) m.set(+cc, want[cc] || null);
+        if (m.size) editsByRow.set(r.upRow, m); }
     }
-    const hints = CC.styleHints(S.sheetXml, [L.cItem, L.cVendor, L.cDept]);
-    const newSheet = CC.patchSheetXml(S.sheetXml, editsByRow, hints);
-    const newWb = CC.ensureFullCalc(S.wb.wbXml);
-    const repl = new Map([[S.sheetPath, new TextEncoder().encode(newSheet)]]);
-    if (newWb !== S.wb.wbXml) repl.set('xl/workbook.xml', new TextEncoder().encode(newWb));
-    const out = await CC.zipRepack(S.zip, repl);
+    const newSheet = CC.patchSheetXml(upDoc.sheetXml, editsByRow, S.styleByCol);
+    const newWb = CC.ensureFullCalc(upDoc.wb.wbXml);
+    const repl = new Map([[upDoc.sheetPath, TE.encode(newSheet)]]);
+    if (newWb !== upDoc.wb.wbXml) repl.set('xl/workbook.xml', TE.encode(newWb));
+    const out = await CC.zipRepack(upDoc.zip, repl);
 
-    // learn from confirmed rows
     let newKeys = 0;
-    for (const r of S.rows){
-      if (!(r.fill.item && r.fill.vendor && r.fill.dept)) continue;
-      if (!(r.status === 'kept' || r.status === 'auto' || r.status === 'done')) continue;
+    for (const r of S.rows){ if (!(r.fill.item && r.fill.vendor && r.fill.dept)) continue;
+      if (!['kept','auto','done'].includes(r.status)) continue;
       const triple = r.fill.item + CC.SEP + r.fill.vendor + CC.SEP + r.fill.dept;
       const mk = CC.merchantKey(r.desc), nd = CC.normDesc(r.desc);
       if (!(learned.byMerchant[mk]?.[triple]) && !(CC.SEED.byMerchant[mk]?.[triple])) newKeys++;
-      (learned.byMerchant[mk] ||= {})[triple] = Math.min(999, (learned.byMerchant[mk][triple] || 0) + 1);
-      (learned.byDesc[nd] ||= {})[triple] = Math.min(999, (learned.byDesc[nd][triple] || 0) + 1);
-    }
+      (learned.byMerchant[mk] ||= {})[triple] = Math.min(999, (learned.byMerchant[mk][triple]||0)+1);
+      (learned.byDesc[nd] ||= {})[triple] = Math.min(999, (learned.byDesc[nd][triple]||0)+1); }
     const persisted = saveLearned(learned); memStats();
 
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
-    a.download = S.fileName.replace(/\.xlsx$/i, '') + ' (autofilled).xlsx';
+    a.href = URL.createObjectURL(new Blob([out], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+    a.download = upDoc.fileName.replace(/\.xlsx$/i,'') + ' (filled).xlsx';
     a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 10000);
-    toast(`Saved "${a.download}". ${editsByRow.size} row(s) updated · learned ${newKeys} new mapping(s)` +
-          (persisted ? '.' : ' — but this browser blocks localStorage, memory will not survive a reload!'), !persisted);
-  } catch (err){
-    console.error(err); toast('Write failed: ' + err.message, true);
-  }
+    toast(`Saved "${a.download}". ${editsByRow.size} row(s) written · learned ${newKeys} new mapping(s)` + (persisted?'.':' — localStorage blocked, memory will not persist!'), !persisted);
+  } catch (err){ console.error(err); toast('Write failed: ' + err.message, true); }
 };
 })();
+
 </script>
 </body>
 </html>
