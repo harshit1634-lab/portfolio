@@ -76,6 +76,18 @@ input,select{font-family:inherit}
 .side-field input[type=number],.side-field input[type=text]{width:88px;background:var(--ink2);border:1px solid var(--bdr2);color:var(--text);border-radius:6px;padding:5px 7px;font-size:11.5px;text-align:right;font-family:'JetBrains Mono',monospace}
 .side-field input:focus{outline:none;border-color:var(--gold)}
 .side-note{font-size:10px;color:var(--faint);line-height:1.45;margin-top:4px}
+.ident-field{margin-bottom:7px}
+.ident-field label{font-size:10px;color:var(--muted);display:block;margin-bottom:2px;text-transform:uppercase;letter-spacing:.06em}
+.ident-field input,.ident-field textarea{width:100%;background:var(--ink2);border:1px solid var(--bdr2);color:var(--text);border-radius:6px;padding:6px 8px;font-size:11.5px;resize:vertical}
+.ident-field input:focus,.ident-field textarea:focus{outline:none;border-color:var(--gold)}
+.tb-toggle{display:inline-flex;align-items:center;gap:6px;cursor:pointer;user-select:none;margin-right:4px}
+.tb-toggle input{display:none}
+.tb-toggle .tt-track{width:30px;height:17px;border-radius:10px;background:var(--ink3);border:1px solid var(--bdr2);position:relative;transition:all .15s;flex:none}
+.tb-toggle .tt-track::before{content:'';position:absolute;width:11px;height:11px;border-radius:50%;background:var(--muted);top:2px;left:2px;transition:all .15s}
+.tb-toggle input:checked+.tt-track{background:var(--gold3);border-color:var(--gold)}
+.tb-toggle input:checked+.tt-track::before{transform:translateX(13px);background:var(--gold2)}
+.tb-toggle .tt-lab{font-size:11.5px;color:var(--muted);white-space:nowrap}
+.tb-toggle input:checked~.tt-lab{color:var(--gold2)}
 .analyse-btn{width:100%;background:linear-gradient(135deg,var(--gold) 0%,var(--gold2) 100%);color:var(--ink);font-weight:700;font-size:13px;border:none;border-radius:9px;padding:11px;letter-spacing:.03em;box-shadow:0 6px 18px rgba(200,168,75,.25)}
 .analyse-btn:hover{filter:brightness(1.07)}
 .analyse-btn:disabled{opacity:.35;cursor:not-allowed;box-shadow:none}
@@ -226,10 +238,13 @@ a{color:var(--sky2)}
   </div>
   <span class="tb-badge" id="periodBadge">No data loaded</span>
   <div class="tb-spacer"></div>
+  <label class="tb-toggle" title="Personal touch: write the report as a hand-prepared review memo — hides rule codes, the rule-library appendix and all tool branding"><input type="checkbox" id="personalMode"><span class="tt-track"></span><span class="tt-lab">Personal touch</span></label>
+  <button class="tb-btn" id="btnPdf" disabled title="Download the report as a PDF file">⬇ PDF</button>
+  <button class="tb-btn" id="btnXls" disabled title="Download the full analysis as an Excel workbook">⬇ Excel</button>
+  <button class="tb-btn" id="btnRep" disabled title="Download the report as a standalone HTML file">⬇ HTML</button>
   <button class="tb-btn" id="btnCsv" disabled title="Export findings register as CSV">⬇ CSV</button>
   <button class="tb-btn" id="btnJson" disabled title="Export full analysis as JSON">⬇ JSON</button>
-  <button class="tb-btn" id="btnRep" disabled title="Download the full report as a standalone HTML file — opens in any browser, print to PDF from there">⬇ Report</button>
-  <button class="tb-btn primary" id="btnPrint" disabled title="Build full report and print / save as PDF">🖨 Print Report</button>
+  <button class="tb-btn primary" id="btnPrint" disabled title="Build full report and print / save as PDF">🖨 Print</button>
 </div>
 
 <div class="shell">
@@ -251,6 +266,20 @@ a{color:var(--sky2)}
       <div class="side-field"><label>INR per GBP</label><input type="number" id="fxInrGbp" step="0.01" min="0"></div>
       <div class="side-field"><label>INR per EUR</label><input type="number" id="fxInrEur" step="0.01" min="0"></div>
       <div class="side-note" id="fxNote">Leave blank to use rates implied by intercompany billing (shown after analysis).</div>
+    </div>
+
+    <div>
+      <div class="side-h">Report identity <span class="lnk" id="identToggle">show</span></div>
+      <div id="identPanel" style="display:none">
+        <div class="ident-field"><label>Firm / your name (letterhead)</label><input type="text" id="idFirm" placeholder="e.g. Harshit Gupta &amp; Associates"></div>
+        <div class="ident-field"><label>Address / contact line</label><input type="text" id="idAddress" placeholder="optional"></div>
+        <div class="ident-field"><label>Report date</label><input type="text" id="idDate" placeholder="leave blank for today"></div>
+        <div class="ident-field"><label>Addressed to</label><input type="text" id="idAddressee" placeholder="e.g. The Board of Directors"></div>
+        <div class="ident-field"><label>Prepared by</label><input type="text" id="idPreparedBy" placeholder="signature block"></div>
+        <div class="ident-field"><label>Reviewed by</label><input type="text" id="idReviewedBy" placeholder="signature block"></div>
+        <div class="ident-field"><label>Opening commentary (your words)</label><textarea id="idCommentary" rows="4" placeholder="A short note in your voice — appears as the executive commentary on page 1. Personalises the report."></textarea></div>
+        <div class="side-note">All optional, saved on this browser. With “Personal touch” on, the report reads as a hand-prepared review memo.</div>
+      </div>
     </div>
 
     <div>
@@ -2071,10 +2100,16 @@ function runGroupRules(stmts, out, add, cfg){
 /* ---------------- standalone report builder (pure) ---------------- */
 const REPORT_CSS = `
 .rpt-root{font-family:Georgia,'Times New Roman',serif;color:#1a1a1a;background:#fff;line-height:1.45;font-size:12px;max-width:1000px;margin:0 auto;padding:28px}
-.rpt-root h1{font-size:26px;margin:0 0 2px;color:#1a1a1a}
+.rpt-root h1{font-size:24px;margin:0 0 2px;color:#1a1a1a}
 .rpt-root h2{font-size:17px;margin:26px 0 8px;border-bottom:2.5px solid #c8a84b;padding-bottom:4px;page-break-after:avoid}
 .rpt-root h3{font-size:13.5px;margin:14px 0 6px;page-break-after:avoid}
 .rpt-root .meta{color:#555;font-size:11px;margin-bottom:18px}
+.rpt-root .lh{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px double #8a7a4a;padding-bottom:8px;margin-bottom:16px}
+.rpt-root .lh-firm{font-size:21px;font-weight:700;letter-spacing:.01em}
+.rpt-root .lh-addr{font-size:10px;color:#555;margin-top:2px}
+.rpt-root .lh-date{font-size:10.5px;color:#444;white-space:nowrap}
+.rpt-root .addressee{font-size:12px;margin:0 0 12px}
+.rpt-root .comm{white-space:pre-wrap;font-size:12.5px;margin:6px 0 4px}
 .rpt-root table{width:100%;border-collapse:collapse;font-size:10.5px;margin:7px 0 14px;page-break-inside:auto}
 .rpt-root th,.rpt-root td{border:1px solid #b9b3a4;padding:4px 7px;text-align:left;vertical-align:top}
 .rpt-root th{background:#f0ead8;font-size:9.5px;text-transform:uppercase;letter-spacing:.06em}
@@ -2089,6 +2124,9 @@ const REPORT_CSS = `
 .rpt-root .fdetail{margin-top:2px}
 .rpt-root .faction{margin-top:2px;font-style:italic;color:#444}
 .rpt-root .fev{margin-top:3px;font-family:ui-monospace,Consolas,monospace;font-size:9px;color:#333;background:#f6f3ea;padding:2px 5px;border-radius:3px;display:inline-block}
+.rpt-root .sig{display:flex;gap:70px;margin-top:50px;page-break-inside:avoid}
+.rpt-root .sig>div{flex:1;max-width:280px}
+.rpt-root .sig .ln{border-top:1px solid #333;padding-top:5px;margin-top:46px;font-size:10.5px}
 @media print{ .rpt-root{padding:0;max-width:none} }
 `;
 const RPT_SYM = {USD:'$', GBP:'£', INR:'₹', EUR:'€'};
@@ -2100,20 +2138,41 @@ function rfm(v, cur, dec){
   return (v<0?'−':'')+(RPT_SYM[cur]||'')+s;
 }
 function rEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+const SEVD = {CRITICAL:'Act immediately',HIGH:'Investigate this close',MEDIUM:'Review & document',LOW:'Hygiene / watchlist',INFO:'Context only'};
+const sevRank = s => ['CRITICAL','HIGH','MEDIUM','LOW','INFO'].indexOf(s);
+function defaultTitle(opts){ return (opts.ident&&opts.ident.title) || 'Financial Statements Review — Observations & Red Flags'; }
+function entityBundle(A){
+  const names = [...new Set(A.entities.map(e=>e.stmt.entity))];
+  return names.map(name=>({name,
+    eIS: A.entities.find(e=>e.stmt.entity===name && e.stmt.type==='IS'),
+    eBS: A.entities.find(e=>e.stmt.entity===name && e.stmt.type==='BS'),
+    fs: A.findings.filter(f=>f.entity===name).sort((a,b)=>sevRank(a.sev)-sevRank(b.sev))}));
+}
+
 function reportBodyHtml(A, opts){
-  opts = opts||{};
-  const SEVD = {CRITICAL:'Act immediately',HIGH:'Investigate this close',MEDIUM:'Review & document',LOW:'Hygiene / watchlist',INFO:'Context only'};
-  const sevRank = s => ['CRITICAL','HIGH','MEDIUM','LOW','INFO'].indexOf(s);
+  opts = opts||{}; const id = opts.ident||{}; const personal = !!opts.personal;
   const isE = A.entities.filter(e=>e.stmt.type==='IS');
   const num = (v,cur)=>'<td class="num'+((v||0)<0?' neg':'')+'">'+rfm(v,cur)+'</td>';
-  let h = '<h1>NetSuite Sentinel — Group Red-Flag Report</h1>';
+  let h = '';
+  /* letterhead */
+  if(id.firm || id.address){
+    h += '<div class="lh"><div><div class="lh-firm">'+rEsc(id.firm||'')+'</div>'+
+      (id.address?'<div class="lh-addr">'+rEsc(id.address)+'</div>':'')+'</div>'+
+      '<div class="lh-date">'+rEsc(id.date||new Date().toLocaleDateString())+'</div></div>';
+  }
+  h += '<h1>'+rEsc(defaultTitle(opts))+'</h1>';
   h += '<div class="meta">'+rEsc((A.entities[0]&&A.entities[0].stmt.company)||'')+
     (isE[0]&&isE[0].stmt.period? ' · '+rEsc(isE[0].stmt.period):'')+
-    ' · generated '+new Date().toLocaleString()+
-    ' · '+A.entities.length+' statements · '+A.findings.length+' findings</div>';
+    (!id.firm? ' · '+rEsc(id.date||new Date().toLocaleDateString()):'')+
+    ' · '+A.entities.length+' statements reviewed · '+A.findings.length+' observations</div>';
+  if(id.addressee) h += '<div class="addressee">To: <b>'+rEsc(id.addressee)+'</b></div>';
 
-  /* 1. executive summary */
-  h += '<h2>1. Executive summary</h2><table><tr><th>Severity</th><th class="num">Count</th><th>Meaning</th></tr>';
+  let sec = 1;
+  if(id.commentary && id.commentary.trim()){
+    h += '<h2>'+(sec++)+'. Executive commentary</h2><div class="comm">'+rEsc(id.commentary.trim())+'</div>';
+  }
+  /* summary */
+  h += '<h2>'+(sec++)+'. Summary of observations</h2><table><tr><th>Severity</th><th class="num">Count</th><th>Meaning</th></tr>';
   for(const s of ['CRITICAL','HIGH','MEDIUM','LOW','INFO'])
     h += '<tr><td><span class="sv '+s+'">'+s+'</span></td><td class="num">'+(A.bySeverity[s]||0)+'</td><td>'+SEVD[s]+'</td></tr>';
   h += '</table>';
@@ -2129,54 +2188,50 @@ function reportBodyHtml(A, opts){
       (fx.used&&fx.used.INRGBP?fx.used.INRGBP.toFixed(2)+' ('+fx.source.INRGBP+')':'—')+
       '. Intercompany profits are not eliminated.</div>';
   }
-
-  /* 2..n entity sections — one per entity, findings listed once */
-  const entNames = [...new Set(A.entities.map(e=>e.stmt.entity))];
-  let sec = 2;
+  /* entity sections */
   const findingsTable = list => {
-    if(!list.length) return '<p class="small">No findings.</p>';
-    let t = '<table><tr><th style="width:62px">Severity</th><th style="width:46px">Rule</th><th style="width:190px">Account / scope</th><th>Finding, detail &amp; suggested action</th></tr>';
+    if(!list.length) return '<p class="small">No observations.</p>';
+    let t = '<table><tr><th style="width:62px">Severity</th>'+(personal?'':'<th style="width:46px">Rule</th>')+
+      '<th style="width:110px">Area</th><th style="width:185px">Account / scope</th><th>Observation, detail &amp; suggested action</th></tr>';
     for(const f of list){
-      const ev = (f.ev&&f.ev.length)? '<div class="fev">'+f.ev.map(e=>rEsc(e.m)+': '+(e.v===null||e.v===undefined?'—':Number(e.v).toLocaleString())).join(' · ')+'</div>' : '';
-      t += '<tr><td><span class="sv '+f.sev+'">'+f.sev+'</span></td><td>'+f.rule+'</td><td>'+rEsc(f.account)+'</td>'+
+      const ev = (f.ev&&f.ev.length&&f.ev.length<=13)? '<div class="fev">'+f.ev.map(e=>rEsc(e.m)+': '+(e.v===null||e.v===undefined?'—':Number(e.v).toLocaleString())).join(' · ')+'</div>' : '';
+      t += '<tr><td><span class="sv '+f.sev+'">'+f.sev+'</span></td>'+(personal?'':'<td>'+f.rule+'</td>')+
+        '<td>'+rEsc(f.cat)+'</td><td>'+rEsc(f.account)+'</td>'+
         '<td><div class="ftitle">'+rEsc(f.title)+'</div>'+
         (f.detail?'<div class="fdetail">'+rEsc(f.detail)+'</div>':'')+
-        (f.action?'<div class="faction">Action: '+rEsc(f.action)+'</div>':'')+ev+'</td></tr>';
+        (f.action?'<div class="faction">Suggested action: '+rEsc(f.action)+'</div>':'')+ev+'</td></tr>';
     }
     return t+'</table>';
   };
-  for(const name of entNames){
-    const eIS = A.entities.find(e=>e.stmt.entity===name && e.stmt.type==='IS');
-    const eBS = A.entities.find(e=>e.stmt.entity===name && e.stmt.type==='BS');
-    const any = eIS||eBS;
-    const fs = A.findings.filter(f=>f.entity===name).sort((a,b)=>sevRank(a.sev)-sevRank(b.sev));
-    h += '<div class="pbreak"></div><h2>'+(sec++)+'. '+rEsc(name)+'</h2>';
-    h += '<div class="meta">'+[eIS&&('Income statement: '+rEsc(eIS.stmt.period||'')+' ('+rEsc(eIS.stmt.fileName)+')'),
-      eBS&&('Balance sheet: '+rEsc(eBS.stmt.period||'')+' ('+rEsc(eBS.stmt.fileName)+')')].filter(Boolean).join(' · ')+
-      ' · currency '+rEsc((any.stmt.currency)||'?')+' · health '+any.score+' ('+any.grade+') · materiality '+rfm(any.mat, any.stmt.currency)+'</div>';
-    if(eIS){
-      const M = eIS.metrics, c = eIS.stmt.currency;
+  for(const b of entityBundle(A)){
+    const any = b.eIS||b.eBS;
+    h += '<div class="pbreak"></div><h2>'+(sec++)+'. '+rEsc(b.name)+'</h2>';
+    h += '<div class="meta">'+[b.eIS&&('Income statement: '+rEsc(b.eIS.stmt.period||'')),
+      b.eBS&&('Balance sheet: '+rEsc(b.eBS.stmt.period||''))].filter(Boolean).join(' · ')+
+      ' · currency '+rEsc((any.stmt.currency)||'?')+' · health '+any.score+' ('+any.grade+')'+
+      (personal?'':' · materiality '+rfm(any.mat, any.stmt.currency))+'</div>';
+    if(b.eIS){
+      const M = b.eIS.metrics, c = b.eIS.stmt.currency;
       const ti = M.totalIncome.total;
       h += '<table><tr><th class="num">Income</th><th class="num">Gross profit</th><th class="num">GM%</th><th class="num">EBITDA*</th><th class="num">Finance cost</th><th class="num">D&amp;A</th><th class="num">Net result</th><th class="num">NM%</th></tr><tr>'+
         num(ti,c)+num(M.gp.total,c)+'<td class="num">'+(ti? (M.gp.total/ti*100).toFixed(1)+'%':'—')+'</td>'+
         num(M.ebitda.total,c)+num(M.finCost.total,c)+num(M.da.total,c)+num(M.netIncome.total,c)+
         '<td class="num'+((M.netIncome.total||0)<0?' neg':'')+'">'+(ti? (M.netIncome.total/ti*100).toFixed(1)+'%':'—')+'</td></tr></table>';
-      h += '<h3>Monthly view ('+rEsc(c||'')+')</h3><table><tr><th>Line</th>'+eIS.stmt.months.map(m=>'<th class="num">'+rEsc(m)+'</th>').join('')+'<th class="num">Total</th></tr>';
+      h += '<h3>Monthly view ('+rEsc(c||'')+')</h3><table><tr><th>Line</th>'+b.eIS.stmt.months.map(m=>'<th class="num">'+rEsc(m)+'</th>').join('')+'<th class="num">Total</th></tr>';
       const rows = [['Operating revenue',M.opRev],['Intercompany revenue',M.icRev],['Other income',M.othInc],['Total income',M.totalIncome],
         ['Direct costs',M.cogs],['Gross profit',M.gp],['Opex (incl. tax rows)',M.opexTotal],['Net result',M.netIncome]];
       for(const [lab,o] of rows)
         h += '<tr><td>'+lab+'</td>'+o.series.map(v=>num(v,c)).join('')+num(o.total,c)+'</tr>';
       h += '</table>';
     }
-    if(eBS){
-      const B = eBS.bs, c = eBS.stmt.currency, l = eBS.stmt.months.length-1;
+    if(b.eBS){
+      const B = b.eBS.bs, c = b.eBS.stmt.currency, l = b.eBS.stmt.months.length-1;
       const eq = B.equityRow? B.equityRow.values[l] : B.equity.series[l];
-      h += '<h3>Balance sheet snapshot — '+rEsc(eBS.stmt.months[l])+'</h3><table><tr><th class="num">Total assets</th><th class="num">Cash &amp; deposits</th><th class="num">Trade AR</th><th class="num">Unbilled</th><th class="num">Borrowings</th><th class="num">Equity</th></tr><tr>'+
+      h += '<h3>Balance sheet snapshot — '+rEsc(b.eBS.stmt.months[l])+'</h3><table><tr><th class="num">Total assets</th><th class="num">Cash &amp; deposits</th><th class="num">Trade AR</th><th class="num">Unbilled</th><th class="num">Borrowings</th><th class="num">Equity</th></tr><tr>'+
         num(B.assetsRow?B.assetsRow.values[l]:B.assets.series[l],c)+num(B.cash.series[l],c)+num(B.ar.series[l],c)+num(B.unbilled.series[l],c)+num(B.debt.series[l],c)+num(eq,c)+'</tr></table>';
     }
-    h += '<h3>Findings ('+fs.length+')</h3>'+findingsTable(fs);
+    h += '<h3>Observations ('+b.fs.length+')</h3>'+findingsTable(b.fs);
   }
-
   /* group & intercompany */
   const gf = A.findings.filter(f=>f.entity==='GROUP').sort((a,b)=>sevRank(a.sev)-sevRank(b.sev));
   h += '<div class="pbreak"></div><h2>'+(sec++)+'. Group &amp; intercompany</h2>';
@@ -2190,24 +2245,494 @@ function reportBodyHtml(A, opts){
       '<td class="num">'+(pr.sTotal&&pr.bTotal?(pr.sTotal/pr.bTotal).toFixed(2):'—')+'</td></tr></table>';
   }
   h += findingsTable(gf);
-
-  /* appendix */
-  h += '<div class="pbreak"></div><h2>Appendix — rule library &amp; settings</h2>';
-  if(opts.settingsText) h += '<p class="small">'+rEsc(opts.settingsText)+'</p>';
-  h += '<table><tr><th style="width:46px">Rule</th><th style="width:150px">Name</th><th>What it checks</th></tr>'+
-    RULES.map(r=>'<tr><td>'+r[0]+'</td><td>'+rEsc(r[3])+'</td><td class="small">'+rEsc(r[4])+'</td></tr>').join('')+'</table>';
-  h += '<p class="small">Generated by NetSuite Sentinel — analytical screening only; findings require professional judgement and underlying-document verification before conclusions are drawn.</p>';
+  /* appendix (technical mode only) */
+  if(!personal){
+    h += '<div class="pbreak"></div><h2>Appendix — rule library &amp; settings</h2>';
+    if(opts.settingsText) h += '<p class="small">'+rEsc(opts.settingsText)+'</p>';
+    h += '<table><tr><th style="width:46px">Rule</th><th style="width:150px">Name</th><th>What it checks</th></tr>'+
+      RULES.map(r=>'<tr><td>'+r[0]+'</td><td>'+rEsc(r[3])+'</td><td class="small">'+rEsc(r[4])+'</td></tr>').join('')+'</table>';
+  }
+  /* signatures + closing note */
+  if(personal || id.preparedBy || id.reviewedBy){
+    h += '<div class="sig"><div><div class="ln">Prepared by'+(id.preparedBy?': <b>'+rEsc(id.preparedBy)+'</b>':'')+'<br>Date: '+rEsc(id.date||'')+'</div></div>'+
+         '<div><div class="ln">Reviewed by'+(id.reviewedBy?': <b>'+rEsc(id.reviewedBy)+'</b>':'')+'<br>Date:</div></div></div>';
+  }
+  h += '<p class="small" style="margin-top:24px">'+(personal
+    ? 'Private &amp; confidential. This memorandum summarises observations arising from an analytical review of the management information listed above. Observations are indicative and subject to verification of underlying records and documents.'
+    : 'Generated by NetSuite Sentinel — analytical screening only; findings require professional judgement and underlying-document verification before conclusions are drawn.')+'</p>';
   return h;
 }
 function buildReportHtml(A, opts){
   return '<!DOCTYPE html>\n<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">'+
-    '<title>NetSuite Sentinel — Red-Flag Report</title><style>body{margin:0;background:#e9e6dd}'+REPORT_CSS+'</style></head>'+
+    '<title>'+rEsc(defaultTitle(opts||{}))+'</title><style>body{margin:0;background:#e9e6dd}'+REPORT_CSS+'</style></head>'+
     '<body><div class="rpt-root" style="background:#fff;box-shadow:0 0 24px rgba(0,0,0,.15)">'+reportBodyHtml(A, opts)+'</div></body></html>';
+}
+
+/* ---------------- Excel workbook export (SpreadsheetML — no libraries) ---------------- */
+function xEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function xCell(v, style, type){
+  if(v===null||v===undefined||v==='') return '<Cell'+(style?' ss:StyleID="'+style+'"':'')+'/>';
+  const t = type || (typeof v === 'number' ? 'Number' : 'String');
+  const val = t==='Number' ? (isFinite(v)? v : '') : xEsc(v);
+  if(val==='') return '<Cell'+(style?' ss:StyleID="'+style+'"':'')+'/>';
+  return '<Cell'+(style?' ss:StyleID="'+style+'"':'')+'><Data ss:Type="'+t+'">'+val+'</Data></Cell>';
+}
+function xRow(cells){ return '<Row>'+cells.join('')+'</Row>'; }
+function xSheet(name, rows, colWidths){
+  const cols = (colWidths||[]).map(w=>'<Column ss:Width="'+w+'"/>').join('');
+  return '<Worksheet ss:Name="'+xEsc(name)+'"><Table>'+cols+rows.join('')+'</Table></Worksheet>';
+}
+function sheetName(raw, used){
+  let n = String(raw).replace(/[\\\/\?\*\[\]:]/g,'-').slice(0,28).trim() || 'Sheet';
+  let v = n, i = 2;
+  while(used.has(v.toLowerCase())) v = n.slice(0,25)+'('+(i++)+')';
+  used.add(v.toLowerCase());
+  return v;
+}
+function buildExcelXml(A, opts){
+  opts = opts||{}; const id = opts.ident||{};
+  const used = new Set();
+  const H = 'sHead', T = 'sTitle', N = 'sNum', W = 'sWrap';
+  const sevStyle = s => 'sv'+s;
+  const sheets = [];
+  /* 1. Summary */
+  {
+    const rows = [];
+    if(id.firm) rows.push(xRow([xCell(id.firm, T)]));
+    rows.push(xRow([xCell(defaultTitle(opts), T)]));
+    rows.push(xRow([xCell(((A.entities[0]&&A.entities[0].stmt.company)||'')+' · '+((A.entities.find(e=>e.stmt.type==='IS')||A.entities[0]).stmt.period||''))]));
+    rows.push(xRow([xCell('Generated: '+(id.date||new Date().toLocaleString())+(id.preparedBy?' · Prepared by: '+id.preparedBy:''))]));
+    rows.push(xRow([]));
+    rows.push(xRow([xCell('Severity',H), xCell('Count',H), xCell('Meaning',H)]));
+    for(const s of ['CRITICAL','HIGH','MEDIUM','LOW','INFO'])
+      rows.push(xRow([xCell(s, sevStyle(s)), xCell(A.bySeverity[s]||0, N), xCell(SEVD[s])]));
+    rows.push(xRow([]));
+    rows.push(xRow([xCell('Entity',H), xCell('Type',H), xCell('Currency',H), xCell('Period',H), xCell('Health score',H), xCell('Grade',H), xCell('Findings',H)]));
+    for(const e of A.entities)
+      rows.push(xRow([xCell(e.stmt.entity), xCell(e.stmt.type), xCell(e.stmt.currency||''), xCell(e.stmt.period||''),
+        xCell(e.score, N), xCell(e.grade), xCell(A.findings.filter(f=>f.entity===e.stmt.entity).length, N)]));
+    sheets.push(xSheet(sheetName('Summary', used), rows, [200,90,70,160,80,50,60]));
+  }
+  /* 2. Roll-up */
+  if(A.rollup && A.rollup.rows.length){
+    const rows = [xRow([xCell('Group roll-up (USD, indicative — IC profits not eliminated)', T)])];
+    const fx = A.fx||{};
+    rows.push(xRow([xCell('FX: INR/USD '+(fx.used&&fx.used.INRUSD?fx.used.INRUSD.toFixed(2)+' ('+fx.source.INRUSD+')':'—')+' · INR/GBP '+(fx.used&&fx.used.INRGBP?fx.used.INRGBP.toFixed(2)+' ('+fx.source.INRGBP+')':'—'))]));
+    rows.push(xRow([]));
+    rows.push(xRow([xCell('Entity',H), xCell('Cur',H), xCell('Income (USD)',H), xCell('o/w intercompany',H), xCell('EBITDA approx',H), xCell('Net result',H), xCell('Grade',H)]));
+    for(const r of A.rollup.rows)
+      rows.push(xRow([xCell(r.entity), xCell(r.cur), xCell(r.income,N), xCell(r.icRev,N), xCell(r.ebitda,N), xCell(r.ni,N), xCell(r.grade+' ('+r.score+')')]));
+    const t = A.rollup.totals;
+    rows.push(xRow([xCell('GROUP',H), xCell('',H), xCell(t.income,N), xCell(t.icRev,N), xCell(t.ebitda,N), xCell(t.ni,N), xCell('',H)]));
+    sheets.push(xSheet(sheetName('Group Roll-up', used), rows, [220,40,110,110,110,110,70]));
+  }
+  /* 3. Findings */
+  {
+    const rows = [xRow([xCell('Severity',H), xCell('Rule',H), xCell('Rule name',H), xCell('Category',H), xCell('Entity',H),
+      xCell('Account / scope',H), xCell('Finding',H), xCell('Detail',H), xCell('Suggested action',H), xCell('Amount',H), xCell('Evidence',H), xCell('Source file',H)])];
+    for(const f of A.findings.slice().sort((a,b)=>sevRank(a.sev)-sevRank(b.sev)))
+      rows.push(xRow([xCell(f.sev, sevStyle(f.sev)), xCell(f.rule), xCell(f.ruleName), xCell(f.cat), xCell(f.entity),
+        xCell(f.account, W), xCell(f.title, W), xCell(f.detail, W), xCell(f.action, W),
+        xCell(f.amount!==null&&f.amount!==undefined? f.amount : '', N),
+        xCell((f.ev||[]).map(e=>e.m+': '+(e.v===null||e.v===undefined?'—':e.v)).join(' | '), W), xCell(f.stmtFile)]));
+    sheets.push(xSheet(sheetName('Findings', used), rows, [62,40,130,90,150,180,230,300,230,90,200,150]));
+  }
+  /* 4. per-entity monthly P&L */
+  for(const e of A.entities.filter(x=>x.stmt.type==='IS')){
+    const M = e.metrics, months = e.stmt.months;
+    const rows = [xRow([xCell(e.stmt.entity+' — monthly P&L ('+(e.stmt.currency||'')+')', T)]),
+      xRow([xCell(e.stmt.period||'')]), xRow([]),
+      xRow([xCell('Line',H)].concat(months.map(m=>xCell(m,H)), [xCell('Total',H)]))];
+    const lines = [['Operating revenue',M.opRev],['Intercompany revenue',M.icRev],['Other income',M.othInc],['Total income',M.totalIncome],
+      ['Direct costs',M.cogs],['Gross profit',M.gp],['Payroll (support)',M.opexPay],['Admin & other opex',M.opexAdm],
+      ['Finance costs',M.finCost],['D&A',M.da],['Tax rows',M.tax],['Operating result',M.opProfit],['Other (FX/gains)',M.otherBlock],['Net result',M.netIncome]];
+    for(const [lab,o] of lines)
+      rows.push(xRow([xCell(lab)].concat(o.series.map(v=>xCell(v,N)), [xCell(o.total,N)])));
+    rows.push(xRow([]));
+    rows.push(xRow([xCell('Gross margin %')].concat(months.map((m,i)=>xCell(M.totalIncome.series[i]? +(M.gp.series[i]/M.totalIncome.series[i]*100).toFixed(2):'',N)), [xCell(M.totalIncome.total? +(M.gp.total/M.totalIncome.total*100).toFixed(2):'',N)])));
+    rows.push(xRow([xCell('Net margin %')].concat(months.map((m,i)=>xCell(M.totalIncome.series[i]? +(M.netIncome.series[i]/M.totalIncome.series[i]*100).toFixed(2):'',N)), [xCell(M.totalIncome.total? +(M.netIncome.total/M.totalIncome.total*100).toFixed(2):'',N)])));
+    sheets.push(xSheet(sheetName('PL '+e.stmt.entity, used), rows, [170].concat(months.map(()=>95),[100])));
+  }
+  /* 5. BS snapshots */
+  {
+    const bs = A.entities.filter(x=>x.stmt.type==='BS');
+    if(bs.length){
+      const rows = [xRow([xCell('Balance sheet snapshots (latest column of each file)', T)]), xRow([]),
+        xRow([xCell('Metric',H)].concat(bs.map(e=>xCell(e.stmt.entity+' ('+(e.stmt.currency||'')+')',H))))];
+      const get = (e, fn) => { const l = e.stmt.months.length-1; return fn(e.bs, l); };
+      const metrics = [
+        ['As at', (B,l,e)=>null],
+        ['Total assets', (B,l)=>B.assetsRow?B.assetsRow.values[l]:B.assets.series[l]],
+        ['Cash & deposits', (B,l)=>B.cash.series[l]], ['Trade receivables', (B,l)=>B.ar.series[l]],
+        ['Unbilled receivable', (B,l)=>B.unbilled.series[l]], ['Trade payables', (B,l)=>B.ap.series[l]],
+        ['Borrowings', (B,l)=>B.debt.series[l]], ['Intangibles (net)', (B,l)=>B.intangible.series[l]],
+        ['Current assets', (B,l)=>B.caRow?B.caRow.values[l]:null], ['Current liabilities', (B,l)=>B.clRow?B.clRow.values[l]:null],
+        ['Equity', (B,l)=>B.equityRow?B.equityRow.values[l]:B.equity.series[l]],
+        ['Retained earnings line', (B,l)=>B.reLine?B.reLine.values[l]:null], ['YTD net income line', (B,l)=>B.niLine?B.niLine.values[l]:null],
+      ];
+      rows[2] = xRow([xCell('Metric',H)].concat(bs.map(e=>xCell(e.stmt.entity+' ('+(e.stmt.currency||'')+')',H))));
+      for(const [lab,fn] of metrics){
+        if(lab==='As at'){ rows.push(xRow([xCell(lab)].concat(bs.map(e=>xCell(e.stmt.months[e.stmt.months.length-1]))))); continue; }
+        rows.push(xRow([xCell(lab)].concat(bs.map(e=>xCell(get(e,fn),N)))));
+      }
+      sheets.push(xSheet(sheetName('BS Snapshots', used), rows, [160].concat(bs.map(()=>150))));
+    }
+  }
+  /* 6. Intercompany */
+  {
+    const pairs = (A.icPairs||[]).filter(p=>p.s&&p.b&&p.rows);
+    if(pairs.length){
+      const rows = [xRow([xCell('Intercompany mirror & implied FX', T)]), xRow([])];
+      for(const pr of pairs){
+        const months = pr.s.e.stmt.months;
+        rows.push(xRow([xCell(pr.s.ic.from+' -> '+pr.s.ic.to+'  ·  seller: '+pr.s.e.stmt.entity+' ('+pr.s.cur+')  ·  buyer: '+pr.b.e.stmt.entity+' ('+pr.b.cur+')', T)]));
+        rows.push(xRow([xCell('',H)].concat(months.map(m=>xCell(m,H)), [xCell('Total',H)])));
+        rows.push(xRow([xCell('Seller books ('+pr.s.cur+')')].concat(pr.rows.map(r=>xCell(r.sv,N)), [xCell(pr.sTotal,N)])));
+        rows.push(xRow([xCell('Buyer books ('+pr.b.cur+')')].concat(pr.rows.map(r=>xCell(r.bv,N)), [xCell(pr.bTotal,N)])));
+        rows.push(xRow([xCell('Implied rate')].concat(pr.rows.map(r=>xCell(r.rate? +r.rate.toFixed(4):'',N)), [xCell(pr.sTotal&&pr.bTotal? +(pr.sTotal/pr.bTotal).toFixed(4):'',N)])));
+        rows.push(xRow([]));
+      }
+      sheets.push(xSheet(sheetName('Intercompany', used), rows, [190,95,95,95,95,95,100]));
+    }
+  }
+  return '<?xml version="1.0"?>\n<?mso-application progid="Excel.Sheet"?>\n'+
+'<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">'+
+'<Styles>'+
+'<Style ss:ID="Default" ss:Name="Normal"><Font ss:FontName="Calibri" ss:Size="10"/><Alignment ss:Vertical="Top"/></Style>'+
+'<Style ss:ID="sTitle"><Font ss:FontName="Calibri" ss:Size="12" ss:Bold="1"/></Style>'+
+'<Style ss:ID="sHead"><Font ss:FontName="Calibri" ss:Size="9" ss:Bold="1"/><Interior ss:Color="#F0EAD8" ss:Pattern="Solid"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>'+
+'<Style ss:ID="sNum"><NumberFormat ss:Format="#,##0.00;[Red]-#,##0.00"/></Style>'+
+'<Style ss:ID="sWrap"><Alignment ss:Vertical="Top" ss:WrapText="1"/></Style>'+
+'<Style ss:ID="svCRITICAL"><Font ss:Color="#B3242F" ss:Bold="1"/></Style>'+
+'<Style ss:ID="svHIGH"><Font ss:Color="#B06D10" ss:Bold="1"/></Style>'+
+'<Style ss:ID="svMEDIUM"><Font ss:Color="#8A7A1E" ss:Bold="1"/></Style>'+
+'<Style ss:ID="svLOW"><Font ss:Color="#1D6DA8" ss:Bold="1"/></Style>'+
+'<Style ss:ID="svINFO"><Font ss:Color="#666666"/></Style>'+
+'</Styles>'+sheets.join('')+'</Workbook>';
+}
+
+/* ---------------- PDF export (self-contained writer, PDF 1.4) ---------------- */
+const PDF_W = 595.28, PDF_H = 841.89, PDF_L = 46, PDF_R = 46, PDF_T = 52, PDF_B = 56;
+function pdfSan(s){
+  s = String(s==null?'':s);
+  const MAP = {'₹':'Rs ','−':'-','—':'-','–':'-','‘':"'",'’':"'",'“':'"','”':'"','↔':'<->','→':'->','≈':'~','×':'x','≠':'<>','·':'-','…':'...','Δ':'D','›':'>','✓':'OK','≥':'>=','≤':'<=',' ':' ','⇪':'','🛡':'','🖨':'','⬇':''};
+  let out = '';
+  for(const ch of s){
+    if(MAP[ch] !== undefined){ out += MAP[ch]; continue; }
+    const c = ch.charCodeAt(0);
+    if(c === 8364){ out += ''; continue; }       /* € → WinAnsi 0x80 */
+    if(c <= 255) out += ch;
+    else out += '?';
+  }
+  return out;
+}
+function pdfEsc(s){
+  let out = '';
+  for(const ch of s){
+    const c = ch.charCodeAt(0);
+    if(ch === '\\' || ch === '(' || ch === ')') out += '\\'+ch;
+    else if(c >= 32 && c <= 126) out += ch;
+    else if(c <= 255) out += '\\'+('000'+c.toString(8)).slice(-3);
+  }
+  return out;
+}
+function chW(ch){
+  if(' '.includes(ch)) return 0.27;
+  if('iIl1.,:;|!()[]\'"`'.includes(ch)) return 0.30;
+  if('ftrj-'.includes(ch)) return 0.36;
+  if('mMW@'.includes(ch)) return 0.86;
+  if('w%&'.includes(ch)) return 0.72;
+  if(/[A-Z0-9£]/.test(ch)) return 0.60;
+  return 0.50;
+}
+function pdfW(s, sz, bold){
+  let w = 0; for(const ch of s) w += chW(ch);
+  return w * sz * (bold?1.06:1);
+}
+function pdfWrap(s, maxW, sz, bold){
+  const out = [];
+  for(const para of String(s).split('\n')){
+    const words = para.split(/\s+/).filter(Boolean);
+    if(!words.length){ out.push(''); continue; }
+    let line = '';
+    for(let word of words){
+      while(pdfW(word, sz, bold) > maxW && word.length > 4){
+        let cut = Math.max(2, Math.floor(word.length * maxW / pdfW(word, sz, bold)) - 1);
+        if(line){ out.push(line); line=''; }
+        out.push(word.slice(0,cut)+'-');
+        word = word.slice(cut);
+      }
+      const cand = line ? line+' '+word : word;
+      if(pdfW(cand, sz, bold) <= maxW) line = cand;
+      else { if(line) out.push(line); line = word; }
+    }
+    if(line) out.push(line);
+  }
+  return out.length? out : [''];
+}
+const PDF_SEVC = {CRITICAL:[0.70,0.14,0.18], HIGH:[0.69,0.43,0.06], MEDIUM:[0.54,0.48,0.12], LOW:[0.11,0.43,0.66], INFO:[0.40,0.40,0.40]};
+function buildPdfReport(A, opts){
+  opts = opts||{}; const id = opts.ident||{}; const personal = !!opts.personal;
+  const CW = PDF_W - PDF_L - PDF_R;
+  const pages = []; let ops = null; let y = 0;
+  const F = {n:'F1', b:'F2', i:'F3'};
+  function newPage(){ ops = []; pages.push(ops); y = PDF_H - PDF_T; }
+  function ensure(h){ if(y - h < PDF_B) newPage(); }
+  function rawTxt(x, yy, s, f, sz, color){
+    const c = color||[0,0,0];
+    ops.push(c[0].toFixed(3)+' '+c[1].toFixed(3)+' '+c[2].toFixed(3)+' rg BT /'+(f||'F1')+' '+sz+' Tf '+x.toFixed(2)+' '+yy.toFixed(2)+' Td ('+pdfEsc(pdfSan(s))+') Tj ET');
+  }
+  function line(x1,y1,x2,y2,wd,color){
+    const c = color||[0.72,0.70,0.64];
+    ops.push(c[0].toFixed(3)+' '+c[1].toFixed(3)+' '+c[2].toFixed(3)+' RG '+(wd||0.5)+' w '+x1.toFixed(2)+' '+y1.toFixed(2)+' m '+x2.toFixed(2)+' '+y2.toFixed(2)+' l S');
+  }
+  function rect(x,yy,w,h,color){
+    const c = color;
+    ops.push(c[0].toFixed(3)+' '+c[1].toFixed(3)+' '+c[2].toFixed(3)+' rg '+x.toFixed(2)+' '+yy.toFixed(2)+' '+w.toFixed(2)+' '+h.toFixed(2)+' re f');
+  }
+  function para(s, o){
+    o = o||{};
+    const sz = o.sz||9.5, f = o.f||F.n, lh = sz*1.34, maxW = o.w||CW, x = PDF_L + (o.indent||0);
+    const sanitized = pdfSan(String(s));
+    for(const ln of pdfWrap(sanitized, maxW-(o.indent||0), sz, f===F.b)){
+      ensure(lh);
+      rawTxt(x, y-sz, ln, f, sz, o.color);
+      y -= lh;
+    }
+    y -= (o.after!==undefined? o.after : 3);
+  }
+  function h2(s){
+    ensure(34);
+    y -= 10;
+    rawTxt(PDF_L, y-12.5, pdfSan(s), F.b, 12.5, [0.10,0.10,0.10]);
+    y -= 16.5;
+    line(PDF_L, y, PDF_L+CW, y, 1.4, [0.78,0.66,0.29]);
+    y -= 8;
+  }
+  function h3(s){
+    ensure(22);
+    y -= 5;
+    rawTxt(PDF_L, y-10.5, pdfSan(s), F.b, 10.5, [0.15,0.15,0.15]);
+    y -= 16;
+  }
+  function table(cols, rows, o){
+    o = o||{};
+    const sz = o.sz||7.6, lh = sz*1.28, pad = 3;
+    const totW = cols.reduce((a,c)=>a+c.w,0);
+    const scale = totW>CW ? CW/totW : 1;
+    const ws = cols.map(c=>c.w*scale);
+    function header(){
+      const hh = lh + 2*pad;
+      rect(PDF_L, y-hh, CW, hh, [0.94,0.92,0.85]);
+      let x = PDF_L;
+      cols.forEach((c,i)=>{
+        const t = pdfSan(c.label||'');
+        const tx = (c.align==='right')? x+ws[i]-pad-pdfW(t,sz,true) : x+pad;
+        rawTxt(tx, y-pad-sz, t, F.b, sz, [0.25,0.23,0.18]);
+        x += ws[i];
+      });
+      line(PDF_L, y-hh, PDF_L+CW, y-hh, 0.7, [0.55,0.50,0.40]);
+      y -= hh;
+    }
+    ensure(lh*3+2*pad); header();
+    for(const row of rows){
+      const cells = row.map((cell,i)=>{
+        const c = typeof cell==='object'&&cell!==null? cell : {t:cell};
+        const txt = pdfSan(String(c.t==null?'':c.t));
+        return {c, lines: pdfWrap(txt, ws[i]-2*pad, sz, !!c.bold)};
+      });
+      const nLines = Math.max(...cells.map(c=>c.lines.length), 1);
+      const rh = nLines*lh + 2*pad;
+      if(y - rh < PDF_B){ newPage(); header(); }
+      let x = PDF_L;
+      cells.forEach((cl,i)=>{
+        const col = cols[i], c = cl.c;
+        cl.lines.forEach((ln,j)=>{
+          const wlen = pdfW(ln, sz, !!c.bold);
+          const tx = ((c.align||col.align)==='right')? x+ws[i]-pad-wlen : x+pad;
+          rawTxt(tx, y-pad-sz-j*lh, ln, c.bold?F.b:(c.italic?F.i:F.n), sz, c.color);
+        });
+        x += ws[i];
+      });
+      y -= rh;
+      line(PDF_L, y, PDF_L+CW, y, 0.4, [0.84,0.82,0.76]);
+    }
+    y -= 7;
+  }
+  const money = (v,cur)=>pdfSan(rfm(v,cur));
+  const numCell = (v,cur)=>({t:money(v,cur), align:'right', color:(v||0)<0?[0.70,0.14,0.18]:undefined});
+
+  /* ---- content ---- */
+  newPage();
+  if(id.firm){
+    rawTxt(PDF_L, y-15, pdfSan(id.firm), F.b, 15, [0.08,0.08,0.08]);
+    const dt = pdfSan(id.date||new Date().toLocaleDateString());
+    rawTxt(PDF_L+CW-pdfW(dt,8.5), y-13, dt, F.n, 8.5, [0.30,0.30,0.30]);
+    y -= 19;
+    if(id.address){ rawTxt(PDF_L, y-8, pdfSan(id.address), F.n, 8, [0.35,0.35,0.35]); y -= 12; }
+    line(PDF_L, y, PDF_L+CW, y, 1.1, [0.54,0.47,0.29]);
+    line(PDF_L, y-2.2, PDF_L+CW, y-2.2, 0.5, [0.54,0.47,0.29]);
+    y -= 13;
+  }
+  rawTxt(PDF_L, y-16, pdfSan(defaultTitle(opts)), F.b, 16, [0.08,0.08,0.08]); y -= 22;
+  const isE = A.entities.filter(e=>e.stmt.type==='IS');
+  para(((A.entities[0]&&A.entities[0].stmt.company)||'')+
+    (isE[0]&&isE[0].stmt.period? ' · '+isE[0].stmt.period:'')+
+    (!id.firm? ' · '+(id.date||new Date().toLocaleDateString()):'')+
+    ' · '+A.entities.length+' statements reviewed · '+A.findings.length+' observations',
+    {sz:8.5, color:[0.35,0.35,0.35], after:6});
+  if(id.addressee) para('To: '+id.addressee, {sz:10, f:F.b, after:6});
+
+  let sec = 1;
+  if(id.commentary && id.commentary.trim()){
+    h2(sec+++'. Executive commentary');
+    para(id.commentary.trim(), {sz:10, after:4});
+  }
+  h2(sec+++'. Summary of observations');
+  table([{w:80,label:'Severity'},{w:52,label:'Count',align:'right'},{w:371,label:'Meaning'}],
+    ['CRITICAL','HIGH','MEDIUM','LOW','INFO'].map(s=>[{t:s,bold:true,color:PDF_SEVC[s]},{t:String(A.bySeverity[s]||0),align:'right'},SEVD[s]]),
+    {sz:8.2});
+  if(A.rollup && A.rollup.rows.length){
+    h3('Group roll-up (USD, indicative)');
+    const rows = A.rollup.rows.map(r=>[r.entity, r.cur, numCell(r.income,'USD'), numCell(r.icRev,'USD'), numCell(r.ebitda,'USD'), numCell(r.ni,'USD'), r.grade+' ('+r.score+')']);
+    const t = A.rollup.totals;
+    rows.push([{t:'GROUP',bold:true},'',Object.assign(numCell(t.income,'USD'),{bold:true}),numCell(t.icRev,'USD'),numCell(t.ebitda,'USD'),Object.assign(numCell(t.ni,'USD'),{bold:true}),'']);
+    table([{w:140,label:'Entity'},{w:30,label:'Cur'},{w:76,label:'Income',align:'right'},{w:76,label:'o/w IC',align:'right'},{w:76,label:'EBITDA*',align:'right'},{w:76,label:'Net result',align:'right'},{w:46,label:'Health'}], rows);
+    const fx = A.fx||{};
+    para('* EBITDA = operating result + D&A + finance cost. FX: INR/USD '+
+      (fx.used&&fx.used.INRUSD?fx.used.INRUSD.toFixed(2)+' ('+fx.source.INRUSD+')':'-')+', INR/GBP '+
+      (fx.used&&fx.used.INRGBP?fx.used.INRGBP.toFixed(2)+' ('+fx.source.INRGBP+')':'-')+'. Intercompany profits are not eliminated.',
+      {sz:7.2, color:[0.4,0.4,0.4]});
+  }
+  const findingRows = list => list.map(f=>{
+    let obs = f.title;
+    if(f.detail) obs += '\n'+f.detail;
+    if(f.action) obs += '\nSuggested action: '+f.action;
+    if(f.ev && f.ev.length && f.ev.length<=13)
+      obs += '\nEvidence - '+f.ev.map(e=>e.m+': '+(e.v===null||e.v===undefined?'-':Number(e.v).toLocaleString())).join(' | ');
+    const r = [{t:f.sev, bold:true, color:PDF_SEVC[f.sev]}];
+    if(!personal) r.push(f.rule);
+    r.push(f.cat, f.account, obs);
+    return r;
+  });
+  const findingCols = ()=>{
+    const c = [{w:50,label:'Severity'}];
+    if(!personal) c.push({w:34,label:'Rule'});
+    c.push({w:64,label:'Area'},{w:104,label:'Account / scope'},{w:personal?285:251,label:'Observation, detail & suggested action'});
+    return c;
+  };
+  for(const b of entityBundle(A)){
+    const any = b.eIS||b.eBS;
+    newPage();
+    h2(sec+++'. '+b.name);
+    para([b.eIS&&('Income statement: '+(b.eIS.stmt.period||'')), b.eBS&&('Balance sheet: '+(b.eBS.stmt.period||''))].filter(Boolean).join(' · ')+
+      ' · currency '+(any.stmt.currency||'?')+' · health '+any.score+' ('+any.grade+')', {sz:8, color:[0.35,0.35,0.35]});
+    if(b.eIS){
+      const M = b.eIS.metrics, c = b.eIS.stmt.currency, ti = M.totalIncome.total;
+      table([{w:72,label:'Income',align:'right'},{w:72,label:'Gross profit',align:'right'},{w:44,label:'GM%',align:'right'},
+             {w:72,label:'EBITDA*',align:'right'},{w:72,label:'Finance cost',align:'right'},{w:60,label:'D&A',align:'right'},
+             {w:72,label:'Net result',align:'right'},{w:39,label:'NM%',align:'right'}],
+        [[numCell(ti,c), numCell(M.gp.total,c), {t:ti?(M.gp.total/ti*100).toFixed(1)+'%':'-',align:'right'},
+          numCell(M.ebitda.total,c), numCell(M.finCost.total,c), numCell(M.da.total,c), numCell(M.netIncome.total,c),
+          {t:ti?(M.netIncome.total/ti*100).toFixed(1)+'%':'-',align:'right',color:(M.netIncome.total||0)<0?[0.70,0.14,0.18]:undefined}]]);
+    }
+    if(b.eBS){
+      const B = b.eBS.bs, c = b.eBS.stmt.currency, l = b.eBS.stmt.months.length-1;
+      const eq = B.equityRow? B.equityRow.values[l] : B.equity.series[l];
+      h3('Balance sheet snapshot — '+b.eBS.stmt.months[l]);
+      table([{w:84,label:'Total assets',align:'right'},{w:84,label:'Cash & deposits',align:'right'},{w:84,label:'Trade AR',align:'right'},
+             {w:84,label:'Unbilled',align:'right'},{w:84,label:'Borrowings',align:'right'},{w:83,label:'Equity',align:'right'}],
+        [[numCell(B.assetsRow?B.assetsRow.values[l]:B.assets.series[l],c), numCell(B.cash.series[l],c), numCell(B.ar.series[l],c),
+          numCell(B.unbilled.series[l],c), numCell(B.debt.series[l],c), numCell(eq,c)]]);
+    }
+    h3('Observations ('+b.fs.length+')');
+    if(b.fs.length) table(findingCols(), findingRows(b.fs));
+    else para('No observations.', {sz:8, color:[0.4,0.4,0.4]});
+  }
+  /* group */
+  const gf = A.findings.filter(f=>f.entity==='GROUP').sort((a,b)=>sevRank(a.sev)-sevRank(b.sev));
+  newPage();
+  h2(sec+++'. Group & intercompany');
+  for(const pr of (A.icPairs||[])){
+    if(!(pr.s&&pr.b&&pr.rows)) continue;
+    h3(pr.s.ic.from+' -> '+pr.s.ic.to+' — seller '+pr.s.e.stmt.entity+' ('+pr.s.cur+') / buyer '+pr.b.e.stmt.entity+' ('+pr.b.cur+')');
+    const months = pr.s.e.stmt.months;
+    const mw = Math.floor((CW-86)/(months.length+1));
+    const cols = [{w:86,label:''}].concat(months.map(m=>({w:mw,label:m,align:'right'})), [{w:mw,label:'Total',align:'right'}]);
+    table(cols, [
+      ['Seller books'].concat(pr.rows.map(r=>numCell(r.sv,pr.s.cur)), [numCell(pr.sTotal,pr.s.cur)]),
+      ['Buyer books'].concat(pr.rows.map(r=>numCell(r.bv,pr.b.cur)), [numCell(pr.bTotal,pr.b.cur)]),
+      ['Implied rate'].concat(pr.rows.map(r=>({t:r.rate?r.rate.toFixed(2):'-',align:'right'})), [{t:pr.sTotal&&pr.bTotal?(pr.sTotal/pr.bTotal).toFixed(2):'-',align:'right'}]),
+    ]);
+  }
+  if(gf.length) table(findingCols(), findingRows(gf));
+  /* appendix */
+  if(!personal){
+    newPage();
+    h2('Appendix — rule library & settings');
+    if(opts.settingsText) para(opts.settingsText, {sz:7.4, color:[0.4,0.4,0.4]});
+    table([{w:38,label:'Rule'},{w:118,label:'Name'},{w:347,label:'What it checks'}],
+      RULES.map(r=>[r[0], r[1+2], {t:r[4]}]), {sz:6.8});
+  }
+  /* signatures + closing */
+  if(personal || id.preparedBy || id.reviewedBy){
+    ensure(86);
+    y -= 46;
+    const half = CW/2 - 30;
+    line(PDF_L, y, PDF_L+half-40, y, 0.8, [0.2,0.2,0.2]);
+    line(PDF_L+half+60, y, PDF_L+CW, y, 0.8, [0.2,0.2,0.2]);
+    rawTxt(PDF_L, y-10, pdfSan('Prepared by'+(id.preparedBy?': '+id.preparedBy:'')), F.n, 9, [0.15,0.15,0.15]);
+    rawTxt(PDF_L+half+60, y-10, pdfSan('Reviewed by'+(id.reviewedBy?': '+id.reviewedBy:'')), F.n, 9, [0.15,0.15,0.15]);
+    rawTxt(PDF_L, y-21, pdfSan('Date: '+(id.date||'')), F.n, 8, [0.35,0.35,0.35]);
+    rawTxt(PDF_L+half+60, y-21, 'Date:', F.n, 8, [0.35,0.35,0.35]);
+    y -= 32;
+  }
+  y -= 6;
+  para(personal
+    ? 'Private & confidential. This memorandum summarises observations arising from an analytical review of the management information listed above. Observations are indicative and subject to verification of underlying records and documents.'
+    : 'Analytical screening only; findings require professional judgement and underlying-document verification before conclusions are drawn.',
+    {sz:7.2, color:[0.4,0.4,0.4], f:F.i});
+
+  /* footers, then assemble */
+  const footL = personal ? (id.firm || 'Private & confidential') : 'NetSuite Sentinel — analytical review';
+  pages.forEach((pOps, i)=>{
+    ops = pOps;
+    line(PDF_L, 40, PDF_L+CW, 40, 0.5, [0.78,0.66,0.29]);
+    rawTxt(PDF_L, 30, pdfSan(footL), F.n, 7, [0.45,0.45,0.45]);
+    const pn = 'Page '+(i+1)+' of '+pages.length;
+    rawTxt(PDF_L+CW-pdfW(pn,7), 30, pn, F.n, 7, [0.45,0.45,0.45]);
+  });
+  const nP = pages.length;
+  const objs = [];                                  /* 1-indexed object bodies */
+  objs[1] = '<< /Type /Catalog /Pages 2 0 R >>';
+  const kids = [];
+  for(let i=0;i<nP;i++) kids.push((3+i)+' 0 R');
+  objs[2] = '<< /Type /Pages /Kids ['+kids.join(' ')+'] /Count '+nP+' >>';
+  const fontBase = 3 + 2*nP;
+  for(let i=0;i<nP;i++){
+    objs[3+i] = '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 '+PDF_W+' '+PDF_H+'] /Contents '+(3+nP+i)+' 0 R '+
+      '/Resources << /Font << /F1 '+fontBase+' 0 R /F2 '+(fontBase+1)+' 0 R /F3 '+(fontBase+2)+' 0 R >> >> >>';
+    const stream = pages[i].join('\n');
+    objs[3+nP+i] = '<< /Length '+stream.length+' >>\nstream\n'+stream+'\nendstream';
+  }
+  const fonts = ['Helvetica','Helvetica-Bold','Helvetica-Oblique'];
+  fonts.forEach((fn,i)=>{ objs[fontBase+i] = '<< /Type /Font /Subtype /Type1 /BaseFont /'+fn+' /Encoding /WinAnsiEncoding >>'; });
+  let pdf = '%PDF-1.4\n%âãÏÓ\n';
+  const offsets = [0];
+  for(let i=1;i<objs.length;i++){
+    offsets[i] = pdf.length;
+    pdf += i+' 0 obj\n'+objs[i]+'\nendobj\n';
+  }
+  const xrefPos = pdf.length;
+  pdf += 'xref\n0 '+objs.length+'\n0000000000 65535 f \n';
+  for(let i=1;i<objs.length;i++) pdf += ('0000000000'+offsets[i]).slice(-10)+' 00000 n \n';
+  pdf += 'trailer\n<< /Size '+objs.length+' /Root 1 0 R >>\nstartxref\n'+xrefPos+'\n%%EOF';
+  return pdf;            /* latin1 string — convert to bytes before saving */
 }
 
 return {parseSpreadsheetML, parseCSV, buildStatement, computeISMetrics, computeBSMetrics,
         analyzeAll, RULES, RULE_MAP, SEV, num, median, mad, sum, mean, fmtMoneyRaw, lev,
-        REPORT_CSS, reportBodyHtml, buildReportHtml};
+        REPORT_CSS, reportBodyHtml, buildReportHtml, buildExcelXml, buildPdfReport};
 })();
 /*__CORE_END__*/
 </script>
@@ -2303,7 +2828,7 @@ function runAnalysis(){
   try{ A = NSX.analyzeAll(stmts, cfgFromUI()); }
   catch(e){ toast('Analysis failed: '+e.message); console.error(e); return; }
   S.analysis = A;
-  $('btnCsv').disabled = $('btnJson').disabled = $('btnPrint').disabled = $('btnRep').disabled = false;
+  $('btnCsv').disabled = $('btnJson').disabled = $('btnPrint').disabled = $('btnRep').disabled = $('btnPdf').disabled = $('btnXls').disabled = false;
   $('findTabCnt').textContent = A.findings.length;
   const fx = A.fx||{};
   if(fx.implied){
@@ -2659,29 +3184,76 @@ function exportJson(){
   dl('netsuite-sentinel-analysis.json', JSON.stringify(out,null,2), 'application/json');
   toast('Full analysis JSON downloaded');
 }
-/* ---------- report build / print ---------- */
+/* ---------- report identity & options ---------- */
+const IDENT_FIELDS = ['idFirm','idAddress','idDate','idAddressee','idPreparedBy','idReviewedBy','idCommentary'];
+function loadIdent(){
+  try{
+    const saved = JSON.parse(localStorage.getItem('nsx-ident')||'{}');
+    IDENT_FIELDS.forEach(id=>{ if(saved[id]!==undefined) $(id).value = saved[id]; });
+    if(saved.personal) $('personalMode').checked = true;
+  }catch(e){}
+}
+function saveIdent(){
+  const o = {personal: $('personalMode').checked};
+  IDENT_FIELDS.forEach(id=>o[id]=$(id).value);
+  try{ localStorage.setItem('nsx-ident', JSON.stringify(o)); }catch(e){}
+}
 function settingsText(){
   const c = cfgFromUI();
   return 'Materiality '+c.matPct+'% of income (floor '+c.minAbs+') · MoM trigger '+c.spikePct+'% · payroll trigger '+c.payrollPct+'% · last-month drop trigger '+c.cliffPct+'%'+(c.disabled.size?' · disabled rules: '+[...c.disabled].join(', '):'');
 }
+function reportOpts(){
+  return {
+    personal: $('personalMode').checked,
+    settingsText: settingsText(),
+    ident: {
+      firm: $('idFirm').value.trim(), address: $('idAddress').value.trim(),
+      date: $('idDate').value.trim(), addressee: $('idAddressee').value.trim(),
+      preparedBy: $('idPreparedBy').value.trim(), reviewedBy: $('idReviewedBy').value.trim(),
+      commentary: $('idCommentary').value,
+    },
+  };
+}
+function reportSlug(ext){
+  const A = S.analysis;
+  const co = (A && A.entities[0] && A.entities[0].stmt.company) || 'group';
+  return co.replace(/[^A-Za-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,40)+'-red-flag-report.'+ext;
+}
 function buildPrint(){
   const A = S.analysis; if(!A) return false;
   $('printRoot').className = 'rpt-root';
-  $('printRoot').innerHTML = NSX.reportBodyHtml(A, {settingsText: settingsText()});
+  $('printRoot').innerHTML = NSX.reportBodyHtml(A, reportOpts());
   return true;
 }
 function exportReport(){
   const A = S.analysis; if(!A) return;
   try{
-    dl('netsuite-sentinel-report.html', NSX.buildReportHtml(A, {settingsText: settingsText()}), 'text/html');
-    toast('Report downloaded — open it in any browser; print to PDF from there.');
+    dl(reportSlug('html'), NSX.buildReportHtml(A, reportOpts()), 'text/html');
+    toast('HTML report downloaded.');
   }catch(e){ toast('Report build failed: '+e.message); console.error(e); }
+}
+function exportPdf(){
+  const A = S.analysis; if(!A) return;
+  try{
+    const pdf = NSX.buildPdfReport(A, reportOpts());
+    const bytes = new Uint8Array(pdf.length);
+    for(let i=0;i<pdf.length;i++) bytes[i] = pdf.charCodeAt(i) & 0xff;
+    dl(reportSlug('pdf'), bytes, 'application/pdf');
+    toast('PDF report downloaded.');
+  }catch(e){ toast('PDF build failed: '+e.message); console.error(e); }
+}
+function exportExcel(){
+  const A = S.analysis; if(!A) return;
+  try{
+    dl(reportSlug('xls'), '﻿'+NSX.buildExcelXml(A, reportOpts()), 'application/vnd.ms-excel');
+    toast('Excel workbook downloaded.');
+  }catch(e){ toast('Excel build failed: '+e.message); console.error(e); }
 }
 function printReport(){
   const A = S.analysis;
   if(!A){ toast('Run the analysis first.'); return; }
   let html;
-  try{ html = NSX.buildReportHtml(A, {settingsText: settingsText()}); }
+  try{ html = NSX.buildReportHtml(A, reportOpts()); }
   catch(e){ toast('Report build failed: '+e.message); console.error(e); return; }
   /* print the report as its own clean document — most reliable PDF output */
   const w = window.open('', '_blank');
@@ -2689,7 +3261,7 @@ function printReport(){
     w.document.open(); w.document.write(html); w.document.close();
     w.document.title = 'NetSuite Sentinel — Red-Flag Report';
     setTimeout(()=>{ try{ w.focus(); w.print(); }catch(e){} }, 500);
-    toast('Report opened in a new tab — choose “Save as PDF” in the print dialog.');
+    toast('Report opened in a new tab — choose “Save as PDF” in the print dialog (or use the ⬇ PDF button).');
   } else {
     /* popup blocked: print in-page via printRoot */
     try{ buildPrint(); }catch(e){ toast('Report build failed: '+e.message); return; }
@@ -2717,12 +3289,18 @@ $('btnCsv').onclick = exportCsv;
 $('btnJson').onclick = exportJson;
 $('btnPrint').onclick = printReport;
 $('btnRep').onclick = exportReport;
+$('btnPdf').onclick = exportPdf;
+$('btnXls').onclick = exportExcel;
+$('identToggle').onclick = ()=>{ const p=$('identPanel'); const open=p.style.display==='none'; p.style.display=open?'block':'none'; $('identToggle').textContent=open?'hide':'show'; };
+IDENT_FIELDS.forEach(id=>$(id).addEventListener('input', saveIdent));
+$('personalMode').addEventListener('change', saveIdent);
 document.querySelectorAll('#findFilters .fchip').forEach(c=>c.onclick=()=>{ c.classList.toggle('on'); renderFindings(); });
 $('fEnt').onchange = $('fCat').onchange = renderFindings;
 $('fSearch').oninput = ()=>{ clearTimeout(S._st); S._st=setTimeout(renderFindings,180); };
 $('entSelect').onchange = renderEntityDetail;
 $('stmtSelect').onchange = renderStmtDetail;
 document.head.insertAdjacentHTML('beforeend','<style>'+NSX.REPORT_CSS+'</style>');
+loadIdent();
 renderRules();
 renderFiles();
 })();
