@@ -319,6 +319,16 @@ html,body{height:100%;font-family:'DM Sans',system-ui,sans-serif;background:var(
 .far-calc-cell{text-align:right;padding:4px 8px;background:#1a2a1a;color:#4caf50;font-size:10px;white-space:nowrap;font-family:monospace}
 td.far-td{border:1px solid var(--border);padding:2px 3px;vertical-align:middle}
 tr.far-tr:nth-child(even){background:rgba(255,255,255,0.02)}
+/* BugBot */
+.bb-msg{padding:10px 14px;border-radius:10px;font-size:12px;line-height:1.6;max-width:90%;word-break:break-word}
+.bb-user{background:rgba(200,168,75,0.15);border:1px solid rgba(200,168,75,0.3);align-self:flex-end;color:var(--text)}
+.bb-ai{background:var(--surface2);border:1px solid var(--border);align-self:flex-start;color:var(--text);white-space:pre-wrap}
+.bb-ai h3{color:var(--em);margin:6px 0 3px;font-size:12px}
+.bb-ai code{background:rgba(0,0,0,0.4);padding:1px 4px;border-radius:3px;font-size:11px;font-family:monospace}
+.bb-ai pre{background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:6px;padding:8px;overflow-x:auto;font-size:11px;margin:6px 0}
+.bb-hist-item{padding:8px 10px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;gap:8px;align-items:flex-start}
+.bb-hist-item:hover{background:rgba(255,255,255,0.04)}
+.bb-hist-badge{font-size:9px;padding:2px 5px;border-radius:10px;background:rgba(200,168,75,0.2);color:var(--gold);white-space:nowrap;margin-top:1px}
 </style>
 </head>
 <body>
@@ -424,6 +434,10 @@ tr.far-tr:nth-child(even){background:rgba(255,255,255,0.02)}
         <div class="side-item" onclick="nav('standards')"><span class="side-icon">🌍</span>Global Accounting Std</div>
         <div class="side-item" onclick="nav('importexport')"><span class="side-icon">🔄</span>Import / Export</div>
         <div class="side-item" onclick="nav('settings')"><span class="side-icon">⚙️</span>Settings</div>
+      </div>
+      <div class="side-group" style="border-left:3px solid #e74c3c;padding-left:8px">
+        <div class="side-title" style="color:#e74c3c">Support</div>
+        <div class="side-item" onclick="nav('bugbot')"><span class="side-icon">🐛</span>Report Issue / AI Fix</div>
       </div>
     </div>
 
@@ -981,6 +995,91 @@ tr.far-tr:nth-child(even){background:rgba(255,255,255,0.02)}
       </div>
 
       <!-- SETTINGS PANEL -->
+      <!-- BUG BOT PANEL -->
+      <div class="panel" id="panel-bugbot">
+        <div class="page-header">
+          <div class="page-title">🐛 Report Issue &amp; AI Fix</div>
+          <div class="page-sub">Describe any problem — AI diagnoses and provides an exact fix, auto-detected from current context</div>
+        </div>
+
+        <!-- API Key config -->
+        <div class="box" id="bbKeyBox">
+          <div class="box-title"><span class="icon">🔑</span>Anthropic API Key <span style="font-size:10px;color:var(--muted);font-weight:normal">(stored locally, never sent anywhere except Anthropic)</span></div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <input type="password" id="bbApiKey" placeholder="sk-ant-..." style="flex:1;min-width:200px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text);font-size:12px;font-family:monospace" oninput="bbSaveKey()" />
+            <button class="btn" onclick="bbToggleKeyVis()" style="font-size:11px;padding:6px 10px">👁 Show/Hide</button>
+            <button class="btn btn-green" onclick="bbTestKey()" style="font-size:11px;padding:6px 12px" id="bbTestBtn">✓ Test Key</button>
+          </div>
+          <div id="bbKeyStatus" style="font-size:11px;margin-top:6px;color:var(--muted)">Enter your Anthropic API key to enable AI-powered fixes. Get one at console.anthropic.com</div>
+        </div>
+
+        <!-- Context snapshot -->
+        <div class="box">
+          <div class="box-title"><span class="icon">📍</span>Auto-detected Context</div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:12px">
+            <div><span style="color:var(--muted)">Current Module:</span> <strong id="bbCtxModule" style="color:var(--em)">—</strong></div>
+            <div><span style="color:var(--muted)">Company:</span> <strong id="bbCtxCo" style="color:var(--em)">—</strong></div>
+            <div><span style="color:var(--muted)">TB Entries:</span> <strong id="bbCtxTB" style="color:var(--em)">—</strong></div>
+            <div><span style="color:var(--muted)">FAR Assets:</span> <strong id="bbCtxFAR" style="color:var(--em)">—</strong></div>
+            <div><span style="color:var(--muted)">Browser:</span> <strong id="bbCtxBrowser" style="color:var(--em)">—</strong></div>
+          </div>
+          <div style="margin-top:8px">
+            <button class="btn" onclick="bbRefreshContext()" style="font-size:11px;padding:5px 10px">🔄 Refresh Context</button>
+          </div>
+        </div>
+
+        <!-- Issue form -->
+        <div class="box">
+          <div class="box-title"><span class="icon">✏️</span>Describe the Problem</div>
+          <div style="margin-bottom:8px;display:flex;gap:8px;flex-wrap:wrap">
+            <select id="bbIssueType" style="background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--text);font-size:12px">
+              <option value="bug">🐛 Bug / Error</option>
+              <option value="calc">🔢 Calculation Wrong</option>
+              <option value="excel">📊 Excel Export Issue</option>
+              <option value="ui">🎨 UI / Display Issue</option>
+              <option value="data">📋 Data / Formula Issue</option>
+              <option value="feature">💡 Feature Request</option>
+              <option value="other">❓ Other</option>
+            </select>
+            <select id="bbIssuePage" style="background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--text);font-size:12px">
+              <option value="auto">📍 Auto-detect page</option>
+              <option value="dashboard">Dashboard</option>
+              <option value="bs">Balance Sheet</option>
+              <option value="pl">P&amp;L</option>
+              <option value="cf">Cash Flow</option>
+              <option value="ratios">Ratios</option>
+              <option value="far">Fixed Asset Register</option>
+              <option value="sched3">Schedule III Export</option>
+              <option value="ai">AI Analysis</option>
+              <option value="settings">Settings</option>
+            </select>
+          </div>
+          <textarea id="bbIssueText" rows="5" placeholder="Describe the issue in plain English. E.g: 'Balance sheet is not tallying — assets show 250L but liabilities show 247L after loading AS demo data. The difference appears in the equity section.'" style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:10px;color:var(--text);font-size:12px;resize:vertical;box-sizing:border-box"></textarea>
+          <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <button class="btn btn-gold" onclick="bbSubmitIssue()" id="bbSubmitBtn" style="font-size:12px;padding:8px 20px">🚀 Analyse &amp; Fix with AI</button>
+            <button class="btn" onclick="bbCreateGhIssue()" id="bbGhBtn" style="font-size:12px;padding:8px 14px">📌 Also Log to GitHub</button>
+            <span id="bbSpinner" style="display:none;font-size:12px;color:var(--muted)">⏳ AI is analysing…</span>
+          </div>
+        </div>
+
+        <!-- Chat thread -->
+        <div class="box" id="bbChatBox" style="display:none">
+          <div class="box-title"><span class="icon">💬</span>AI Fix Assistant <button onclick="bbClearChat()" style="float:right;background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px">✕ Clear</button></div>
+          <div id="bbChatThread" style="max-height:480px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:4px 0"></div>
+          <!-- Follow-up -->
+          <div style="margin-top:12px;display:flex;gap:8px">
+            <input type="text" id="bbFollowUp" placeholder="Ask a follow-up or request more detail…" style="flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text);font-size:12px" onkeydown="if(event.key==='Enter')bbSendFollowUp()" />
+            <button class="btn btn-gold" onclick="bbSendFollowUp()" style="font-size:12px;padding:7px 14px">Send</button>
+          </div>
+        </div>
+
+        <!-- History -->
+        <div class="box" id="bbHistoryBox">
+          <div class="box-title"><span class="icon">🗂️</span>Issue History <button onclick="bbClearHistory()" style="float:right;background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px">✕ Clear All</button></div>
+          <div id="bbHistoryList" style="font-size:12px;color:var(--muted)">No issues logged yet.</div>
+        </div>
+      </div>
+
       <div class="panel" id="panel-settings">
         <div class="page-header"><div class="page-title">⚙️ Settings</div><div class="page-sub">Application configuration and preferences</div></div>
         <div class="box">
@@ -1209,6 +1308,8 @@ function checkPw(){
 // ─── NAVIGATION ──────────────────────────────────────────────────────────────
 function nav(id){
   if(id==='smartviewer')id='importexport';
+  // Capture current module before switching (for bugbot context)
+  if(id==='bugbot') _bbPrevModule = bbGetCurrentModule();
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.side-item').forEach(s=>s.classList.remove('active'));
   const panel=document.getElementById('panel-'+id);
@@ -1218,6 +1319,7 @@ function nav(id){
   if(id==='comparative')renderComparative();
   if(id==='audit')renderAudit();
   if(id==='dashboard')updateDashboard();
+  if(id==='bugbot') bbOnOpen();
   // Refresh multi-period dashboard for data pages
   if(['pl','bs','comparative','ratios'].includes(id)) setTimeout(()=>renderMPDash('mpDash-'+id),50);
 }
@@ -9372,6 +9474,328 @@ function exportBoardroomExcel_OLD_UNUSED() {
   var aiSheet = [['AI Commentary'],[aiText]];
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aiSheet), 'AI Commentary');
   XLSX.writeFile(wb, 'Boardroom_Pack.xlsx');
+}
+
+/* ============================================================
+   BUG BOT — AI Issue Reporter & Fix Assistant
+   ============================================================ */
+
+var _bbHistory = [];
+var _bbConvHistory = []; // multi-turn conversation
+var _bbPrevModule = null;
+
+// Called when navigating to bugbot panel
+function bbOnOpen() {
+  bbRefreshContext();
+  bbRenderHistory();
+  var k = localStorage.getItem('bb_api_key') || '';
+  document.getElementById('bbApiKey').value = k;
+  if (k) document.getElementById('bbKeyStatus').textContent = 'API key loaded from local storage.';
+}
+
+function bbSaveKey() {
+  var k = document.getElementById('bbApiKey').value.trim();
+  localStorage.setItem('bb_api_key', k);
+}
+
+function bbToggleKeyVis() {
+  var el = document.getElementById('bbApiKey');
+  el.type = el.type === 'password' ? 'text' : 'password';
+}
+
+function bbTestKey() {
+  var k = (document.getElementById('bbApiKey').value || '').trim();
+  if (!k) { alert('Enter an API key first.'); return; }
+  var btn = document.getElementById('bbTestBtn');
+  btn.textContent = '⏳ Testing…';
+  btn.disabled = true;
+  fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json','x-api-key':k,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body: JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:20,messages:[{role:'user',content:'Reply OK'}]})
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    btn.textContent = '✓ Test Key';
+    btn.disabled = false;
+    if (d.content && d.content[0]) {
+      document.getElementById('bbKeyStatus').innerHTML = '<span style="color:#4caf50">✅ Key valid — connected to Claude API</span>';
+    } else {
+      document.getElementById('bbKeyStatus').innerHTML = '<span style="color:#e74c3c">❌ ' + (d.error ? d.error.message : 'Unexpected response') + '</span>';
+    }
+  })
+  .catch(function(e){
+    btn.textContent = '✓ Test Key';
+    btn.disabled = false;
+    document.getElementById('bbKeyStatus').innerHTML = '<span style="color:#e74c3c">❌ ' + e.message + '</span>';
+  });
+}
+
+function bbGetCurrentModule() {
+  var panels = document.querySelectorAll('.panel.active');
+  if (!panels.length) return 'unknown';
+  var id = panels[0].id || '';
+  var map = {
+    'panel-dashboard':'Dashboard','panel-bs':'Balance Sheet','panel-pl':'Profit & Loss',
+    'panel-cf':'Cash Flow','panel-ratios':'Financial Ratios','panel-far':'Fixed Asset Register',
+    'panel-sched3':'Schedule III / Financial Drafting','panel-ai':'AI Deep Analysis',
+    'panel-audit':'Audit & Verification','panel-settings':'Settings',
+    'panel-comparative':'Comparative Analysis','panel-importexport':'Import / Export',
+    'panel-chat':'AI Chat','panel-pbi':'Power BI Dashboard','panel-present':'Presentation Mode',
+    'panel-profile':'Company Profile','panel-standards':'Global Accounting Standards',
+    'panel-bugbot':'Bug Report Panel'
+  };
+  return map[id] || id.replace('panel-','');
+}
+
+function bbRefreshContext() {
+  var co = (window._state && window._state.co && window._state.co.name) ? window._state.co.name : (document.getElementById('dashCoName') ? document.getElementById('dashCoName').textContent : 'Unknown');
+  var tbCount = (window._tbData && window._tbData.length) ? window._tbData.length : 0;
+  var farCount = (window._farData && window._farData.length) ? window._farData.length : 0;
+  var browser = navigator.userAgent.match(/(Chrome|Firefox|Safari|Edge|Opera)[\/\s][\d.]+/);
+  document.getElementById('bbCtxModule').textContent = _bbPrevModule || bbGetCurrentModule();
+  document.getElementById('bbCtxCo').textContent = co;
+  document.getElementById('bbCtxTB').textContent = tbCount + ' entries';
+  document.getElementById('bbCtxFAR').textContent = farCount + ' assets';
+  document.getElementById('bbCtxBrowser').textContent = browser ? browser[0] : navigator.userAgent.slice(0,40);
+}
+
+function bbBuildContext() {
+  var co = (window._state && window._state.co && window._state.co.name) ? window._state.co.name : 'Unknown Company';
+  var fw = (window._state && window._state.co && window._state.co.framework) ? window._state.co.framework : 'AS';
+  var tbCount = (window._tbData && window._tbData.length) ? window._tbData.length : 0;
+  var farCount = (window._farData && window._farData.length) ? window._farData.length : 0;
+  var pageSelect = document.getElementById('bbIssuePage').value;
+  var module = pageSelect === 'auto' ? (_bbPrevModule || bbGetCurrentModule()) : pageSelect;
+
+  // Snapshot of TB top entries (first 10 for context)
+  var tbSnap = '';
+  if (window._tbData && window._tbData.length) {
+    var sample = window._tbData.slice(0, 10);
+    tbSnap = sample.map(function(r){ return r.ledger + ' | fsLine:' + r.fsLine + ' | dr:' + (r.dr||0) + ' | cr:' + (r.cr||0); }).join('\n');
+    if (window._tbData.length > 10) tbSnap += '\n… (' + (window._tbData.length-10) + ' more entries)';
+  }
+
+  // FAR snapshot
+  var farSnap = '';
+  if (window._farData && window._farData.length) {
+    farSnap = window._farData.map(function(r){ return r.name + ' | ' + r.cat + ' | rate:' + r.rate + '% | grossOpen:' + r.grossOpen; }).join('\n');
+  }
+
+  return 'APPLICATION: FinAnalyser Pro v2.1 — Single-file HTML financial analysis suite for CA professionals\n' +
+    'COMPANY: ' + co + ' | Framework: ' + fw + '\n' +
+    'AFFECTED MODULE: ' + module + '\n' +
+    'TRIAL BALANCE: ' + tbCount + ' ledger entries\n' +
+    (tbSnap ? ('TB SAMPLE:\n' + tbSnap + '\n') : '') +
+    'FAR ASSETS: ' + farCount + '\n' +
+    (farSnap ? ('FAR SAMPLE:\n' + farSnap + '\n') : '') +
+    'BROWSER: ' + navigator.userAgent.slice(0,80) + '\n' +
+    'TECH STACK: xlsx-js-style@1.2.0, Chart.js 4.4.0, jsPDF, Pollinations AI, Schedule III Companies Act 2013\n' +
+    'SIGN CONVENTION: TB closing balances — assets/expenses = positive (debit); liabilities/equity/revenue = negative (credit). ngv() negates for display.\n' +
+    'EXCEL FORMULA CHAIN: Trial Balance sheet → Notes to Accounts (single sheet, nRow tracker) → Balance Sheet / P&L / Cash Flow. unitDiv at Unit!B2.\n' +
+    'CODING RULE: All HTML/JS string building uses flat + concatenation. Zero nested backticks. Zero multi-line template literals in HTML-generating functions.';
+}
+
+function bbBuildSystemPrompt() {
+  return 'You are an expert financial software engineer and CA (Chartered Accountant) specializing in FinAnalyser Pro — a single-file HTML financial analysis app for Indian CA professionals.\n\n' +
+    'Your job: diagnose bugs and provide EXACT, copy-pasteable fixes.\n\n' +
+    'Response format:\n' +
+    '### Diagnosis\n[Clear explanation of root cause]\n\n' +
+    '### Fix\n[Exact code change needed, with file location or function name]\n\n' +
+    '### Verification\n[How to confirm the fix worked]\n\n' +
+    'Key facts about this codebase:\n' +
+    '- Password: never touch checkPw() function. Obfuscated as atob("SWNyZW9uQDIwMjY=").\n' +
+    '- All formula cells have v: <pre-computed value> property for immediate Excel display.\n' +
+    '- SUMIFS text criteria use escaped quotes: \\"noteNo\\".\n' +
+    '- ngv(id) = -(byFsLine[id]||0) negates credit-side items (equity, liabilities, revenue) for display.\n' +
+    '- Single Notes sheet: nRow variable tracks insertion row; noteTot[] maps note numbers to totalRow positions.\n' +
+    '- nref(noteNo, col): returns cross-reference to Notes to Accounts sheet total row.\n' +
+    'Be concise, precise, and actionable.';
+}
+
+function bbSubmitIssue() {
+  var key = (localStorage.getItem('bb_api_key') || '').trim();
+  if (!key) {
+    alert('Please enter your Anthropic API key in the field above to use AI fix assistant.');
+    document.getElementById('bbApiKey').focus();
+    return;
+  }
+  var issue = (document.getElementById('bbIssueText').value || '').trim();
+  if (!issue) { alert('Please describe the issue first.'); return; }
+
+  var issueType = document.getElementById('bbIssueType').value;
+  var ctx = bbBuildContext();
+  var userMsg = '[Issue Type: ' + issueType + ']\n\n' + issue + '\n\nCONTEXT:\n' + ctx;
+
+  // Reset conversation
+  _bbConvHistory = [];
+  document.getElementById('bbChatBox').style.display = '';
+  document.getElementById('bbChatThread').innerHTML = '';
+  bbAppendMsg('user', issue);
+  document.getElementById('bbSpinner').style.display = '';
+  document.getElementById('bbSubmitBtn').disabled = true;
+
+  _bbConvHistory.push({role:'user', content: userMsg});
+
+  bbCallClaude(key, function(reply) {
+    document.getElementById('bbSpinner').style.display = 'none';
+    document.getElementById('bbSubmitBtn').disabled = false;
+    bbAppendMsg('ai', reply);
+    _bbConvHistory.push({role:'assistant', content: reply});
+    // Save to history
+    var histEntry = {
+      id: Date.now(),
+      type: issueType,
+      summary: issue.slice(0, 80) + (issue.length > 80 ? '…' : ''),
+      ts: new Date().toLocaleString('en-IN'),
+      reply: reply
+    };
+    _bbHistory.unshift(histEntry);
+    if (_bbHistory.length > 20) _bbHistory.pop();
+    localStorage.setItem('bb_history', JSON.stringify(_bbHistory));
+    bbRenderHistory();
+  }, function(err) {
+    document.getElementById('bbSpinner').style.display = 'none';
+    document.getElementById('bbSubmitBtn').disabled = false;
+    bbAppendMsg('ai', '❌ Error: ' + err);
+  });
+}
+
+function bbSendFollowUp() {
+  var key = (localStorage.getItem('bb_api_key') || '').trim();
+  if (!key) { alert('API key required.'); return; }
+  var txt = (document.getElementById('bbFollowUp').value || '').trim();
+  if (!txt) return;
+  document.getElementById('bbFollowUp').value = '';
+  bbAppendMsg('user', txt);
+  document.getElementById('bbSpinner').style.display = '';
+  _bbConvHistory.push({role:'user', content: txt});
+
+  bbCallClaude(key, function(reply) {
+    document.getElementById('bbSpinner').style.display = 'none';
+    bbAppendMsg('ai', reply);
+    _bbConvHistory.push({role:'assistant', content: reply});
+  }, function(err) {
+    document.getElementById('bbSpinner').style.display = 'none';
+    bbAppendMsg('ai', '❌ Error: ' + err);
+  });
+}
+
+function bbCallClaude(key, onSuccess, onError) {
+  var sys = bbBuildSystemPrompt();
+  // If first message, prepend context to last user message
+  var msgs = _bbConvHistory.slice();
+
+  fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': key,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 1500,
+      system: sys,
+      messages: msgs
+    })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (d.content && d.content[0] && d.content[0].text) {
+      onSuccess(d.content[0].text);
+    } else if (d.error) {
+      onError(d.error.message || JSON.stringify(d.error));
+    } else {
+      onError('Unexpected API response: ' + JSON.stringify(d).slice(0,200));
+    }
+  })
+  .catch(function(e) { onError(e.message); });
+}
+
+function bbAppendMsg(role, text) {
+  var thread = document.getElementById('bbChatThread');
+  var div = document.createElement('div');
+  div.className = 'bb-msg ' + (role === 'user' ? 'bb-user' : 'bb-ai');
+  if (role === 'ai') {
+    // Simple markdown rendering
+    var html = text
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/```([\s\S]*?)```/g, function(m,c){ return '<pre><code>' + c.trim() + '</code></pre>'; })
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+      .replace(/^## (.+)$/gm, '<strong>$1</strong>')
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.+?)\*/g, '<em>$1</em>')
+      .replace(/\n/g, '<br>');
+    div.innerHTML = html;
+  } else {
+    div.textContent = text;
+  }
+  thread.appendChild(div);
+  thread.scrollTop = thread.scrollHeight;
+}
+
+function bbClearChat() {
+  _bbConvHistory = [];
+  document.getElementById('bbChatThread').innerHTML = '';
+  document.getElementById('bbChatBox').style.display = 'none';
+}
+
+function bbRenderHistory() {
+  var stored = localStorage.getItem('bb_history');
+  if (stored) { try { _bbHistory = JSON.parse(stored); } catch(e){} }
+  var el = document.getElementById('bbHistoryList');
+  if (!_bbHistory.length) { el.innerHTML = '<span style="color:var(--muted)">No issues logged yet.</span>'; return; }
+  var html = '';
+  _bbHistory.forEach(function(h) {
+    html += '<div class="bb-hist-item" onclick="bbLoadHistory(' + h.id + ')">' +
+      '<span class="bb-hist-badge">' + h.type + '</span>' +
+      '<div style="flex:1"><div style="color:var(--text)">' + h.summary + '</div>' +
+      '<div style="color:var(--muted);font-size:10px">' + h.ts + '</div></div>' +
+      '</div>';
+  });
+  el.innerHTML = html;
+}
+
+function bbLoadHistory(id) {
+  var h = _bbHistory.find(function(x){ return x.id === id; });
+  if (!h) return;
+  document.getElementById('bbChatBox').style.display = '';
+  document.getElementById('bbChatThread').innerHTML = '';
+  bbAppendMsg('user', h.summary);
+  bbAppendMsg('ai', h.reply);
+  _bbConvHistory = [
+    {role:'user', content: h.summary},
+    {role:'assistant', content: h.reply}
+  ];
+}
+
+function bbClearHistory() {
+  if (!confirm('Clear all issue history?')) return;
+  _bbHistory = [];
+  localStorage.removeItem('bb_history');
+  bbRenderHistory();
+}
+
+function bbCreateGhIssue() {
+  var issue = (document.getElementById('bbIssueText').value || '').trim();
+  if (!issue) { alert('Describe the issue first.'); return; }
+  var type = document.getElementById('bbIssueType').value;
+  var module = _bbPrevModule || bbGetCurrentModule();
+  // Build GitHub issue body
+  var body = '## Issue Report from FinAnalyser Pro\n\n' +
+    '**Type:** ' + type + '  \n' +
+    '**Module:** ' + module + '  \n' +
+    '**Reported:** ' + new Date().toLocaleString('en-IN') + '\n\n' +
+    '### Description\n' + issue + '\n\n' +
+    '### Context\n```\n' + bbBuildContext() + '\n```';
+  // Open GitHub new issue URL prefilled
+  var title = encodeURIComponent('[' + type.toUpperCase() + '] ' + issue.slice(0, 60));
+  var bodyEnc = encodeURIComponent(body);
+  var url = 'https://github.com/harshit1634-lab/portfolio/issues/new?title=' + title + '&body=' + bodyEnc;
+  window.open(url, '_blank');
 }
 </script>
 </body>
