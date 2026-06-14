@@ -2120,7 +2120,7 @@ function renderComparative(){
 }
 
 // ─── FREE AI ENGINE (No API Key) ─────────────────────────────────────────────
-function showApiModal(){}   // no-op — no API key needed
+function showApiModal(){ nav('settings'); }   // redirect to settings panel
 function checkApiKey(){const w=document.getElementById('aiApiWarning');if(w)w.classList.add('hidden');}
 
 // AI engine: tries multiple Pollinations models in order, GET fallback last
@@ -7082,8 +7082,8 @@ function generateSched3FromTB(){
   bsHTML.push(totalRow('Sub-total — Current Assets',totalCA,false));
   bsHTML.push(totalRow('TOTAL ASSETS',totalAssets,true));
   var diff=totalEL-totalAssets;
-  var tallyColor=Math.abs(diff)<1?'var(--teal)':'var(--coral)';
-  var tallyMsg=Math.abs(diff)<1?'&#10003; Balance Sheet Tallies':'&#9888; Difference: '+fmtTB(diff)+' (check unclassified ledgers)';
+  var tallyColor=Math.abs(diff)<0.01?'var(--teal)':'var(--coral)';
+  var tallyMsg=Math.abs(diff)<0.01?'&#10003; Balance Sheet Tallies':'&#9888; Difference: '+fmtTB(diff)+' (check unclassified ledgers)';
   bsHTML.push('<tr><td colspan="3" style="padding:8px 12px;font-size:11px;color:'+tallyColor+';font-weight:700">'+tallyMsg+'</td></tr>');
   bsHTML.push('</tbody></table></div>');
 
@@ -8174,27 +8174,27 @@ function exportSched3Excel(fw, unitChoice){
     'C8': nref(2,'B'),  'D8': nref(2,'C'),
     'C9': 'C7+C8',      'D9': 'D7+D8',
     'C11': nref(3,'B'), 'D11': nref(3,'C'),
-    'C12': neg(tbSumLine('dtl')),
-    'C13': neg(tbSumLine('lt_provisions')),
+    'C12': neg(tbSumLine('dtl')), 'D12': '0',
+    'C13': neg(tbSumLine('lt_provisions')), 'D13': '0',
     'C14': 'C11+C12+C13', 'D14': 'D11+D12+D13',
     'C16': nref(4,'B'), 'D16': nref(4,'C'),
     'C17': nref(5,'B'), 'D17': nref(5,'C'),
-    'C18': neg(tbSumLine('other_cl')),
-    'C19': neg(tbSumLine('st_provisions')),
+    'C18': neg(tbSumLine('other_cl')), 'D18': '0',
+    'C19': neg(tbSumLine('st_provisions')), 'D19': '0',
     'C20': 'SUM(C16:C19)', 'D20': 'SUM(D16:D19)',
     'C21': 'C9+C14+C20',   'D21': 'D9+D14+D20',
-    'C25': tbSumLine('tangible') + '+' + tbSumLine('rou_assets'),
-    'C26': tbSumLine('intangible'),
-    'C27': tbSumLine('cwip'),
+    'C25': tbSumLine('tangible') + '+' + tbSumLine('rou_assets'), 'D25': '0',
+    'C26': tbSumLine('intangible'), 'D26': '0',
+    'C27': tbSumLine('cwip'), 'D27': '0',
     'C28': nref(7,'B'), 'D28': nref(7,'C'),
-    'C29': tbSumLine('dta'),
-    'C30': tbSumLine('lt_loans'),
+    'C29': tbSumLine('dta'), 'D29': '0',
+    'C30': tbSumLine('lt_loans'), 'D30': '0',
     'C31': 'SUM(C25:C30)', 'D31': 'SUM(D25:D30)',
     'C33': nref(13,'B'), 'D33': nref(13,'C'),
     'C34': nref(8,'B'),  'D34': nref(8,'C'),
     'C35': nref(9,'B'),  'D35': nref(9,'C'),
     'C36': nref(10,'B'), 'D36': nref(10,'C'),
-    'C37': tbSumLine('other_ca'),
+    'C37': tbSumLine('other_ca'), 'D37': '0',
     'C38': 'SUM(C33:C37)', 'D38': 'SUM(D33:D37)',
     'C39': 'C31+C38',      'D39': 'D31+D38'
   };
@@ -8220,13 +8220,22 @@ function exportSched3Excel(fw, unitChoice){
   bsVals.C31 = bsVals.C25 + bsVals.C26 + bsVals.C27 + bsVals.C28 + bsVals.C29 + bsVals.C30;
   bsVals.C38 = bsVals.C33 + bsVals.C34 + bsVals.C35 + bsVals.C36 + bsVals.C37;
   bsVals.C39 = bsVals.C31 + bsVals.C38;
+  // D column: prior-year — no prior-year TB; fill zeros so formulas resolve cleanly
+  bsVals.D7=0; bsVals.D8=0; bsVals.D9=0;
+  bsVals.D11=tbCalcNote(3,true); bsVals.D12=0; bsVals.D13=0; bsVals.D14=0;
+  bsVals.D16=tbCalcNote(4,true); bsVals.D17=tbCalcNote(5,true);
+  bsVals.D18=0; bsVals.D19=0; bsVals.D20=0; bsVals.D21=0;
+  bsVals.D25=0; bsVals.D26=0; bsVals.D27=0;
+  bsVals.D28=tbCalcNote(7,false); bsVals.D29=0; bsVals.D30=0; bsVals.D31=0;
+  bsVals.D33=tbCalcNote(13,false); bsVals.D34=tbCalcNote(8,false);
+  bsVals.D35=tbCalcNote(9,false); bsVals.D36=tbCalcNote(10,false);
+  bsVals.D37=0; bsVals.D38=0; bsVals.D39=0;
   Object.keys(bsF).forEach(function(cell){
     wBS[cell] = {t:'n', f: bsF[cell], v: bsVals[cell] !== undefined ? bsVals[cell] : 0, z: NUM_FMT};
   });
-  var bsTally = Math.abs(bsVals.C21 - bsVals.C39) < 0.01 ? 'Balanced' : 'Difference: ' + (bsVals.C21 - bsVals.C39).toFixed(2);
   var bsTallyDiff = bsVals.C21 - bsVals.C39;
-  bsTally = Math.abs(bsTallyDiff) < 1 ? 'Balanced ✓' : 'Difference: ' + bsTallyDiff.toFixed(2);
-  wBS['C40'] = {t:'s', f:'IF(ABS(C21-C39)<1,"Balanced ✓","Difference: "&TEXT(C21-C39,"#,##0.00"))', v: bsTally};
+  var bsTally = Math.abs(bsTallyDiff) < 0.01 ? 'Balanced ✓' : 'Difference: ' + bsTallyDiff.toFixed(2);
+  wBS['C40'] = {t:'s', f:'IF(ABS(C21-C39)<0.01,"Balanced ✓","Difference: "&TEXT(C21-C39,"#,##0.00"))', v: bsTally};
   wBS['!cols'] = [{wch:48},{wch:9},{wch:20},{wch:20}];
   wBS['!merges'] = [{s:{r:0,c:0},e:{r:0,c:3}},{s:{r:1,c:0},e:{r:1,c:3}},{s:{r:2,c:0},e:{r:2,c:3}}];
   // Style the BS header rows
@@ -8236,12 +8245,14 @@ function exportSched3Excel(fw, unitChoice){
     if(wBS[c+'3']) wBS[c+'3'].s = sSubTitle;
     if(wBS[c+'4']) wBS[c+'4'].s = sHdr;
   });
-  // Style section headers (rows 5,10,15,22,31)
-  [5,10,15,22,31].forEach(function(r){
+  // Style section / sub-section headers
+  // 5 I.E&L, 6 Shareholders, 10 NCL, 15 CL, 23 II.ASSETS, 24 NCA, 32 CA
+  [5,6,10,15,23,24,32].forEach(function(r){
     ['A','B','C','D'].forEach(function(c){ if(wBS[c+''+r]) wBS[c+''+r].s = sSec; });
   });
-  // Style sub-total/grand total rows
-  [9,14,20,21,30,38,39,40].forEach(function(r){
+  // Style sub-total / grand total rows
+  // 9,14,20 subtotals | 21 grand E&L | 31 subtotal NCA | 38 subtotal CA | 39 grand assets | 40 tally
+  [9,14,20,21,31,38,39,40].forEach(function(r){
     ['A','B','C','D'].forEach(function(c){
       if(wBS[c+''+r]){ wBS[c+''+r].s = (c==='A'?sTot:sTotR); }
     });
@@ -8284,17 +8295,17 @@ function exportSched3Excel(fw, unitChoice){
     'C5': nref(11,'B'),  'D5': nref(11,'C'),
     'C6': nref(12,'B'),  'D6': nref(12,'C'),
     'C7': 'C5+C6',       'D7': 'D5+D6',
-    'C9': tbSumLine('cost_materials'),
-    'C10': tbSumLine('purchases_stock'),
-    'C11': tbSumLine('chg_inventories'),
+    'C9': tbSumLine('cost_materials'), 'D9': '0',
+    'C10': tbSumLine('purchases_stock'), 'D10': '0',
+    'C11': tbSumLine('chg_inventories'), 'D11': '0',
     'C12': nref(14,'B'), 'D12': nref(14,'C'),
     'C13': nref(15,'B'), 'D13': nref(15,'C'),
-    'C14': tbSumLine('depreciation'),
+    'C14': tbSumLine('depreciation'), 'D14': '0',
     'C15': nref(16,'B'), 'D15': nref(16,'C'),
     'C16': 'SUM(C9:C15)','D16': 'SUM(D9:D15)',
     'C17': 'C7-C16',     'D17': 'D7-D16',
-    'C18': tbSumLine('current_tax'),
-    'C19': tbSumLine('deferred_tax'),
+    'C18': tbSumLine('current_tax'), 'D18': '0',
+    'C19': tbSumLine('deferred_tax'), 'D19': '0',
     'C20': 'C18+C19',    'D20': 'D18+D19',
     'C21': 'C17-C20',    'D21': 'D17-D20'
   };
@@ -8312,6 +8323,16 @@ function exportSched3Excel(fw, unitChoice){
   plVals.C17 = plVals.C7 - plVals.C16;
   plVals.C20 = plVals.C18 + plVals.C19;
   plVals.C21 = plVals.C17 - plVals.C20;
+  // D column: prior-year P&L — no prior-year TB; derive from Notes C col (same year, for reference)
+  plVals.D5=tbCalcNote(11,true); plVals.D6=tbCalcNote(12,true);
+  plVals.D7=plVals.D5+plVals.D6;
+  plVals.D9=0; plVals.D10=0; plVals.D11=0;
+  plVals.D12=tbCalcNote(14,false); plVals.D13=tbCalcNote(15,false);
+  plVals.D14=0; plVals.D15=tbCalcNote(16,false);
+  plVals.D16=plVals.D9+plVals.D10+plVals.D11+plVals.D12+plVals.D13+plVals.D14+plVals.D15;
+  plVals.D17=plVals.D7-plVals.D16;
+  plVals.D18=0; plVals.D19=0; plVals.D20=0;
+  plVals.D21=plVals.D17-plVals.D20;
   Object.keys(plF).forEach(function(cell){
     wPL[cell] = {t:'n', f: plF[cell], v: plVals[cell] !== undefined ? plVals[cell] : 0, z: NUM_FMT};
   });
@@ -8323,10 +8344,12 @@ function exportSched3Excel(fw, unitChoice){
     if(wPL[c+'3']) wPL[c+'3'].s = sSubTitle;
     if(wPL[c+'4']) wPL[c+'4'].s = sHdr;
   });
-  [5,9,16].forEach(function(r){
+  // Section header rows: 8 = IV. EXPENSES
+  [8].forEach(function(r){
     ['A','B','C','D'].forEach(function(c){ if(wPL[c+''+r]) wPL[c+''+r].s = sSec; });
   });
-  [8,14,15,16,17,20,21].forEach(function(r){
+  // Subtotal / total rows: 7 Total Revenue, 16 Total Expenses, 17 PBT, 20 Total Tax, 21 PAT
+  [7,16,17,20,21].forEach(function(r){
     ['A','B','C','D'].forEach(function(c){ if(wPL[c+''+r]) wPL[c+''+r].s = (c==='A'?sTot:sTotR); });
   });
   XLSX.utils.book_append_sheet(wb, wPL, 'P&L');
