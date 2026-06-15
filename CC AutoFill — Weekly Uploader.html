@@ -1,0 +1,1478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CC AutoFill — Weekly Uploader</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@900&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#10130f; --panel:#181c14; --panel2:#1f241a; --line:#2c3325;
+    --ink:#e9e6d8; --dim:#9aa087; --faint:#6c7259;
+    --green:#9bd16b; --green-d:#5f8f3a; --amber:#e6b04a; --red:#e08b6b; --blue:#7fb0c9;
+    --shadow:0 12px 40px rgba(0,0,0,.45);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:
+      radial-gradient(900px 500px at 85% -5%, rgba(155,209,107,.07), transparent 60%),
+      radial-gradient(700px 400px at 5% 110%, rgba(230,176,74,.06), transparent 55%),
+      var(--bg);
+    color:var(--ink);font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.5;
+    -webkit-font-smoothing:antialiased}
+  .num{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums}
+  .wrap{max-width:1380px;margin:0 auto;padding:28px 22px 120px}
+  header.top{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;
+    border-bottom:1px solid var(--line);padding-bottom:18px;flex-wrap:wrap}
+  h1{font-family:'Fraunces',serif;font-weight:900;font-size:30px;line-height:1.05;margin:0;letter-spacing:-.5px}
+  h1 small{display:block;font-family:'IBM Plex Mono',monospace;font-weight:400;font-size:12px;color:var(--dim);
+    letter-spacing:1px;text-transform:uppercase;margin-top:8px}
+  .memops{text-align:right;color:var(--dim);font-family:'IBM Plex Mono',monospace;font-size:12px;line-height:1.9}
+  .memops b{color:var(--ink)}
+  .btn{display:inline-block;background:var(--panel2);border:1px solid var(--line);color:var(--ink);
+    border-radius:8px;padding:6px 12px;font:inherit;font-size:12.5px;cursor:pointer;margin-left:6px}
+  .btn:hover{border-color:var(--green-d)}
+  .btn.primary{background:var(--green-d);border-color:var(--green-d);color:#0e120a;font-weight:600}
+  .btn.primary:hover{background:var(--green)}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  /* drop zone */
+  #drop{margin:26px 0;border:2px dashed var(--line);border-radius:14px;background:var(--panel);
+    padding:46px 26px;text-align:center;cursor:pointer;transition:border-color .15s, background .15s}
+  #drop.hover{border-color:var(--green);background:var(--panel2)}
+  #drop h2{margin:0 0 8px;font-size:18px}
+  #drop p{margin:4px 0;color:var(--dim);font-size:13px}
+  #drop .mono{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--faint)}
+  /* cards */
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:22px 0}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .card .k{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--dim)}
+  .card .v{font-family:'IBM Plex Mono',monospace;font-size:26px;margin-top:4px}
+  .card.green .v{color:var(--green)} .card.amber .v{color:var(--amber)}
+  .card.blue .v{color:var(--blue)} .card.grey .v{color:var(--dim)}
+  #fileinfo{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--dim);margin:-8px 0 16px}
+  /* toolbar */
+  .toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0 14px}
+  .tab{background:none;border:1px solid var(--line);border-radius:999px;color:var(--dim);
+    font:inherit;font-size:12.5px;padding:5px 14px;cursor:pointer}
+  .tab.on{color:var(--ink);border-color:var(--green-d);background:var(--panel2)}
+  .spacer{flex:1}
+  /* table */
+  .tablewrap{border:1px solid var(--line);border-radius:12px;overflow-x:auto;background:var(--panel)}
+  table{width:100%;min-width:1040px;border-collapse:collapse;table-layout:fixed}
+  thead th{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.6px;text-transform:uppercase;
+    color:var(--dim);text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);border-right:1px solid var(--line);
+    background:var(--panel2);vertical-align:bottom}
+  thead th:last-child{border-right:none}
+  tbody td{padding:10px 12px;border-bottom:1px solid var(--line);border-right:1px solid var(--line);vertical-align:top;
+    word-break:break-word;overflow-wrap:anywhere;overflow:hidden}
+  tbody td:last-child{border-right:none}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr:hover td{background:rgba(255,255,255,.022)}
+  tr.r-auto td:first-child{box-shadow:inset 3px 0 0 var(--green-d)}
+  tr.r-kept td:first-child{box-shadow:inset 3px 0 0 var(--faint)}
+  tr.r-guess td:first-child, tr.r-fuzzy td:first-child{box-shadow:inset 3px 0 0 var(--amber)}
+  tr.r-choose td:first-child{box-shadow:inset 3px 0 0 var(--blue)}
+  tr.r-done td:first-child{box-shadow:inset 3px 0 0 var(--green)}
+  tr.filters th{padding:6px 12px 8px;background:var(--panel2);border-bottom:1px solid var(--line)}
+  tr.filters input{width:100%;min-width:0;box-sizing:border-box;background:var(--bg);border:1px solid var(--line);
+    color:var(--ink);border-radius:6px;padding:4px 7px;font:inherit;font-size:12px;font-family:'IBM Plex Mono',monospace}
+  tr.filters input::placeholder{color:var(--faint)}
+  tr.filters input:focus{outline:none;border-color:var(--green-d)}
+  tr.filters input.on{border-color:var(--green);background:var(--panel)}
+  #showcount{color:var(--dim);font-size:12px}
+  .desc .m{white-space:normal;word-break:break-word;line-height:1.45}
+  td.member{color:var(--ink);line-height:1.4}
+  .desc .sub{color:var(--faint);font-size:12px;margin-top:2px;font-family:'IBM Plex Mono',monospace}
+  .desc details{margin-top:4px}
+  .desc summary{color:var(--blue);font-size:11.5px;cursor:pointer;user-select:none}
+  .desc pre{white-space:pre-wrap;word-break:break-word;color:var(--dim);font-size:11.5px;margin:4px 0 0;
+    font-family:'IBM Plex Mono',monospace;background:var(--panel2);border-radius:8px;padding:8px}
+  td.amt{text-align:right;white-space:nowrap}
+  .cellv{width:100%;box-sizing:border-box;cursor:pointer;border-radius:7px;padding:4px 7px;
+    border:1px solid transparent;min-height:26px}
+  .cellv:hover{background:var(--panel2);border-color:var(--line)}
+  .cellv.empty{color:var(--faint);font-style:italic}
+  .editin{width:100%;box-sizing:border-box;background:var(--panel2);border:1px solid var(--green-d);color:var(--ink);
+    border-radius:7px;padding:4px 7px;font:inherit;font-size:13px}
+  .chip{display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.8px;
+    border-radius:999px;padding:2px 9px;border:1px solid}
+  .chip.auto{color:var(--green);border-color:var(--green-d)}
+  .chip.kept{color:var(--dim);border-color:var(--faint)}
+  .chip.guess,.chip.fuzzy{color:var(--amber);border-color:var(--amber)}
+  .chip.choose{color:var(--blue);border-color:var(--blue)}
+  .chip.done{color:#0e120a;background:var(--green);border-color:var(--green)}
+  .okbtn{display:inline-block;margin-top:6px;background:none;border:1px solid var(--green-d);color:var(--green);
+    border-radius:7px;font:inherit;font-size:11.5px;padding:2px 9px;cursor:pointer}
+  .okbtn:hover{background:var(--green-d);color:#0e120a}
+  tr.cands td{background:var(--panel2);padding:8px 10px 10px}
+  .cand{display:block;width:100%;text-align:left;background:var(--panel);border:1px solid var(--line);
+    color:var(--ink);border-radius:8px;padding:7px 10px;font:inherit;font-size:12.5px;cursor:pointer;margin:4px 0}
+  .cand:hover{border-color:var(--blue)}
+  .cand .x{color:var(--faint);font-family:'IBM Plex Mono',monospace;font-size:11px;margin-left:8px}
+  .cand b{color:var(--blue);font-weight:500}
+  /* bottom bar */
+  #bar{position:fixed;left:0;right:0;bottom:0;background:rgba(16,19,15,.92);backdrop-filter:blur(6px);
+    border-top:1px solid var(--line);padding:12px 22px;display:none}
+  #bar .inner{max-width:1380px;margin:0 auto;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  #bar .note{color:var(--dim);font-size:12.5px}
+  #toast{position:fixed;right:20px;bottom:74px;background:var(--panel2);border:1px solid var(--green-d);
+    color:var(--ink);border-radius:10px;padding:10px 16px;font-size:13px;box-shadow:var(--shadow);
+    display:none;max-width:420px;z-index:50}
+  .err{background:#2a1813;border:1px solid var(--red);color:var(--ink);border-radius:12px;
+    padding:14px 18px;margin:18px 0;display:none;white-space:pre-wrap;font-family:'IBM Plex Mono',monospace;font-size:12.5px}
+  .legend{color:var(--faint);font-size:12px;margin:8px 0 18px;font-family:'IBM Plex Mono',monospace}
+  .legend i{font-style:normal;padding:1px 7px;border-radius:999px;border:1px solid;margin-right:4px;font-size:10.5px}
+  details.help{margin:30px 0;color:var(--dim);font-size:13px}
+  details.help summary{cursor:pointer;color:var(--ink);font-weight:600}
+  details.help li{margin:5px 0}
+  #main{display:none}
+
+  /* v2 additions */
+  :root{ --orange:#e08b4a; }
+  .slots{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0 4px}
+  .slot{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:12px}
+  .slot.ok{border-color:var(--green-d)}
+  .slot .lbl{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:1px;color:var(--dim)}
+  .slot .val{font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--ink)}
+  .slot.ok .val{color:var(--green)}
+  .card.orange .v{color:var(--orange)}
+  /* self-training panel */
+  .train{margin:18px 0 6px;border:1px solid var(--line);border-radius:14px;background:
+      linear-gradient(180deg, rgba(127,176,201,.06), transparent 70%), var(--panel);padding:14px 16px}
+  .train-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+  .train-head span:first-child{font-family:'Fraunces',serif;font-weight:900;font-size:16px}
+  #trainHint{color:var(--dim);font-size:12.5px}
+  .traindrop{border:1.5px dashed var(--line);border-radius:10px;padding:18px 16px;text-align:center;
+    cursor:pointer;color:var(--ink);font-size:13.5px;transition:border-color .15s, background .15s}
+  .traindrop:hover{border-color:var(--blue)} .traindrop.hover{border-color:var(--blue);background:var(--panel2)}
+  .traindrop .mono{color:var(--faint);font-size:12px}
+  .trainreport{margin-top:10px;font-size:13px;color:var(--ink);min-height:0}
+  .trainreport:empty{display:none}
+  .trainback{margin-top:12px;padding-top:10px;border-top:1px solid var(--line);display:flex;
+    align-items:center;gap:8px;flex-wrap:wrap}
+  .trainback .mono{color:var(--faint);font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>CC AutoFill<small>raw → credit-card uploader · auto-fills item / vendor / department</small></h1>
+    <div class="memops">
+      <span id="memstats">memory: …</span><br>
+      <button class="btn" id="btnExport" title="Save a .json backup of everything the tool has learned (merchants, descriptions, category rules, card-holders). Use it to keep a safety copy or move learning to another computer.">⤓ Export backup</button><button class="btn" id="btnImport" title="Restore from a backup file (replace what's here, or merge it in).">⤒ Restore</button><button class="btn" id="btnReset" title="Forget everything learned on this machine (the built-in starter set stays).">Reset</button>
+      <input type="file" id="memfile" accept=".json" style="display:none">
+    </div>
+  </header>
+
+  <div class="train" id="train">
+    <div class="train-head"><span>🎓 Self-training</span><span id="trainHint">teach it from past filled uploaders — learning is saved automatically in this browser, so you only train each file once</span></div>
+    <div id="trainDrop" class="traindrop">
+      <b>Drop previously-filled uploader files here</b> (or click) — one or many.<br>
+      <span class="mono">It reads how Item name · Vendor name · DEPARTMENT were filled for each Description and remembers it, so next week it fills the same way. Learning is cumulative and stored in this browser.</span>
+    </div>
+    <input type="file" id="trainFile" accept=".xlsx" multiple style="display:none">
+    <div id="trainReport" class="trainreport"></div>
+    <div class="trainback">
+      <span class="mono">Backup: learning is auto-saved in this browser. Keep a safety copy or move it to another machine —</span>
+      <button class="btn" id="btnExport2">⤓ Export backup (.json)</button><button class="btn" id="btnImport2">⤒ Restore from backup</button>
+    </div>
+  </div>
+
+  <div id="drop">
+    <h2>Drop the weekly <b>raw file</b> and the <b>uploader</b> here — or click to browse</h2>
+    <p>The tool copies the raw Amex columns into the uploader (<b>B → N</b>), then auto-fills <b>Item name · Vendor name · DEPARTMENT</b> (S/T/U) from the Description and the card-holder, using everything it has been trained on. All NetSuite formula columns are rebuilt for every row and kept live.</p>
+    <p class="mono">Reference lists &amp; dropdowns come from the uploader itself: Item Master!B · Vendor master!I · Departments!A.<br>
+    You can also drop just the uploader (already merged) to only fill S/T/U.</p>
+    <input type="file" id="file" accept=".xlsx" multiple style="display:none">
+  </div>
+
+  <div class="slots" id="slots">
+    <div class="slot" id="slotRaw"><span class="lbl">RAW FILE</span><span class="val" id="slotRawV">— not loaded —</span></div>
+    <div class="slot" id="slotUp"><span class="lbl">UPLOADER</span><span class="val" id="slotUpV">— not loaded —</span></div>
+  </div>
+
+  <div class="err" id="err"></div>
+
+  <div id="main">
+    <div id="fileinfo"></div>
+    <div class="cards">
+      <div class="card"><div class="k">Transactions</div><div class="v num" id="cAll">0</div></div>
+      <div class="card green"><div class="k">Auto-filled</div><div class="v num" id="cAuto">0</div></div>
+      <div class="card blue"><div class="k">Pre-filled · review</div><div class="v num" id="cChoose">0</div></div>
+      <div class="card amber"><div class="k">New · verify</div><div class="v num" id="cGuess">0</div></div>
+      <div class="card grey"><div class="k">Already filled</div><div class="v num" id="cKept">0</div></div>
+    </div>
+    <div class="legend">
+      <i style="color:var(--green);border-color:var(--green-d)">AUTO</i> trained — filled exactly as before &nbsp;
+      <i style="color:var(--blue);border-color:var(--blue)">CHOOSE</i> booked &gt;1 way before — pre-filled with the most frequent, change if needed &nbsp;
+      <i style="color:var(--amber);border-color:var(--amber)">NEW</i> never trained — best guess + card-holder dept, please verify &nbsp;
+      <i style="color:var(--dim);border-color:var(--faint)">KEPT</i> already filled &nbsp;
+      <i style="color:#0e120a;background:var(--green);border-color:var(--green)">OK</i> confirmed by you
+    </div>
+    <div class="toolbar">
+      <button class="tab on" data-f="all">All</button>
+      <button class="tab" data-f="flag">Flagged</button>
+      <button class="tab" data-f="auto">Auto</button>
+      <button class="tab" data-f="kept">Kept</button>
+      <button class="tab" data-f="done">Confirmed</button>
+      <span class="spacer"></span>
+      <span id="showcount" class="mono"></span>
+      <button class="btn" id="btnClearFilters">✕ Clear filters</button>
+      <button class="btn" id="btnVerifyAll">✓ Confirm all pre-filled</button>
+    </div>
+    <div class="tablewrap">
+    <table>
+      <colgroup>
+        <col style="width:36px"><col style="width:100px"><col style="width:138px"><col style="width:22%">
+        <col style="width:88px"><col style="width:18%"><col style="width:15%"><col style="width:15%"><col style="width:112px">
+      </colgroup>
+      <thead>
+        <tr>
+          <th>#</th><th>Date</th><th>Card holder</th><th>Description</th><th style="text-align:right">Amount</th>
+          <th>Item name</th><th>Vendor name</th><th>Department</th><th>Status</th>
+        </tr>
+        <tr class="filters">
+          <th></th>
+          <th><input data-col="date" placeholder="filter…"></th>
+          <th><input data-col="member" placeholder="filter…"></th>
+          <th><input data-col="desc" placeholder="filter…"></th>
+          <th><input data-col="amount" placeholder="&gt;100"></th>
+          <th><input data-col="item" placeholder="filter…"></th>
+          <th><input data-col="vendor" placeholder="filter…"></th>
+          <th><input data-col="dept" placeholder="filter…"></th>
+          <th><input data-col="status" placeholder="filter…"></th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    </div>
+  </div>
+
+  <details class="help">
+    <summary>How it works</summary>
+    <ul>
+      <li><b>Raw → uploader.</b> Every column of the raw Amex export is copied into the uploader shifted one column right (raw A→B … raw M→N), matching the uploader's blue headings. Row count adapts to the raw file; extra last-week rows are cleared.</li>
+      <li><b>Formula columns.</b> For every data row the tool regenerates the NetSuite formulas (vendor &amp; item internal-ID XLOOKUPs, =C, AF*F, =U, project/customer XLOOKUPs) and the standing defaults (Uploader, credit-card account, US Dollar, New York, entry date, etc.), captured live from your uploader so they always match its current layout. A full recalculation is requested on open.</li>
+      <li><b>Self-training.</b> Drop past filled uploaders into the training box and the tool records, for every Description, exactly how Item / Vendor / Department were filled (and which department each card-holder tends to use). Training is cumulative, stored in this browser, and applied immediately to anything already loaded.</li>
+      <li><b>The Description decides — not the merchant name.</b> Predictions read the words in the Description (the notes you add, e.g. "Cold Brew", "Wall LED Light", "Lotion", "Macbook"), so an aggregator like Amazon is booked by <i>what was bought</i>, not collapsed to one item. The tool learns each content word → item from your past files, falls back to a built-in dictionary, and flags the row so you confirm. Priority: a Description seen <i>exactly</i> before replicates (AUTO); otherwise the content words choose the item; only with no distinguishing words does it use the merchant's most-frequent booking (CHOOSE); a brand-new merchant gets a best guess + the card-holder's usual Department (NEW). Card-holder roles (Arielle → Admin, Himanshu → CXO, the marketing cards → Marketing, Umesh → CXO, Steve → Sales) are also learned from training for new people.</li>
+      <li><b>Filter section.</b> The row under the table headers filters every column — Date, Card holder, Description, Amount, Item, Vendor, Department, Status. Filters combine (AND) and stack with the tabs; the Amount box understands <span class="mono">&gt;100</span>, <span class="mono">&lt;=50</span>, <span class="mono">=20</span>. "Clear filters" resets them. Use it to see, say, every Travel item, every Marketing row, or everything on one card.</li>
+      <li><b>Raw → uploader &amp; formulas.</b> The raw Amex export is copied into the uploader's blue headings (raw A→B … M→N); row count adapts. For every row the NetSuite formulas (vendor &amp; item internal-ID XLOOKUPs, =C, AF*F, =U, project/customer XLOOKUPs) and standing defaults (Uploader, credit-card account, US Dollar, New York, entry date) are rebuilt from your uploader and recalculated on open.</li>
+      <li><b>Safety.</b> Confirmed rows are also remembered; export/import memory to move between machines. Output is your uploader with only the touched cells rewritten — all other sheets, styles and dropdown validations are preserved byte-for-byte.</li>
+    </ul>
+  </details>
+</div>
+
+<div id="bar"><div class="inner">
+  <button class="btn primary" id="btnDownload">⬇ Download updated uploader</button>
+  <span class="note" id="barnote"></span>
+</div></div>
+<div id="toast"></div>
+<datalist id="dl-items"></datalist>
+<datalist id="dl-vendors"></datalist>
+<datalist id="dl-depts"></datalist>
+
+<script id="cc-seed" type="application/json">{"byDesc":{"AURA PRO SINGAPORE SG":{"Advertising & Marketing - Misc\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"APLPAY NJT RAIL MY TNEWARK NJ":{"Domestic Travel - Local Transport/Car - Support\u0001Miscellaneous Vendors - US\u0001Support : CXO":5},"CHECKLY UTRECHT UT":{"Software License  expense - miscellaneous\u0001Miscellaneous Vendors - US\u0001Support : IT":1},"JASPER AI SAN FRANCISCO CA":{"Advertising & Marketing - Misc\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"ADOBE ADOBE SYSTEMS SAN JOSE CA":{"Software Subcription - Adobe\u0001Adobe\u0001Support : IT":1},"AMAZON COM AMZN COM BILL WA COLD BREW PURCHASE FOR OFFICE":{"Office Snacks & Meals\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"AMEXGBT PHOENIX AZ ERIKA TRAVEL FOR QBR FROM GR TO NY AND RETURN TO GR FROM 31ST MAY 26 TO 2ND JUNE 26":{"Domestic Travel - Airfare - Support\u0001Miscellaneous Vendors - US\u0001Support : Sales":1},"AMEX GBT US SCOTTSDALE AZ ERIKA TRAVEL FOR QBR FROM GR TO NY AND RETURN TO GR FROM 31ST MAY 26 TO 2ND JUNE 26":{"Domestic Travel - Airfare - Support\u0001Miscellaneous Vendors - US\u0001Support : Sales":1},"FEDEX255611889 FEDEXMEMPHIS TN":{"Courier/Postage Charges\u0001Fedex\u0001Support : Admin":1},"LINKEDIN P3019093164SAN FRANCISCO":{"Advertising and Marketing - Linkedin\u0001Linkedin\u0001Support : Marketing":1},"NPM INC SAN FRANCISCO CA":{"Software Subscription – Navicat\u0001Navicat\u0001Support : IT":1},"AMAZON MARKEPLACE NA PA WALL LED LIGHT PURCHASE FOR PHONE BOOTH":{"Office Maintenance Expense - Misc.\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"AMAZON MARKEPLACE NA PA":{"Office Snacks & Meals\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"AMAZON COM AMZN COM BILL WA":{"IT Consumable\u0001Miscellaneous Vendors - US\u0001Support : IT":1,"Office Snacks & Meals\u0001Miscellaneous Vendors - US\u0001Support : Admin":2},"APLPAY TRADER JOE S NEW YORK NY":{"Office Snacks & Meals\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"C4MEDIA INC ETOBICOKE REGISTRATION OF SANDEEP SAWHNEY FOR QCON CONFRENCE IN CANADA ON 1ST AND 2ND JUNE 26":{"Advertising and Marketing - Events & Seminars\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"COMCAST XFINITY 800 266 2278 NJ":{"Mobile Expense\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"OPENAI CHATGPT SUBSSAN FRANCISCO CA":{"ChatGPT\u0001Miscellaneous Vendors - US\u0001Support : IT":1},"PAYPAL OPENAIOPCOL 8002428478 CA":{"ChatGPT\u0001Miscellaneous Vendors - US\u0001Support : IT":1},"STRATECHERY DITHERINCLAYMONT DE":{"Advertising & Marketing - Misc\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"STREAMLINE DESIGN INSHERIDAN WY":{"Advertising & Marketing - Misc\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"TRAVEL RESERVATION 877 283 5585 WA SANDEEP STAYING FOR QCON AI CONFRANCE FROM 31ST MAY 26 TO 1ST JUNE 26":{"Domestic Travel - Hotel/Lodging - Support\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"HUNTER IO STARTER WILMINGTON DE":{"Advertising & Marketing - Misc\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"TYPEFORM WILMINGTON DE":{"Software Subscription - Typeform\u0001Typeform\u0001Support : IT":1},"AMEXGBT PHOENIX AZ MR RITESH KUMAR TRAVEL FOR GME PROJECT FROM NEWARK TO SOUTH LUIS AND RETURN TO NEWARK ON 26TH MAY 36 TO 28TH MAYU 26":{"Domestic Travel - Airfare - Direct\u0001Miscellaneous Vendors - US\u0001Operations : Practices : DXP/Content":2},"AMEXGBT PHOENIX AZ MR KETAN SETHI TRAVEL FOR GME PROJECT FROM NEWARK TO SOUTH LUIS AND RETURN TO NEWARK ON 26TH MAY 36 TO 28TH MAYU 26":{"Domestic Travel - Airfare - Direct\u0001Miscellaneous Vendors - US\u0001Operations : Practices : DXP/Content":1},"AMEXGBT PHOENIX MR KETAN SETHI TRAVEL FOR GME PROJECT FROM NEWARK TO SOUTH LUIS AND RETURN TO NEWARK ON 26TH MAY 36 TO 28TH MAYU 26":{"Domestic Travel - Airfare - Direct\u0001Miscellaneous Vendors - US\u0001Operations : Practices : DXP/Content":1},"AMEX GBT US SCOTTSDALE AZ MR KETAN SETHI TRAVEL FOR GME PROJECT FROM NEWARK TO SOUTH LUIS AND RETURN TO NEWARK ON 26TH MAY 36 TO 28TH MAYU 26":{"Domestic Travel - Airfare - Direct\u0001Miscellaneous Vendors - US\u0001Operations : Practices : DXP/Content":2},"AMEX GBT US SCOTTSDALE AZ MR RITESH KUMAR TRAVEL FOR GME PROJECT FROM NEWARK TO SOUTH LUIS AND RETURN TO NEWARK ON 26TH MAY 36 TO 28TH MAYU 26":{"Domestic Travel - Airfare - Direct\u0001Miscellaneous Vendors - US\u0001Operations : Practices : DXP/Content":2},"ELEVENLABS IO NEW YORK NY":{"Advertising & Marketing - Misc\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"RC NEW YORK NY":{"Bank Charges & Fees\u0001Miscellaneous Vendors - US\u0001Support : Finance":1},"APLPAY APPLE STORE NEW YORK NY APPLE MACBOOK PURCHASE FOR SACHIN SINGH":{"Laptops\u0001Miscellaneous Vendors - US\u0001Support : IT":1},"APLPAY USPS PO 35964NEW YORK NY POSTAGE CHARGES FOR TAXES COMPTROLLER FILLING":{"Courier/Postage Charges\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"COSSETTA INC 00 0803SAINT PAUL MN":{"Business - Meals & entertainment\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"FEDEX 800 463 3339 TN":{"Courier/Postage Charges\u0001Fedex\u0001Support : Admin":1},"HUDSON FAO SCHAWARZ CHICAGO IL":{"Business - Meals & entertainment\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"LYFT 855 280 0278 CA":{"Domestic Travel - Local Transport/Car - Support\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"NYTIMES COM NY TIMES 800 698 4637 NY":{"Housekeeping Material\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"OPENVPN SUBSCRIPTIONLAS VEGAS NV":{"Software Subscription - OpenVPN\u0001Miscellaneous Vendors - US\u0001Support : IT":1},"SPOTIFY P4257BF88D 6NEW YORK NY":{"Software Subscription – Spotify\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"SQSP INV 234101550 NEW YORK NY":{"Advertising and Marketing - Squarespace\u0001Squarespace\u0001Support : IT":1},"APLPAY AMTRAK MOBILEWASHINGTON DC":{"Domestic Travel - Local Transport/Car - Support\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"BT WEGMANS ROCHESTER NY OFFICE FOR SNACKS":{"Office Snacks & Meals\u0001Miscellaneous Vendors - US\u0001Support : Admin":2},"DUNBAR BENDER ZAPFPITTSBURGH PA":{"Consultancy - Support - Legal fee\u0001Miscellaneous Vendors - US\u0001Support : Finance":1},"SLACK T01PC0LHWF3 SAN FRANCISCO CA":{"Software Subscription- Slack\u0001Slack\u0001Support : Admin":1},"UBER EATS SAN FRANCISCO CA DINNER FOR 700 GROVES":{"Meals & Entertainment\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"UBER EATS SAN FRANCISCO CA GROCERY SUPPLY":{"Office Snacks & Meals\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"AMAZON COM AMZN COM BILL WA OFFICE SNACKS":{"Office Snacks & Meals\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"AMAZON COM AMZN COM BILL WA DRINKS":{"Office Snacks & Meals\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"APLPAY DUNKIN 33026WILLINGTON CT":{"Business - Meals & entertainment\u0001Miscellaneous Vendors - US\u0001Support : CXO":1},"APLPAY GSU UNION COUBOSTON MA":{"Business - Meals & entertainment\u0001Miscellaneous Vendors - US\u0001Support : CXO":2},"UBER EATS SAN FRANCISCO CA":{"Office Snacks & Meals\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"AMAZON MARKEPLACE NA PA LOTION FOR 700 GROVES":{"Housekeeping Material\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"AMAZON MARKEPLACE NA PA CALANDER FOR 2027":{"Printing & Stationery\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"AMAZON MARKEPLACE NA PA 700 GROVES SUPPLIES":{"Office Snacks & Meals\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"APLPAY TA 154 MILLIMILLDALE CT":{"Business - Meals & entertainment\u0001Miscellaneous Vendors - US\u0001Support : CXO":1},"APLPAY TST NAMASTAYBOSTON MA":{"Business - Meals & entertainment\u0001Miscellaneous Vendors - US\u0001Support : CXO":1},"HULLMARK EAST ROOM 5TORONTO":{"Courier/Postage Charges\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"THE IVORY PEACOCK NEW YORK NY OPTIMIZELY HAPPY HOUR DINNER":{"Advertising and Marketing - Events & Seminars\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"YWW WEWORK LEGACYTENNEW YORK NY":{"Rent & Lease -  Wework\u0001Wework\u0001Support : Admin":1}},"byMerchant":{"AURA PRO":{"Advertising & Marketing - Misc\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"APLPAY NJT RAIL MY T":{"Domestic Travel - Local Transport/Car - Support\u0001Miscellaneous Vendors - US\u0001Support : CXO":5},"CHECKLY":{"Software License  expense - miscellaneous\u0001Miscellaneous Vendors - US\u0001Support : IT":1},"JASPER AI":{"Advertising & Marketing - Misc\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"ADOBE ADOBE SYSTEMS":{"Software Subcription - Adobe\u0001Adobe\u0001Support : IT":1},"AMAZON COM":{"Office Snacks & Meals\u0001Miscellaneous Vendors - US\u0001Support : Admin":5,"IT Consumable\u0001Miscellaneous Vendors - US\u0001Support : IT":1},"AMEXGBT":{"Domestic Travel - Airfare - Support\u0001Miscellaneous Vendors - US\u0001Support : Sales":1,"Domestic Travel - Airfare - Direct\u0001Miscellaneous Vendors - US\u0001Operations : Practices : DXP/Content":4},"AMEX GBT US":{"Domestic Travel - Airfare - Support\u0001Miscellaneous Vendors - US\u0001Support : Sales":1,"Domestic Travel - Airfare - Direct\u0001Miscellaneous Vendors - US\u0001Operations : Practices : DXP/Content":4},"FEDEX FEDEX":{"Courier/Postage Charges\u0001Fedex\u0001Support : Admin":1},"LINKEDIN P":{"Advertising and Marketing - Linkedin\u0001Linkedin\u0001Support : Marketing":1},"NPM INC":{"Software Subscription – Navicat\u0001Navicat\u0001Support : IT":1},"AMAZON MARKEPLACE NA":{"Office Maintenance Expense - Misc.\u0001Miscellaneous Vendors - US\u0001Support : Admin":1,"Office Snacks & Meals\u0001Miscellaneous Vendors - US\u0001Support : Admin":2,"Housekeeping Material\u0001Miscellaneous Vendors - US\u0001Support : Admin":1,"Printing & Stationery\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"APLPAY TRADER JOE S":{"Office Snacks & Meals\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"C MEDIA INC":{"Advertising and Marketing - Events & Seminars\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"COMCAST XFINITY":{"Mobile Expense\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"OPENAI CHATGPT SUBS":{"ChatGPT\u0001Miscellaneous Vendors - US\u0001Support : IT":1},"PAYPAL OPENAIOPCOL":{"ChatGPT\u0001Miscellaneous Vendors - US\u0001Support : IT":1},"STRATECHERY DITHERIN":{"Advertising & Marketing - Misc\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"STREAMLINE DESIGN IN":{"Advertising & Marketing - Misc\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"TRAVEL RESERVATION":{"Domestic Travel - Hotel/Lodging - Support\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"HUNTER IO STARTER":{"Advertising & Marketing - Misc\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"TYPEFORM":{"Software Subscription - Typeform\u0001Typeform\u0001Support : IT":1},"ELEVENLABS IO":{"Advertising & Marketing - Misc\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"RC":{"Bank Charges & Fees\u0001Miscellaneous Vendors - US\u0001Support : Finance":1},"APLPAY APPLE STORE":{"Laptops\u0001Miscellaneous Vendors - US\u0001Support : IT":1},"APLPAY USPS PO":{"Courier/Postage Charges\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"COSSETTA INC":{"Business - Meals & entertainment\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"FEDEX":{"Courier/Postage Charges\u0001Fedex\u0001Support : Admin":1},"HUDSON FAO SCHAWARZ":{"Business - Meals & entertainment\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"LYFT":{"Domestic Travel - Local Transport/Car - Support\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"NYTIMES COM NY TIMES":{"Housekeeping Material\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"OPENVPN SUBSCRIPTION":{"Software Subscription - OpenVPN\u0001Miscellaneous Vendors - US\u0001Support : IT":1},"SPOTIFY P BF D":{"Software Subscription – Spotify\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"SQSP INV":{"Advertising and Marketing - Squarespace\u0001Squarespace\u0001Support : IT":1},"APLPAY AMTRAK MOBILE":{"Domestic Travel - Local Transport/Car - Support\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"BT WEGMANS":{"Office Snacks & Meals\u0001Miscellaneous Vendors - US\u0001Support : Admin":2},"DUNBAR BENDER ZAPF":{"Consultancy - Support - Legal fee\u0001Miscellaneous Vendors - US\u0001Support : Finance":1},"SLACK T PC LHWF":{"Software Subscription- Slack\u0001Slack\u0001Support : Admin":1},"UBER EATS":{"Meals & Entertainment\u0001Miscellaneous Vendors - US\u0001Support : Admin":1,"Office Snacks & Meals\u0001Miscellaneous Vendors - US\u0001Support : Admin":2},"APLPAY DUNKIN":{"Business - Meals & entertainment\u0001Miscellaneous Vendors - US\u0001Support : CXO":1},"APLPAY GSU UNION COU":{"Business - Meals & entertainment\u0001Miscellaneous Vendors - US\u0001Support : CXO":2},"APLPAY TA MILLI":{"Business - Meals & entertainment\u0001Miscellaneous Vendors - US\u0001Support : CXO":1},"APLPAY TST NAMASTAY":{"Business - Meals & entertainment\u0001Miscellaneous Vendors - US\u0001Support : CXO":1},"HULLMARK EAST ROOM":{"Courier/Postage Charges\u0001Miscellaneous Vendors - US\u0001Support : Admin":1},"THE IVORY PEACOCK":{"Advertising and Marketing - Events & Seminars\u0001Miscellaneous Vendors - US\u0001Support : Marketing":1},"YWW WEWORK LEGACYTEN":{"Rent & Lease -  Wework\u0001Wework\u0001Support : Admin":1}},"byCategory":{"MERCHANDISE SUPPLIES COMPUTER SUPPLIES":{"Advertising & Marketing - Misc":3,"Software License  expense - miscellaneous":1,"Software Subscription – Navicat":1,"ChatGPT":1,"Software Subscription - Typeform":1,"Laptops":1,"Advertising and Marketing - Squarespace":1,"Software Subscription- Slack":1},"MERCHANDISE SUPPLIES COMPUTER SUPPLIES\u0001PRASANT VARGHEASE":{"Advertising & Marketing - Misc":2},"TRANSPORTATION RAIL SERVICES":{"Domestic Travel - Local Transport/Car - Support":6},"TRANSPORTATION RAIL SERVICES\u0001UMESH C JOSHI":{"Domestic Travel - Local Transport/Car - Support":5},"MERCHANDISE SUPPLIES COMPUTER SUPPLIES\u0001HIMANSHU SAREEN":{"Software License  expense - miscellaneous":1,"Software Subscription – Navicat":1,"ChatGPT":1,"Advertising & Marketing - Misc":1,"Software Subscription - Typeform":1,"Advertising and Marketing - Squarespace":1},"OTHER MISCELLANEOUS":{"Advertising & Marketing - Misc":1,"Software Subscription - OpenVPN":1},"OTHER MISCELLANEOUS\u0001PRASANT VARGHEASE":{"Advertising & Marketing - Misc":1},"MERCHANDISE SUPPLIES MAIL ORDER":{"Software Subcription - Adobe":1,"Housekeeping Material":1},"MERCHANDISE SUPPLIES MAIL ORDER\u0001HIMANSHU SAREEN":{"Software Subcription - Adobe":1},"MERCHANDISE SUPPLIES INTERNET PURCHASE":{"Office Snacks & Meals":7,"Office Maintenance Expense - Misc.":1,"IT Consumable":1,"ChatGPT":1,"Housekeeping Material":1,"Printing & Stationery":1},"MERCHANDISE SUPPLIES INTERNET PURCHASE\u0001ARIELLE SMITH":{"Office Snacks & Meals":7,"Office Maintenance Expense - Misc.":1,"IT Consumable":1,"ChatGPT":1,"Housekeeping Material":1,"Printing & Stationery":1},"TRAVEL AIRLINE":{"Domestic Travel - Airfare - Support":1,"Domestic Travel - Airfare - Direct":4},"TRAVEL AIRLINE\u0001ARIELLE SMITH":{"Domestic Travel - Airfare - Support":1,"Domestic Travel - Airfare - Direct":4},"TRAVEL TRAVEL AGENCIES":{"Domestic Travel - Airfare - Support":1,"Domestic Travel - Hotel/Lodging - Support":1,"Domestic Travel - Airfare - Direct":4},"TRAVEL TRAVEL AGENCIES\u0001ARIELLE SMITH":{"Domestic Travel - Airfare - Support":1,"Domestic Travel - Hotel/Lodging - Support":1,"Domestic Travel - Airfare - Direct":4},"BUSINESS SERVICES MAILING SHIPPING":{"Courier/Postage Charges":3},"BUSINESS SERVICES MAILING SHIPPING\u0001HIMANSHU SAREEN":{"Courier/Postage Charges":2},"BUSINESS SERVICES ADVERTISING SERVICES":{"Advertising and Marketing - Linkedin":1,"Advertising and Marketing - Events & Seminars":1},"BUSINESS SERVICES ADVERTISING SERVICES\u0001HIMANSHU SAREEN":{"Advertising and Marketing - Linkedin":1},"MERCHANDISE SUPPLIES GROCERIES":{"Office Snacks & Meals":5,"Meals & Entertainment":1},"MERCHANDISE SUPPLIES GROCERIES\u0001ARIELLE SMITH":{"Office Snacks & Meals":5,"Meals & Entertainment":1},"BUSINESS SERVICES ADVERTISING SERVICES\u0001ARIELLE SMITH":{"Advertising and Marketing - Events & Seminars":1},"COMMUNICATIONS CABLE INTERNET COMM":{"Mobile Expense":1,"Software Subscription – Spotify":1},"COMMUNICATIONS CABLE INTERNET COMM\u0001ARIELLE SMITH":{"Mobile Expense":1,"Software Subscription – Spotify":1},"BUSINESS SERVICES OFFICE SUPPLIES":{"Advertising & Marketing - Misc":2},"BUSINESS SERVICES OFFICE SUPPLIES\u0001PRASANT VARGHEASE":{"Advertising & Marketing - Misc":2},"BUSINESS SERVICES INSURANCE SERVICES":{"Bank Charges & Fees":1},"BUSINESS SERVICES INSURANCE SERVICES\u0001ARIELLE SMITH":{"Bank Charges & Fees":1},"MERCHANDISE SUPPLIES COMPUTER SUPPLIES\u0001ARIELLE SMITH":{"Laptops":1,"Software Subscription- Slack":1},"BUSINESS SERVICES MAILING SHIPPING\u0001ARIELLE SMITH":{"Courier/Postage Charges":1},"RESTAURANT RESTAURANT":{"Business - Meals & entertainment":2},"RESTAURANT RESTAURANT\u0001JOHN WANEK":{"Business - Meals & entertainment":1},"MERCHANDISE SUPPLIES BOOK STORES":{"Business - Meals & entertainment":1},"MERCHANDISE SUPPLIES BOOK STORES\u0001JOHN WANEK":{"Business - Meals & entertainment":1},"TRANSPORTATION TAXIS COACH":{"Domestic Travel - Local Transport/Car - Support":1},"TRANSPORTATION TAXIS COACH\u0001JOHN WANEK":{"Domestic Travel - Local Transport/Car - Support":1},"MERCHANDISE SUPPLIES MAIL ORDER\u0001ARIELLE SMITH":{"Housekeeping Material":1},"OTHER MISCELLANEOUS\u0001HIMANSHU SAREEN":{"Software Subscription - OpenVPN":1},"TRANSPORTATION RAIL SERVICES\u0001KENNETH PARKS":{"Domestic Travel - Local Transport/Car - Support":1},"BUSINESS SERVICES PROFESSIONAL SERVICES":{"Consultancy - Support - Legal fee":1},"BUSINESS SERVICES PROFESSIONAL SERVICES\u0001ARIELLE SMITH":{"Consultancy - Support - Legal fee":1},"RESTAURANT BAR CAF":{"Business - Meals & entertainment":2},"RESTAURANT BAR CAF\u0001UMESH C JOSHI":{"Business - Meals & entertainment":2},"OTHER EDUCATION":{"Business - Meals & entertainment":2},"OTHER EDUCATION\u0001UMESH C JOSHI":{"Business - Meals & entertainment":2},"RESTAURANT RESTAURANT\u0001UMESH C JOSHI":{"Business - Meals & entertainment":1},"BUSINESS SERVICES OTHER SERVICES":{"Courier/Postage Charges":1,"Rent & Lease -  Wework":1},"BUSINESS SERVICES OTHER SERVICES\u0001ARIELLE SMITH":{"Courier/Postage Charges":1,"Rent & Lease -  Wework":1},"MERCHANDISE SUPPLIES GENERAL RETAIL":{"Advertising and Marketing - Events & Seminars":1},"MERCHANDISE SUPPLIES GENERAL RETAIL\u0001ARIELLE SMITH":{"Advertising and Marketing - Events & Seminars":1}},"byWord":{"SINGAPORE":{"Advertising & Marketing - Misc":1},"TNEWARK":{"Domestic Travel - Local Transport/Car - Support":5},"UTRECHT":{"Software License  expense - miscellaneous":1},"FRANCISCO":{"Advertising & Marketing - Misc":1,"Advertising and Marketing - Linkedin":1,"Software Subscription – Navicat":1,"ChatGPT":1,"Software Subscription- Slack":1,"Meals & Entertainment":1,"Office Snacks & Meals":2},"JOSE":{"Software Subcription - Adobe":1},"COLD":{"Office Snacks & Meals":1},"BREW":{"Office Snacks & Meals":1},"PHOENIX":{"Domestic Travel - Airfare - Support":1,"Domestic Travel - Airfare - Direct":4},"ERIKA":{"Domestic Travel - Airfare - Support":2},"TRAVEL":{"Domestic Travel - Airfare - Support":2,"Domestic Travel - Airfare - Direct":8},"QBR":{"Domestic Travel - Airfare - Support":2},"FROM":{"Domestic Travel - Airfare - Support":2,"Domestic Travel - Hotel/Lodging - Support":1,"Domestic Travel - Airfare - Direct":8},"RETURN":{"Domestic Travel - Airfare - Support":2,"Domestic Travel - Airfare - Direct":8},"31ST":{"Domestic Travel - Airfare - Support":2,"Domestic Travel - Hotel/Lodging - Support":1},"MAY":{"Domestic Travel - Airfare - Support":2,"Domestic Travel - Hotel/Lodging - Support":1,"Domestic Travel - Airfare - Direct":8},"2ND":{"Domestic Travel - Airfare - Support":2,"Advertising and Marketing - Events & Seminars":1},"JUNE":{"Domestic Travel - Airfare - Support":2,"Advertising and Marketing - Events & Seminars":1,"Domestic Travel - Hotel/Lodging - Support":1},"SCOTTSDALE":{"Domestic Travel - Airfare - Support":1,"Domestic Travel - Airfare - Direct":4},"FEDEX255611889":{"Courier/Postage Charges":1},"FEDEXMEMPHIS":{"Courier/Postage Charges":1},"P3019093164SAN":{"Advertising and Marketing - Linkedin":1},"WALL":{"Office Maintenance Expense - Misc.":1},"LED":{"Office Maintenance Expense - Misc.":1},"LIGHT":{"Office Maintenance Expense - Misc.":1},"PHONE":{"Office Maintenance Expense - Misc.":1},"BOOTH":{"Office Maintenance Expense - Misc.":1},"YORK":{"Office Snacks & Meals":1,"Advertising & Marketing - Misc":1,"Bank Charges & Fees":1,"Laptops":1,"Courier/Postage Charges":1,"Software Subscription – Spotify":1,"Advertising and Marketing - Squarespace":1,"Advertising and Marketing - Events & Seminars":1,"Rent & Lease -  Wework":1},"C4MEDIA":{"Advertising and Marketing - Events & Seminars":1},"ETOBICOKE":{"Advertising and Marketing - Events & Seminars":1},"REGISTRATION":{"Advertising and Marketing - Events & Seminars":1},"SANDEEP":{"Advertising and Marketing - Events & Seminars":1,"Domestic Travel - Hotel/Lodging - Support":1},"SAWHNEY":{"Advertising and Marketing - Events & Seminars":1},"QCON":{"Advertising and Marketing - Events & Seminars":1,"Domestic Travel - Hotel/Lodging - Support":1},"CONFRENCE":{"Advertising and Marketing - Events & Seminars":1},"CANADA":{"Advertising and Marketing - Events & Seminars":1},"1ST":{"Advertising and Marketing - Events & Seminars":1,"Domestic Travel - Hotel/Lodging - Support":1},"SUBSSAN":{"ChatGPT":1},"DITHERINCLAYMONT":{"Advertising & Marketing - Misc":1},"INSHERIDAN":{"Advertising & Marketing - Misc":1},"STAYING":{"Domestic Travel - Hotel/Lodging - Support":1},"CONFRANCE":{"Domestic Travel - Hotel/Lodging - Support":1},"WILMINGTON":{"Advertising & Marketing - Misc":1,"Software Subscription - Typeform":1},"RITESH":{"Domestic Travel - Airfare - Direct":4},"KUMAR":{"Domestic Travel - Airfare - Direct":4},"GME":{"Domestic Travel - Airfare - Direct":8},"PROJECT":{"Domestic Travel - Airfare - Direct":8},"NEWARK":{"Domestic Travel - Airfare - Direct":8},"LUIS":{"Domestic Travel - Airfare - Direct":8},"26TH":{"Domestic Travel - Airfare - Direct":8},"28TH":{"Domestic Travel - Airfare - Direct":8},"MAYU":{"Domestic Travel - Airfare - Direct":8},"KETAN":{"Domestic Travel - Airfare - Direct":4},"SETHI":{"Domestic Travel - Airfare - Direct":4},"MACBOOK":{"Laptops":1},"SACHIN":{"Laptops":1},"SINGH":{"Laptops":1},"35964NEW":{"Courier/Postage Charges":1},"POSTAGE":{"Courier/Postage Charges":1},"CHARGES":{"Courier/Postage Charges":1},"TAXES":{"Courier/Postage Charges":1},"COMPTROLLER":{"Courier/Postage Charges":1},"FILLING":{"Courier/Postage Charges":1},"0803SAINT":{"Business - Meals & entertainment":1},"PAUL":{"Business - Meals & entertainment":1},"CHICAGO":{"Business - Meals & entertainment":1},"SUBSCRIPTIONLAS":{"Software Subscription - OpenVPN":1},"VEGAS":{"Software Subscription - OpenVPN":1},"P4257BF88D":{"Software Subscription – Spotify":1},"6NEW":{"Software Subscription – Spotify":1},"MOBILEWASHINGTON":{"Domestic Travel - Local Transport/Car - Support":1},"ROCHESTER":{"Office Snacks & Meals":2},"SNACKS":{"Office Snacks & Meals":3},"ZAPFPITTSBURGH":{"Consultancy - Support - Legal fee":1},"T01PC0LHWF3":{"Software Subscription- Slack":1},"DINNER":{"Meals & Entertainment":1,"Advertising and Marketing - Events & Seminars":1},"GROVES":{"Meals & Entertainment":1,"Housekeeping Material":1,"Office Snacks & Meals":1},"GROCERY":{"Office Snacks & Meals":1},"SUPPLY":{"Office Snacks & Meals":1},"DRINKS":{"Office Snacks & Meals":1},"33026WILLINGTON":{"Business - Meals & entertainment":1},"COUBOSTON":{"Business - Meals & entertainment":2},"LOTION":{"Housekeeping Material":1},"CALANDER":{"Printing & Stationery":1},"SUPPLIES":{"Office Snacks & Meals":1},"MILLIMILLDALE":{"Business - Meals & entertainment":1},"NAMASTAYBOSTON":{"Business - Meals & entertainment":1},"5TORONTO":{"Courier/Postage Charges":1},"OPTIMIZELY":{"Advertising and Marketing - Events & Seminars":1},"HAPPY":{"Advertising and Marketing - Events & Seminars":1},"HOUR":{"Advertising and Marketing - Events & Seminars":1},"LEGACYTENNEW":{"Rent & Lease -  Wework":1}},"personDept":{"ARIELLE SMITH":"Support : Admin","KENNETH PARKS":"Support : Marketing","LISA SALTSMAN":"Support : Marketing","PRASANT VARGHEASE":"Support : Marketing","HIMANSHU SAREEN":"Support : CXO","STEVE LAMENSDORF":"Support : Sales","UMESH C JOSHI":"Support : CXO"}}</script>
+<script id="cc-core">
+
+/* ============================================================
+   CC AutoFill core — pure logic, no DOM. Runs in browser & Node.
+   ============================================================ */
+(function(){
+'use strict';
+
+/* ---------- bytes & zip ---------- */
+const TD = new TextDecoder('utf-8'), TE = new TextEncoder();
+const CRC_T = (() => { const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++){ let c = n;
+    for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    t[n] = c >>> 0; } return t; })();
+function crc32(u8){ let c = 0xFFFFFFFF;
+  for (let i = 0; i < u8.length; i++) c = CRC_T[(c ^ u8[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0; }
+
+async function pipe(u8, stream){
+  return new Uint8Array(await new Response(new Blob([u8]).stream().pipeThrough(stream)).arrayBuffer());
+}
+const inflateRaw = u8 => pipe(u8, new DecompressionStream('deflate-raw'));
+const deflateRaw = u8 => pipe(u8, new CompressionStream('deflate-raw'));
+
+/* Parse a zip from its central directory. Keeps raw compressed slices so
+   untouched entries can be copied through byte-identically on repack. */
+function zipOpen(bytes){
+  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  let eocd = -1;
+  for (let i = bytes.length - 22; i >= Math.max(0, bytes.length - 65557); i--)
+    if (dv.getUint32(i, true) === 0x06054b50){ eocd = i; break; }
+  if (eocd < 0) throw new Error('Not a valid .xlsx (zip directory not found)');
+  const count = dv.getUint16(eocd + 10, true);
+  let off = dv.getUint32(eocd + 16, true);
+  const entries = [], byName = new Map();
+  for (let n = 0; n < count; n++){
+    if (dv.getUint32(off, true) !== 0x02014b50) throw new Error('Corrupt zip central directory');
+    const flags   = dv.getUint16(off + 8, true);
+    const method  = dv.getUint16(off + 10, true);
+    const time    = dv.getUint16(off + 12, true);
+    const date    = dv.getUint16(off + 14, true);
+    const crc     = dv.getUint32(off + 16, true);
+    const csize   = dv.getUint32(off + 20, true);
+    const usize   = dv.getUint32(off + 24, true);
+    const nameLen = dv.getUint16(off + 28, true);
+    const extraLen= dv.getUint16(off + 30, true);
+    const cmtLen  = dv.getUint16(off + 32, true);
+    const extAttr = dv.getUint32(off + 38, true);
+    const lho     = dv.getUint32(off + 42, true);
+    const name    = TD.decode(bytes.subarray(off + 46, off + 46 + nameLen));
+    const e = { name, flags, method, time, date, crc, csize, usize, extAttr, lho };
+    entries.push(e); byName.set(name, e);
+    off += 46 + nameLen + extraLen + cmtLen;
+  }
+  function dataSlice(e){
+    if (dv.getUint32(e.lho, true) !== 0x04034b50) throw new Error('Corrupt zip local header: ' + e.name);
+    const nl = dv.getUint16(e.lho + 26, true), el = dv.getUint16(e.lho + 28, true);
+    const start = e.lho + 30 + nl + el;
+    return bytes.subarray(start, start + e.csize);
+  }
+  async function read(name){
+    const e = byName.get(name);
+    if (!e) return null;
+    const raw = dataSlice(e);
+    if (e.method === 0) return raw.slice();
+    if (e.method === 8) return inflateRaw(raw);
+    throw new Error('Unsupported zip compression in ' + name);
+  }
+  return { entries, byName, read, dataSlice };
+}
+
+/* Rebuild the zip: entries in original order; `replacements` is a
+   Map<name, Uint8Array> of new uncompressed contents. Everything else is
+   copied through with its original compressed bytes, CRC and metadata. */
+async function zipRepack(zip, replacements){
+  const parts = [], central = [];
+  let offset = 0;
+  const now = new Date();
+  const dosTime = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1);
+  const dosDate = (((now.getFullYear() - 1980) & 0x7F) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+  for (const e of zip.entries){
+    let method = e.method, crc = e.crc, csize = e.csize, usize = e.usize,
+        time = e.time, date = e.date, data;
+    if (replacements.has(e.name)){
+      const plain = replacements.get(e.name);
+      usize = plain.length; crc = crc32(plain);
+      data = await deflateRaw(plain); method = 8; csize = data.length;
+      time = dosTime; date = dosDate;
+      if (csize >= usize && usize > 0){ data = plain; method = 0; csize = usize; }
+    } else {
+      data = zip.dataSlice(e);
+    }
+    const nameB = TE.encode(e.name);
+    const flags = e.flags & 0x0800; // keep only the UTF-8 flag
+    const lh = new Uint8Array(30 + nameB.length);
+    const lv = new DataView(lh.buffer);
+    lv.setUint32(0, 0x04034b50, true); lv.setUint16(4, 20, true); lv.setUint16(6, flags, true);
+    lv.setUint16(8, method, true); lv.setUint16(10, time, true); lv.setUint16(12, date, true);
+    lv.setUint32(14, crc, true); lv.setUint32(18, csize, true); lv.setUint32(22, usize, true);
+    lv.setUint16(26, nameB.length, true); lv.setUint16(28, 0, true);
+    lh.set(nameB, 30);
+    parts.push(lh, data);
+    central.push({ nameB, flags, method, time, date, crc, csize, usize, extAttr: e.extAttr, lho: offset });
+    offset += lh.length + csize;
+  }
+  const cdStart = offset;
+  for (const c of central){
+    const ch = new Uint8Array(46 + c.nameB.length);
+    const cv = new DataView(ch.buffer);
+    cv.setUint32(0, 0x02014b50, true); cv.setUint16(4, 20, true); cv.setUint16(6, 20, true);
+    cv.setUint16(8, c.flags, true); cv.setUint16(10, c.method, true);
+    cv.setUint16(12, c.time, true); cv.setUint16(14, c.date, true);
+    cv.setUint32(16, c.crc, true); cv.setUint32(20, c.csize, true); cv.setUint32(24, c.usize, true);
+    cv.setUint16(28, c.nameB.length, true);
+    cv.setUint32(38, c.extAttr, true); cv.setUint32(42, c.lho, true);
+    ch.set(c.nameB, 46);
+    parts.push(ch); offset += ch.length;
+  }
+  const eocd = new Uint8Array(22);
+  const ev = new DataView(eocd.buffer);
+  ev.setUint32(0, 0x06054b50, true);
+  ev.setUint16(8, central.length, true); ev.setUint16(10, central.length, true);
+  ev.setUint32(12, offset - cdStart, true); ev.setUint32(16, cdStart, true);
+  parts.push(eocd);
+  const total = parts.reduce((s, p) => s + p.length, 0);
+  const out = new Uint8Array(total);
+  let pos = 0; for (const p of parts){ out.set(p, pos); pos += p.length; }
+  return out;
+}
+
+/* ---------- xml & xlsx reading ---------- */
+function xmlUnescape(s){
+  return s.replace(/&(#x?[0-9a-fA-F]+|[a-z]+);/g, (m, e) => {
+    if (e[0] === '#') return String.fromCodePoint(parseInt(e[1] === 'x' ? e.slice(2) : e.slice(1), e[1] === 'x' ? 16 : 10));
+    return ({amp:'&', lt:'<', gt:'>', quot:'"', apos:"'"})[e] ?? m;
+  });
+}
+function xmlEscape(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'})[c]);
+}
+function colIndex(letters){ let n = 0; for (const ch of letters) n = n * 26 + (ch.charCodeAt(0) - 64); return n; }
+function colLetter(n){ let s = ''; while (n > 0){ const r = (n - 1) % 26; s = String.fromCharCode(65 + r) + s; n = (n - 1 - r) / 26; } return s; }
+
+function textOf(inner){ // concatenated <t> contents (plain or rich-text runs)
+  let out = '', m; const re = /<t(?:\s[^>]*)?>([\s\S]*?)<\/t>|<t(?:\s[^>]*)?\/>/g;
+  while ((m = re.exec(inner))) out += m[1] ? xmlUnescape(m[1]) : '';
+  return out;
+}
+function parseSharedStrings(xml){
+  if (!xml) return [];
+  const out = []; let m; const re = /<si>([\s\S]*?)<\/si>|<si\/>/g;
+  while ((m = re.exec(xml))) out.push(m[1] ? textOf(m[1]) : '');
+  return out;
+}
+/* sheet xml -> Map rowNum -> Map colIdx -> value (string|number|boolean|null) */
+function parseSheetCells(xml, shared){
+  const rows = new Map(); let rm;
+  const rowRe = /<row\b[^>]*?\br="(\d+)"[^>]*?(?:\/>|>([\s\S]*?)<\/row>)/g;
+  while ((rm = rowRe.exec(xml))){
+    const rn = +rm[1], inner = rm[2] || '';
+    const cells = new Map(); let cm;
+    const cellRe = /<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g;
+    while ((cm = cellRe.exec(inner))){
+      const attrs = cm[1], body = cm[2] || '';
+      const ref = /\br="([A-Z]+)(\d+)"/.exec(attrs); if (!ref) continue;
+      const ci = colIndex(ref[1]);
+      const t = (/\bt="([^"]+)"/.exec(attrs) || [])[1];
+      let val = null;
+      if (t === 'inlineStr'){ val = textOf(body); }
+      else {
+        const v = /<v(?:\s[^>]*)?>([\s\S]*?)<\/v>/.exec(body);
+        if (v){
+          const raw = xmlUnescape(v[1]);
+          if (t === 's') val = shared[+raw] ?? '';
+          else if (t === 'str') val = raw;
+          else if (t === 'b') val = raw === '1';
+          else if (t === 'e') val = null;
+          else val = Number(raw);
+        }
+      }
+      if (val !== null && val !== '') cells.set(ci, val);
+    }
+    rows.set(rn, cells);
+  }
+  return rows;
+}
+
+function openWorkbook(zip){
+  return (async () => {
+    const wbXml = TD.decode(await zip.read('xl/workbook.xml'));
+    const relXml = TD.decode(await zip.read('xl/_rels/workbook.xml.rels'));
+    const rels = new Map();
+    let m; const relRe = /<Relationship\b[^>]*\bId="([^"]+)"[^>]*\bTarget="([^"]+)"[^>]*?\/?>/g;
+    while ((m = relRe.exec(relXml))) rels.set(m[1], m[2]);
+    const sheets = []; const shRe = /<sheet\b[^>]*?\bname="([^"]+)"[^>]*?\br:id="([^"]+)"[^>]*?\/?>/g;
+    while ((m = shRe.exec(wbXml))){
+      let t = rels.get(m[2]) || '';
+      t = t.replace(/^\//, '').replace(/^(\.\.\/)+/, '');
+      if (!/^xl\//.test(t)) t = 'xl/' + t;
+      sheets.push({ name: xmlUnescape(m[1]), path: t });
+    }
+    const ssRaw = await zip.read('xl/sharedStrings.xml');
+    const shared = parseSharedStrings(ssRaw ? TD.decode(ssRaw) : null);
+    async function grid(sheetName){
+      const s = sheets.find(x => x.name === sheetName)
+            || sheets.find(x => x.name.trim().toLowerCase() === sheetName.trim().toLowerCase());
+      if (!s) return null;
+      const xml = TD.decode(await zip.read(s.path));
+      return { path: s.path, xml, rows: parseSheetCells(xml, shared) };
+    }
+    return { wbXml, sheets, shared, grid };
+  })();
+}
+
+/* ---------- layout & lists ---------- */
+function findHeader(rows, wanted){
+  for (let r = 1; r <= 15; r++){
+    const cells = rows.get(r); if (!cells) continue;
+    for (const [, v] of cells)
+      if (typeof v === 'string' && v.trim().toLowerCase() === wanted) return r;
+  }
+  return -1;
+}
+function detectLayout(rows){
+  const hr = findHeader(rows, 'description');
+  if (hr < 0) throw new Error("Couldn't find a 'Description' header in Transaction Details (searched rows 1–15).");
+  const H = rows.get(hr);
+  const named = (label) => { const hits = [];
+    for (const [ci, v] of H) if (typeof v === 'string' && v.trim().toLowerCase() === label) hits.push(ci);
+    return hits.sort((a, b) => a - b); };
+  const one = a => a.length ? a[a.length - 1] : null;     // rightmost wins
+  const cDesc = one(named('description'));
+  const items = named('item name'), vendors = named('vendor name');
+  const cItem = one(items), cVendor = one(vendors);
+  const cDept = one(named('department'));
+  if (!cItem || !cVendor || !cDept)
+    throw new Error('Missing target column header(s) on row ' + hr +
+      ' — need "Item name", "Vendor name", "DEPARTMENT". Found: ' +
+      [...H.values()].filter(v => typeof v === 'string').join(' | '));
+  const layout = {
+    headerRow: hr, cDesc, cItem, cVendor, cDept,
+    cDate: one(named('bill date')) ?? one(named('date')),
+    cAmount: one(named('amount')),
+    cMember: cDesc + 1,
+    cExt: one(named('extended details')),
+    cCategory: one(named('category')),
+    dataRows: []
+  };
+  let last = 0; for (const rn of rows.keys()) if (rn > last) last = rn;
+  for (let r = hr + 1; r <= last; r++){
+    const d = rows.get(r)?.get(cDesc);
+    if (typeof d === 'string' && d.trim() !== '') layout.dataRows.push(r);
+  }
+  return layout;
+}
+function columnList(rows, ci, headerRow){
+  const seen = new Set(), out = [];
+  let last = 0; for (const rn of rows.keys()) if (rn > last) last = rn;
+  for (let r = headerRow + 1; r <= last; r++){
+    const v = rows.get(r)?.get(ci);
+    if (typeof v === 'string' && v.trim() !== '' && !seen.has(v)){ seen.add(v); out.push(v); }
+  }
+  return out;
+}
+
+/* ---------- normalisation & memory ---------- */
+const SEP = '\u0001';
+const normDesc = d => String(d).toUpperCase().replace(/[^A-Z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
+const merchantKey = d => String(d).slice(0, 20).toUpperCase().replace(/[^A-Z]+/g, ' ').replace(/\s+/g, ' ').trim();
+const tokens = s => s.split(' ').filter(Boolean);
+
+function mergeMemory(...mems){
+  const out = { byDesc: {}, byMerchant: {}, byCategory: {}, byWord: {} };
+  for (const m of mems){ if (!m) continue;
+    for (const part of ['byDesc', 'byMerchant', 'byCategory', 'byWord']){
+      const src = m[part] || {};
+      for (const k in src){ const d = out[part][k] || (out[part][k] = {});
+        for (const t in src[k]) d[t] = Math.min(999, (d[t] || 0) + src[k][t]); }
+    }
+  }
+  return out;
+}
+function triplesOf(entry){ // -> [{item,vendor,dept,count}] sorted by count desc
+  return Object.entries(entry || {})
+    .map(([t, c]) => { const [item, vendor, dept] = t.split(SEP); return { item, vendor, dept, count: c }; })
+    .sort((a, b) => b.count - a.count);
+}
+
+/* aggregates for the guess tiers */
+function buildAggregates(mem){
+  const itemDept = new Map(), itemVendor = new Map(), vendorItem = new Map(), vendorDept = new Map();
+  const bump = (map, k, v, c) => { if (!k || !v) return;
+    const d = map.get(k) || new Map(); d.set(v, (d.get(v) || 0) + c); map.set(k, d); };
+  for (const k in mem.byMerchant)
+    for (const t of triplesOf(mem.byMerchant[k])){
+      bump(itemDept, t.item, t.dept, t.count); bump(itemVendor, t.item, t.vendor, t.count);
+      bump(vendorItem, t.vendor, t.item, t.count); bump(vendorDept, t.vendor, t.dept, t.count);
+    }
+  const top = (map, k) => { const d = map.get(k); if (!d) return null;
+    let best = null, bc = -1; for (const [v, c] of d) if (c > bc){ best = v; bc = c; } return best; };
+  return { itemDept, itemVendor, vendorItem, vendorDept, top };
+}
+
+/* Built-in dictionary: brand / keyword -> a generic item that exists in most masters.
+   Ordered most-specific first; applied only to brand-new merchants, and only if the
+   item name actually exists in the loaded Item Master. */
+const KEYWORD_RULES = [
+  { re: /\b(FEDEX|FED ?EX|DHL|USPS|UPS|POSTAG|COURIER|SHIPP|STAMPS?|PITNEY|FREIGHT)\b/, item: 'Courier/Postage Charges', dept: 'Support : Admin' },
+  { re: /\b(AIRLINE|AIRLINES|AIRWAYS|UNITED|DELTA|AMERICAN AIR|JETBLUE|SOUTHWEST|ALASKA AIR|SPIRIT|FRONTIER|LUFTHANSA|EMIRATES|BRITISH AIR|AIR CANADA|GBT|AMEX ?GBT|EXPEDIA|KAYAK|TRAVELOCITY|PRICELINE|ORBITZ|TRAVEL RESERVATION)\b/, item: 'Domestic Travel - Airfare - Support', dept: 'Support : Sales' },
+  { re: /\b(HOTEL|MOTEL|MARRIOTT|HILTON|HYATT|WESTIN|SHERATON|HAMPTON|COURTYARD|HOLIDAY INN|DOUBLETREE|RADISSON|RAMADA|WYNDHAM|RITZ|RESORT|LODGING|AIRBNB|VRBO)\b/, item: 'Domestic Travel - Hotel/Lodging - Support', dept: 'Support : Marketing' },
+  { re: /\b(AMTRAK|NJT|NJ TRANSIT|MTA|METRO|SUBWAY|RAIL|LYFT|UBER(?! ?EATS)|TAXI|CAB|PARKING|TOLL|EZPASS|CITIBIKE|HERTZ|AVIS|ENTERPRISE RENT|CAR RENTAL|RIDESHARE)\b/, item: 'Domestic Travel - Local Transport/Car - Support', dept: 'Support : CXO' },
+  { re: /\b(RESTAURANT|CAFE|COFFEE|STARBUCKS|DUNKIN|PIZZA|GRILL|DINER|KITCHEN|BISTRO|TAVERN|BREWING|DOORDASH|GRUBHUB|SEAMLESS|UBER ?EATS|TRADER JOE|WHOLE ?FOODS?|WHOLEFDS|WEGMANS|DELI|BAKERY|CHIPOTLE|SWEETGREEN|PANERA|MCDONALD|JUICE|CATERING|SNACK)\b/, item: 'Office Snacks & Meals', dept: 'Support : Admin' },
+  { re: /\b(LINKEDIN|FACEBK|FACEBOOK|META PLAT|INSTAGRAM|GOOGLE ADS|ADWORDS|ADVERT|ADVERTIS|MAILCHIMP|HUBSPOT|SEMRUSH|AHREFS|CANVA|HOOTSUITE|EVENTBRITE|WEBINAR|SEMINAR|CONFERENCE|CONFRENCE|SUMMIT|\bEXPO\b|TRADESHOW)\b/, item: 'Advertising & Marketing - Misc', dept: 'Support : Marketing' },
+  { re: /\b(COMCAST|XFINITY|VERIZON|AT ?& ?T|T-?MOBILE|SPRINT|VODAFONE|TELECOM|WIRELESS|MOBILE)\b/, item: 'Mobile Expense', dept: 'Support : Admin' },
+  { re: /\b(LLP|ATTORNEY|\bLAW\b|LEGAL|NOTARY|PARALEGAL|COUNSEL)\b/, item: 'Consultancy - Support - Legal fee', dept: 'Support : Finance' },
+  { re: /\b(OPENAI|CHATGPT|ANTHROPIC|CLAUDE|GITHUB|GITLAB|ATLASSIAN|JIRA|CONFLUENCE|SLACK|ZOOM|NOTION|FIGMA|MIRO|CALENDLY|DROPBOX|AWS|AMAZON WEB|\bAZURE\b|GOOGLE CLOUD|\bGCP\b|DIGITALOCEAN|HEROKU|NETLIFY|VERCEL|CLOUDFLARE|GODADDY|NAMECHEAP|HOSTING|DATADOG|SENTRY|MONGODB|TWILIO|SENDGRID|STRIPE|INTERCOM|ZENDESK|GRAMMARLY|MICROSOFT|MSFT|ADOBE|AUTODESK|SOFTWARE|SUBSCRIPTION|SUBSCR|LICEN[SC]E|SAAS)\b/, item: 'Software License  expense - miscellaneous', dept: 'Support : IT' },
+  { re: /\b(BANK|\bFEE\b|\bFEES\b|INTEREST|FINANCE CHARGE|WIRE|FOREIGN TRANSACTION)\b/, item: 'Bank Charges & Fees', dept: 'Support : Finance' },
+];
+/* Shorthand merchant tokens -> the real brand word, so lexical matching against item /
+   vendor names still fires when the statement uses an abbreviation. */
+const ALIASES = {
+  SQSP:'SQUARESPACE', AMZN:'AMAZON', AMZ:'AMAZON', GOOGL:'GOOGLE', GOOG:'GOOGLE',
+  FB:'FACEBOOK', FACEBK:'FACEBOOK', MSFT:'MICROSOFT', UBR:'UBER', LNKD:'LINKEDIN', NYT:'NYTIMES'
+};
+
+const LEX_STOP = new Set(('APLPAY PAYPAL TST SQ SQSP BT CNP AMZN COM BILL WWW INC LLC LTD CORP THE AND FOR ' +
+  'SUPPORT SERVICE SERVICES OFFICE EXPENSE MISC MISCELLANEOUS PURCHASE NEW USA SAN LAS HTTP HTTPS ' +
+  'ROOM EAST WEST NORTH SOUTH UNION CENTER CENTRE STORE SHOP MALL PLAZA STREET AVENUE ROAD').split(' '));
+/* Amex's own merchant Category -> the item it usually maps to (used only when the
+   description gives no lexical match; the tool also LEARNS category->item from training). */
+const CATEGORY_RULES = [
+  [/GROCER/, 'Office Snacks & Meals'],
+  [/RESTAURANT|BAR.?CAF|\bCAFE\b|FAST.?FOOD|EATING|BAKER/, 'Business - Meals & entertainment'],
+  [/RAIL|TAXI|COACH|PARKING|TRANSIT|SUBWAY|\bTOLL\b|RIDESHARE/, 'Domestic Travel - Local Transport/Car - Support'],
+  [/AIRLINE|AIR CARRIER/, 'Domestic Travel - Airfare - Support'],
+  [/LODGING|\bHOTEL\b|\bMOTEL\b/, 'Domestic Travel - Hotel/Lodging - Support'],
+  [/MAILING|SHIPPING|COURIER|POSTAGE/, 'Courier/Postage Charges'],
+  [/ADVERTISING/, 'Advertising & Marketing - Misc'],
+];
+/* The distinguishing words in a Description, i.e. everything EXCEPT the merchant name
+   (the notes the user appends — "Cold Brew", "Wall LED Light", "Lotion", "Calander"…).
+   These — not the merchant name — are what predictions and learning key on, so an
+   aggregator like Amazon is decided by what was bought, not by the word "Amazon". */
+const CONTENT_STOP = new Set('NA AMZN BILL PA WA THE AND FOR OF TO IN ON AT A AN PURCHASE PURCHASES BUY BOUGHT ORDER ORDERED PAYMENT PAID NEW USED VIA WWW HTTP HTTPS COM'.split(' '));
+function contentWords(desc){
+  const mtok = new Set(tokens(merchantKey(desc)));
+  return [...new Set(normDesc(desc).split(' '))].filter(t =>
+    t.length >= 3 && !LEX_STOP.has(t) && !CONTENT_STOP.has(t) && !mtok.has(t) && !/^\d+$/.test(t));
+}
+
+function buildClassifier(mem, itemList, vendorList, deptList){
+  const agg = buildAggregates(mem);
+  const itemSet = new Set(itemList), deptSet = new Set(deptList), vendorSet = new Set(vendorList);
+  const MISC = vendorList.find(v => /^MISCELLANEOUS VENDORS/i.test(v.trim())) || null;
+  const memKeys = Object.keys(mem.byMerchant).map(k => ({ k, toks: tokens(k), sq: k.replace(/ /g, '') }));
+  const checkedDept = d => (d && deptSet.has(d)) ? d : null;
+  const checkedVendor = v => (v && vendorSet.has(v)) ? v : null;
+
+  /* idf-weighted lexical index: a token shared with an item/vendor name is worth
+     more when it's rare across the master list (so brand words like SLACK, ADOBE,
+     WEWORK win and generic words like SUPPORT/SERVICE barely count). */
+  const sig = s => new Set(normDesc(s).split(' ').filter(t => t.length >= 3 && !LEX_STOP.has(t)));
+  const itemTok = itemList.map(it => ({ it, toks: sig(it) }));
+  const idf = new Map(); for (const { toks } of itemTok) for (const t of toks) idf.set(t, (idf.get(t) || 0) + 1);
+  const venTok = vendorList.filter(v => !/MISCELLANEOUS/i.test(v)).map(v => ({ v, toks: sig(v) }));
+  const vidf = new Map(); for (const { toks } of venTok) for (const t of toks) vidf.set(t, (vidf.get(t) || 0) + 1);
+  const lexText = (desc, ext) => normDesc(desc + ' ' + (ext || ''));
+  const lexTokens = text => { const s = new Set(text.split(' ').filter(t => t.length >= 3 && !LEX_STOP.has(t)));
+    for (const t of [...s]) if (ALIASES[t]) s.add(ALIASES[t]);   // expand shorthand to the real brand word
+    return s; };
+  function lexBest(index, df, dtok, maxDf){
+    let best = null, bs = 0, bt = null;
+    for (const e of index){ let s = 0, mt = null, md = 1e9;
+      for (const t of e.toks) if (dtok.has(t)){ const d = df.get(t) || 1; s += (t.length >= 4 ? 1 : 0.3) / d; if (d < md){ md = d; mt = t; } }
+      if (s > bs){ bs = s; best = e.it || e.v; bt = mt; } }
+    return (best && bt && (df.get(bt) <= maxDf) && bt.length >= 4) ? best : null;
+  }
+  const topOf = obj => { if (!obj) return null; let b = null, bc = -1; for (const k in obj) if (obj[k] > bc){ b = k; bc = obj[k]; } return b; };
+  /* Amex Category -> item. Card-holder-specific learning wins (so the same category,
+     e.g. groceries/restaurant, can resolve to snacks for Admin vs business-meal for CXO);
+     then the category alone; then the curated rules. */
+  function categoryItem(cat, member){
+    if (!cat) return null; const nc = normDesc(cat);
+    if (mem.byCategory){
+      if (member){ const b = topOf(mem.byCategory[nc + SEP + personKey(member)]); if (b && itemSet.has(b)) return b; }
+      const b = topOf(mem.byCategory[nc]); if (b && itemSet.has(b)) return b;
+    }
+    for (const [re, v] of CATEGORY_RULES) if (re.test(nc) && itemSet.has(v)) return v;
+    return null;
+  }
+
+  return function classify(desc, ext, cat, member){
+    const key = merchantKey(desc);
+    const nd = normDesc(desc);
+
+    // T1/T2 — merchant memory. Ambiguity at merchant level always wins: ask.
+    const entry = mem.byMerchant[key];
+    if (entry){
+      const trips = triplesOf(entry);
+      if (trips.length === 1)
+        return { status: 'auto', tier: 'memory', fill: trips[0], candidates: trips };
+      const exact = triplesOf(mem.byDesc[nd]);
+      const order = exact.length
+        ? [...exact, ...trips.filter(t => !exact.some(e => e.item === t.item && e.vendor === t.vendor && e.dept === t.dept))]
+        : trips;
+      return { status: 'choose', tier: 'memory-ambiguous', fill: null, candidates: order.slice(0, 6) };
+    }
+
+    // T3 — near match against known merchant keys (token containment / squashed)
+    if (key.length >= 4){
+      const kt = tokens(key), sq = key.replace(/ /g, '');
+      const near = memKeys.filter(({ toks, sq: s2 }) => {
+        const tokCont = kt.every(t => toks.includes(t)) || toks.every(t => kt.includes(t));
+        const sqCont = sq.length >= 5 && s2.length >= 5 && (sq.includes(s2) || s2.includes(sq));
+        return tokCont || sqCont;
+      });
+      if (near.length){
+        const all = [];
+        for (const { k } of near)
+          for (const t of triplesOf(mem.byMerchant[k])){
+            const hit = all.find(x => x.item === t.item && x.vendor === t.vendor && x.dept === t.dept);
+            if (hit) hit.count += t.count; else all.push({ ...t });
+          }
+        all.sort((a, b) => b.count - a.count);
+        if (all.length === 1) return { status: 'fuzzy', tier: 'near:' + near[0].k, fill: all[0], candidates: all };
+        return { status: 'choose', tier: 'near-ambiguous', fill: null, candidates: all.slice(0, 6) };
+      }
+    }
+
+    // ----- cold merchant: read the Description (+details, +Amex Category) against the master lists -----
+    const text = lexText(desc, ext);
+    const dtok = lexTokens(text);
+    let item = lexBest(itemTok, idf, dtok, 6);          // brand/keyword token found inside an item name
+    let tier = 'lexical-item';
+    if (!item){ item = categoryItem(cat, member); tier = 'category'; }   // Amex category prior (card-holder-aware, learned, then curated)
+    if (!item){ for (const r of KEYWORD_RULES) if (r.re.test(text) && itemSet.has(r.item)){ item = r.item; tier = 'keyword'; break; } }
+    const vendor = lexBest(venTok, vidf, dtok, 4) || MISC;              // brand vendor, else Miscellaneous
+    let dept = checkedDept(agg.top(agg.itemDept, item));                // history dept for that item (card-holder applied later)
+    if (!dept && cat){ const ci = categoryItem(cat, member); dept = checkedDept(agg.top(agg.itemDept, ci)); }
+    if (!item){ tier = 'fallback'; }
+    return { status: 'guess', tier, fill: { item: item || null, vendor, dept: dept || null }, candidates: [] };
+  };
+}
+
+/* ---------- person -> department ---------- */
+function personKey(name){ return String(name || '').toUpperCase().replace(/[^A-Z ]+/g, ' ').replace(/\s+/g, ' ').trim(); }
+function buildPersonLookup(personDept){
+  const exact = new Map(), byFL = new Map();
+  for (const k in (personDept || {})){ const pk = personKey(k); exact.set(pk, personDept[k]);
+    const t = pk.split(' '); if (t.length >= 2) byFL.set(t[0] + ' ' + t[t.length - 1], personDept[k]); }
+  return name => { const pk = personKey(name); if (!pk) return null;
+    if (exact.has(pk)) return exact.get(pk);
+    const t = pk.split(' ');
+    if (t.length >= 2){ const fl = t[0] + ' ' + t[t.length - 1]; if (byFL.has(fl)) return byFL.get(fl);
+      for (const [k, v] of exact){ const kt = k.split(' '); if (kt[0] === t[0] && kt[kt.length - 1] === t[t.length - 1]) return v; } }
+    return null; };
+}
+/* Top-level classifier. Priority — the DESCRIPTION's content leads, so an aggregator
+   (Amazon, PayPal…) is decided by what was bought, not by its name:
+     1. exact full description seen before, one consistent way -> replicate (AUTO)
+     2. the description's content words point to an item (learned word->item, then the
+        dictionary) -> use that item, flagged for review (CONTENT). This OVERRIDES the
+        merchant's most-frequent default, fixing "everything from Amazon -> snacks".
+     3. exact description seen more than one way -> most frequent, flagged (CHOOSE)
+     4. merchant seen exactly one way, and no distinguishing content -> replicate (AUTO)
+     5. merchant seen several ways, no content signal -> most frequent, flagged (CHOOSE)
+     6. brand-new merchant -> cold guess (lexical / category / dictionary) + card-holder dept */
+function buildClassifier2(mem, itemList, vendorList, deptList){
+  const base = buildClassifier(mem, itemList, vendorList, deptList);
+  const agg = buildAggregates(mem);
+  const lookupPerson = buildPersonLookup(mem.personDept || {});
+  const itemSet = new Set(itemList), deptSet = new Set(deptList);
+  const MISC = vendorList.find(v => /^MISCELLANEOUS VENDORS/i.test(v.trim())) || null;
+  const strip = t => ({ item: t.item || null, vendor: t.vendor || null, dept: t.dept || null });
+
+  /* Item implied by the description's own words. Learned word->item votes win when
+     they are "pure" (a word that has nearly always meant one item); otherwise the
+     built-in dictionary is tried on the content words only. */
+  function contentItem(desc){
+    const words = contentWords(desc);
+    if (!words.length) return null;
+    const votes = new Map();
+    for (const w of words){ const wm = mem.byWord && mem.byWord[w]; if (!wm) continue;
+      let total = 0, top = null, tc = -1;
+      for (const it in wm){ total += wm[it]; if (wm[it] > tc){ tc = wm[it]; top = it; } }
+      if (total >= 1 && tc / total >= 0.6 && itemSet.has(top)) votes.set(top, (votes.get(top) || 0) + tc);
+    }
+    let best = null, bs = 0; for (const [it, s] of votes) if (s > bs){ bs = s; best = it; }
+    if (best) return best;
+    const ctext = words.join(' ');
+    for (const r of KEYWORD_RULES) if (r.re.test(ctext) && itemSet.has(r.item)) return r.item;
+    return null;
+  }
+  const deptForItem = (item, personD, fallback) =>
+    (item && deptSet.has(agg.top(agg.itemDept, item)) ? agg.top(agg.itemDept, item) : null)
+    || (personD && deptSet.has(personD) ? personD : null) || fallback || null;
+
+  return function(desc, ext, member, cat){
+    const nd = normDesc(desc), key = merchantKey(desc);
+    const personD = lookupPerson(member);
+    const exact = triplesOf(mem.byDesc[nd]);
+    const mTrips = triplesOf(mem.byMerchant[key]);
+
+    // 1. exact same description, booked consistently -> replicate
+    if (exact.length === 1)
+      return { status: 'auto', tier: 'exact', fill: strip(exact[0]), candidates: exact, personD };
+
+    // 2. description content decides the item (aggregator-safe)
+    const cItem = contentItem(desc);
+    if (cItem){
+      const vendor = (mTrips[0] && mTrips[0].vendor) || agg.top(agg.itemVendor, cItem) || MISC;
+      const dept = deptForItem(cItem, personD, mTrips[0] && mTrips[0].dept);
+      const cands = (exact.length > 1 ? exact : mTrips).slice(0, 6);
+      return { status: mTrips.length || exact.length ? 'choose' : 'guess', tier: 'content',
+               fill: { item: cItem, vendor: vendor || null, dept: dept || null }, candidates: cands, personD };
+    }
+
+    // 3. exact description seen more than one way -> most frequent, flagged
+    if (exact.length > 1)
+      return { status: 'choose', tier: 'exact-multi', fill: strip(exact[0]), candidates: exact.slice(0, 6), personD };
+
+    // 4/5. merchant memory (no distinguishing content)
+    if (mTrips.length === 1)
+      return { status: 'auto', tier: 'merchant', fill: strip(mTrips[0]), candidates: mTrips, personD };
+    if (mTrips.length > 1)
+      return { status: 'choose', tier: 'merchant-multi', fill: strip(mTrips[0]), candidates: mTrips.slice(0, 6), personD };
+
+    // 6. brand-new merchant -> cold guess + card-holder dept
+    const r = base(desc, typeof ext === 'string' ? ext : '', cat, member);
+    const fill = { item: null, vendor: null, dept: null };
+    if (r.fill){ fill.item = r.fill.item || null; fill.vendor = r.fill.vendor || null; fill.dept = r.fill.dept || null; }
+    if (r.status === 'auto' || r.status === 'fuzzy'){
+      return { status: r.status, tier: r.tier, fill, candidates: r.candidates || [], personD };
+    }
+    if (r.status === 'choose'){
+      const top = (r.candidates || [])[0]; if (top){ fill.item = top.item || null; fill.vendor = top.vendor || null; fill.dept = top.dept || null; }
+      return { status: 'choose', tier: r.tier, fill, candidates: r.candidates || [], personD };
+    }
+    if (personD && deptSet.has(personD)) fill.dept = personD;     // new merchant: card-holder dept
+    return { status: 'guess', tier: r.tier, fill, candidates: [], personD };
+  };
+}
+
+/* ---------- raw Amex file layout ---------- */
+function detectRawLayout(rows){
+  let hr = -1;
+  for (let r = 1; r <= 15 && hr < 0; r++){ const c = rows.get(r); if (!c) continue;
+    for (const [, v] of c) if (typeof v === 'string' && v.trim().toLowerCase() === 'description'){ hr = r; break; } }
+  if (hr < 0) throw new Error("Raw file: no 'Description' header found (searched rows 1–15).");
+  const H = rows.get(hr); let cDesc = null, cMember = null, cAmount = null, cExt = null, cCategory = null, minC = 1e9, maxC = 0;
+  for (const [ci, v] of H){ if (typeof v !== 'string') continue; const l = v.trim().toLowerCase();
+    if (ci < minC) minC = ci; if (ci > maxC) maxC = ci;
+    if (l === 'description') cDesc = ci;
+    if (l === 'card member') cMember = ci;
+    if (l === 'amount') cAmount = ci;
+    if (l === 'extended details') cExt = ci;
+    if (l === 'category') cCategory = ci; }
+  let last = 0; for (const rn of rows.keys()) if (rn > last) last = rn;
+  const dataRows = []; for (let r = hr + 1; r <= last; r++){ const d = rows.get(r)?.get(cDesc);
+    if (typeof d === 'string' && d.trim() !== '') dataRows.push(r); }
+  return { headerRow: hr, cDesc, cMember, cAmount, cExt, cCategory, firstCol: minC, lastCol: maxC, dataRows };
+}
+
+/* ---------- row-template capture + formula-aware, append-capable writer ---------- */
+function cellsByRow(xml){
+  const map = new Map(); const rowRe = /<row\b[^>]*?\br="(\d+)"[^>]*?(?:\/>|>([\s\S]*?)<\/row>)/g; let rm;
+  while ((rm = rowRe.exec(xml))){ const rn = +rm[1], inner = rm[2] || ''; const cells = new Map(); let cm;
+    const cellRe = /<c\b[^>]*?(?:\/>|>[\s\S]*?<\/c>)/g;
+    while ((cm = cellRe.exec(inner))){ const ref = /\br="([A-Z]+)\d+"/.exec(cm[0]); if (ref) cells.set(colIndex(ref[1]), cm[0]); }
+    map.set(rn, cells); }
+  return map;
+}
+/* For each generated column build a reusable cell template:
+   - if any data row holds a real formula body -> {kind:'f'} with row refs tokenised to #ROW#
+     (this dodges shared-formula stubs like <f t="shared" si="5"/>)
+   - else the most common literal value -> {kind:'n'|'s'|'blank'} */
+function captureTemplate(xml, parsedRows, dataRows, genCols){
+  const cells = cellsByRow(xml); const tmpl = new Map();
+  for (const ci of genCols){
+    let fdef = null;
+    for (const rn of dataRows){ const c = cells.get(rn)?.get(ci); if (!c) continue;
+      const fm = /<f\b[^>]*>([\s\S]*?)<\/f>/.exec(c);
+      if (fm && fm[1].trim() !== ''){ const refRe = new RegExp('(\\$?[A-Z]{1,3})' + rn + '(?![0-9])', 'g');
+        const sm = /\bs="(\d+)"/.exec(c); fdef = { kind: 'f', f: fm[1].replace(refRe, '$1#ROW#'), s: sm ? sm[1] : null }; break; } }
+    if (fdef){ tmpl.set(ci, fdef); continue; }
+    const counts = new Map(); let styleSeen = null;
+    for (const rn of dataRows){ const v = parsedRows.get(rn)?.get(ci); if (v == null || v === '') continue; counts.set(v, (counts.get(v) || 0) + 1); }
+    for (const rn of dataRows){ const c = cells.get(rn)?.get(ci); if (c){ const sm = /\bs="(\d+)"/.exec(c); if (sm){ styleSeen = sm[1]; break; } } }
+    let best = null, bc = -1; for (const [v, n] of counts) if (n > bc){ best = v; bc = n; }
+    if (best == null) tmpl.set(ci, { kind: 'blank', s: styleSeen });
+    else if (typeof best === 'number') tmpl.set(ci, { kind: 'n', v: best, s: styleSeen });
+    else tmpl.set(ci, { kind: 's', v: String(best), s: styleSeen });
+  }
+  return tmpl;
+}
+function renderCell(ci, rn, val, styleByCol){
+  const ref = colLetter(ci) + rn;
+  let sAttr = styleByCol.has(ci) ? ` s="${styleByCol.get(ci)}"` : '';
+  if (val == null || val === '' || (typeof val === 'object' && val.kind === 'blank')){
+    if (typeof val === 'object' && val && val.s != null) sAttr = ` s="${val.s}"`;
+    return `<c r="${ref}"${sAttr}/>`;
+  }
+  if (typeof val === 'object'){
+    if (val.s != null) sAttr = ` s="${val.s}"`;
+    if (val.kind === 'f') return `<c r="${ref}"${sAttr}><f>${xmlEscape(val.f.replace(/#ROW#/g, rn))}</f></c>`;
+    if (val.kind === 'n') return `<c r="${ref}"${sAttr}><v>${val.v}</v></c>`;
+    return `<c r="${ref}"${sAttr} t="inlineStr"><is><t xml:space="preserve">${xmlEscape(String(val.v))}</t></is></c>`;
+  }
+  if (typeof val === 'number') return `<c r="${ref}"${sAttr}><v>${val}</v></c>`;
+  return `<c r="${ref}"${sAttr} t="inlineStr"><is><t xml:space="preserve">${xmlEscape(String(val))}</t></is></c>`;
+}
+/* Edits existing rows in place AND appends rows beyond the sheet's range.
+   editsByRow: Map<rowNum, Map<colIdx, value>>; value = string|number|null|{kind...} */
+function patchSheetXml(xml, editsByRow, styleByCol){
+  const missing = new Set(editsByRow.keys());
+  let out = xml.replace(/<row\b[^>]*?\br="(\d+)"[^>]*?(?:\/>|>([\s\S]*?)<\/row>)/g, (whole, rStr, inner) => {
+    const rn = +rStr; const edits = editsByRow.get(rn); if (!edits) return whole; missing.delete(rn);
+    let openTag = whole.slice(0, whole.indexOf('>') + 1);
+    if (openTag.endsWith('/>')){ openTag = openTag.slice(0, -2) + '>'; inner = ''; }
+    const byCol = new Map(); let cm; const cellRe = /<c\b[^>]*?(?:\/>|>[\s\S]*?<\/c>)/g;
+    while ((cm = cellRe.exec(inner || ''))){ const ref = /\br="([A-Z]+)\d+"/.exec(cm[0]); if (ref) byCol.set(colIndex(ref[1]), cm[0]); }
+    for (const [ci, val] of edits){
+      const prev = byCol.get(ci); const sm = prev && /\bs="(\d+)"/.exec(prev);
+      const local = new Map(styleByCol);
+      if (sm && !(val && typeof val === 'object' && val.s != null)) local.set(ci, sm[1]);
+      byCol.set(ci, renderCell(ci, rn, val, local));
+    }
+    const cells = [...byCol.entries()].sort((a, b) => a[0] - b[0]).map(e => e[1]).join('');
+    return openTag + cells + '</row>';
+  });
+  if (missing.size){
+    const rowsXml = [...missing].sort((a, b) => a - b).map(rn => {
+      const edits = editsByRow.get(rn);
+      const cells = [...edits.entries()].sort((a, b) => a[0] - b[0]).map(([ci, val]) => renderCell(ci, rn, val, styleByCol)).join('');
+      return `<row r="${rn}">${cells}</row>`;
+    }).join('');
+    out = out.replace('</sheetData>', rowsXml + '</sheetData>');
+  }
+  return out;
+}
+
+/* style hints: per target column, the s= attribute most used by existing cells */
+function styleHints(xml, colIdxs){
+  const counts = new Map(colIdxs.map(c => [c, new Map()]));
+  let m; const re = /<c\b([^>]*?)(?:\/>|>[\s\S]*?<\/c>)/g;
+  while ((m = re.exec(xml))){
+    const ref = /\br="([A-Z]+)\d+"/.exec(m[1]); if (!ref) continue;
+    const ci = colIndex(ref[1]); if (!counts.has(ci)) continue;
+    const s = /\bs="(\d+)"/.exec(m[1]); if (!s) continue;
+    const c = counts.get(ci); c.set(s[1], (c.get(s[1]) || 0) + 1);
+  }
+  const out = new Map();
+  for (const [ci, c] of counts){
+    let best = null, bc = -1; for (const [v, n] of c) if (n > bc){ best = v; bc = n; }
+    if (best !== null) out.set(ci, best);
+  }
+  return out;
+}
+function ensureFullCalc(wbXml){
+  if (/<calcPr\b[^>]*\bfullCalcOnLoad="1"/.test(wbXml)) return wbXml;
+  if (/<calcPr\b/.test(wbXml)) return wbXml.replace(/<calcPr\b/, '<calcPr fullCalcOnLoad="1" ');
+  if (/<\/definedNames>/.test(wbXml)) return wbXml.replace('</definedNames>', '</definedNames><calcPr fullCalcOnLoad="1"/>');
+  return wbXml.replace('</sheets>', '</sheets><calcPr fullCalcOnLoad="1"/>');
+}
+
+
+const seedEl = (typeof document !== 'undefined') && document.getElementById && document.getElementById('cc-seed');
+const SEED = JSON.parse(seedEl ? seedEl.textContent : globalThis.CC_SEED_JSON);
+
+globalThis.CC = {
+  crc32, inflateRaw, deflateRaw, zipOpen, zipRepack,
+  xmlEscape, xmlUnescape, colIndex, colLetter,
+  parseSharedStrings, parseSheetCells, openWorkbook,
+  detectLayout, detectRawLayout, columnList,
+  SEP, normDesc, merchantKey, tokens, contentWords, mergeMemory, triplesOf,
+  buildClassifier, buildClassifier2, buildPersonLookup, personKey,
+  captureTemplate, renderCell, patchSheetXml, styleHints, ensureFullCalc, SEED
+};
+})();
+</script>
+
+<script>
+/* ============================================================
+   UI layer — raw→uploader merge + S/T/U auto-fill
+   ============================================================ */
+(function(){
+'use strict';
+const CC = globalThis.CC;
+const $ = id => document.getElementById(id);
+const MEM_KEY = 'ccAutofillMemory.v1';
+const TE = new TextEncoder();
+const ci = s => CC.colIndex(s), cl = n => CC.colLetter(n);
+
+if (typeof DecompressionStream === 'undefined'){
+  $('err').style.display = 'block';
+  $('err').textContent = 'This browser is too old for CC AutoFill — needs Chrome/Edge 88+, Safari 16.4+ or Firefox 113+.';
+}
+
+/* ---------- memory ---------- */
+function blankMem(){ return { byDesc:{}, byMerchant:{}, byCategory:{}, byWord:{}, personDept:{} }; }
+function loadLearned(){ try { const m = JSON.parse(localStorage.getItem(MEM_KEY) || 'null') || blankMem();
+  m.byDesc ||= {}; m.byMerchant ||= {}; m.byCategory ||= {}; m.byWord ||= {}; m.personDept ||= {}; return m; } catch { return blankMem(); } }
+let STORAGE_OK = true;
+function saveLearned(m){ try { localStorage.setItem(MEM_KEY, JSON.stringify(m)); STORAGE_OK = true; return true; }
+  catch { STORAGE_OK = false; return false; } }
+let learned = loadLearned();
+/* ask the browser to keep this storage durable (don't evict under pressure) */
+(async () => { try { if (navigator.storage && navigator.storage.persist){
+  const already = navigator.storage.persisted ? await navigator.storage.persisted() : false;
+  if (!already) await navigator.storage.persist(); } } catch {} })();
+/* verify storage actually works in this context (warn on private mode / blocked) */
+(() => { try { localStorage.setItem('__cc_probe','1'); localStorage.removeItem('__cc_probe'); STORAGE_OK = true; }
+  catch { STORAGE_OK = false; } })();
+/* combine seed + learned; resolve a single department per card-holder
+   (the fixed seed roles win; learned roles cover any new card-holders) */
+function resolvePersonDept(){
+  const out = { ...(CC.SEED.personDept || {}) };
+  const seedKeys = new Set(Object.keys(out).map(k => CC.personKey(k)));
+  for (const raw in (learned.personDept || {})){
+    if (seedKeys.has(CC.personKey(raw))) continue;
+    const counts = learned.personDept[raw]; let best = null, bc = -1;
+    for (const d in counts) if (counts[d] > bc){ best = d; bc = counts[d]; }
+    if (best) out[raw] = best;
+  }
+  return out;
+}
+function memory(){ const m = CC.mergeMemory(CC.SEED, learned); m.personDept = resolvePersonDept(); return m; }
+function memStats(){ const m = memory(); const lm = Object.keys(learned.byMerchant || {}).length;
+  const when = learned._updated ? new Date(learned._updated).toLocaleString() : 'just the built-in starter set so far';
+  const save = STORAGE_OK
+    ? `<span style="color:var(--green)">● auto-saved in this browser</span>`
+    : `<span style="color:var(--red)">● NOT saving — private window or storage blocked; use Backup</span>`;
+  $('memstats').innerHTML =
+    `🧠 <b>${Object.keys(m.byMerchant).length}</b> merchants · <b>${Object.keys(m.byDesc).length}</b> exact descriptions known · ${save}<br>` +
+    `<span style="color:var(--faint)">learned on this machine: ${lm} merchants · last updated ${when}</span>`; }
+memStats();
+
+/* continuous learning: persist one row's mapping the moment it is confirmed,
+   so nothing depends on downloading or re-uploading past files next session */
+function learnRow(r){
+  if (!(r.fill.item && r.fill.vendor && r.fill.dept)) return false;
+  const triple = r.fill.item + CC.SEP + r.fill.vendor + CC.SEP + r.fill.dept;
+  const sig = CC.merchantKey(r.desc) + '' + triple;
+  if (r._learnedSig === sig) return false;            // already stored this exact mapping for this row
+  r._learnedSig = sig;
+  const mk = CC.merchantKey(r.desc), nd = CC.normDesc(r.desc);
+  const isNew = !learned.byMerchant[mk] && !CC.SEED.byMerchant[mk];
+  (learned.byMerchant[mk] ||= {})[triple] = Math.min(999, (learned.byMerchant[mk][triple] || 0) + 1);
+  (learned.byDesc[nd] ||= {})[triple] = Math.min(999, (learned.byDesc[nd][triple] || 0) + 1);
+  if (typeof r.member === 'string' && r.member.trim()){ const pk = CC.personKey(r.member);
+    (learned.personDept[pk] ||= {})[r.fill.dept] = Math.min(999, (learned.personDept[pk][r.fill.dept] || 0) + 1); }
+  if (typeof r.cat === 'string' && r.cat.trim()){ const nc = CC.normDesc(r.cat);
+    (learned.byCategory[nc] ||= {})[r.fill.item] = Math.min(999, (learned.byCategory[nc][r.fill.item] || 0) + 1);
+    if (typeof r.member === 'string' && r.member.trim()){ const ck = nc + CC.SEP + CC.personKey(r.member);
+      (learned.byCategory[ck] ||= {})[r.fill.item] = Math.min(999, (learned.byCategory[ck][r.fill.item] || 0) + 1); } }
+  for (const w of CC.contentWords(r.desc))                    // learn the description's content words -> item
+    (learned.byWord[w] ||= {})[r.fill.item] = Math.min(999, (learned.byWord[w][r.fill.item] || 0) + 1);
+  learned._updated = new Date().toISOString();
+  saveLearned(learned); memStats();
+  return isNew;
+}
+
+/* ---------- backup / restore of everything the utility has learned ---------- */
+function buildBackup(){
+  return {
+    format: 'cc-autofill-backup@3',
+    exported: new Date().toISOString(),
+    updated: learned._updated || null,
+    stats: {
+      merchants: Object.keys(learned.byMerchant || {}).length,
+      descriptions: Object.keys(learned.byDesc || {}).length,
+      categoryRules: Object.keys(learned.byCategory || {}).length,
+      contentWords: Object.keys(learned.byWord || {}).length,
+      cardHolders: Object.keys(learned.personDept || {}).length,
+    },
+    // the complete learned store — every kind of learning the tool keeps
+    byDesc: learned.byDesc || {},
+    byMerchant: learned.byMerchant || {},
+    byCategory: learned.byCategory || {},
+    byWord: learned.byWord || {},
+    personDept: learned.personDept || {},
+  };
+}
+function doExport(){
+  const data = buildBackup();
+  const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+  const blob = new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `cc-autofill-backup ${stamp}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  toast(`Backed up everything learned: ${data.stats.merchants} merchants · ${data.stats.descriptions} descriptions · ${data.stats.categoryRules} category rules → "${a.download}".`);
+}
+$('btnExport').onclick = doExport;
+$('btnImport').onclick = () => $('memfile').click();
+if ($('btnExport2')) $('btnExport2').onclick = doExport;
+if ($('btnImport2')) $('btnImport2').onclick = () => $('memfile').click();
+$('memfile').onchange = async e => { const f = e.target.files[0]; if (!f) return;
+  try {
+    const j = JSON.parse(await f.text());
+    if (!(j.byMerchant || j.byDesc || j.byCategory)) throw new Error('this is not a CC AutoFill backup file');
+    const incoming = { byDesc: j.byDesc || {}, byMerchant: j.byMerchant || {}, byCategory: j.byCategory || {}, byWord: j.byWord || {}, personDept: j.personDept || {} };
+    const have = Object.keys(learned.byMerchant || {}).length;
+    let mode = 'replace';
+    if (have) mode = confirm(`This machine already has ${have} learned merchant(s).\n\nOK  = REPLACE them with the backup (clean restore).\nCancel = MERGE the backup into what's already here.`) ? 'replace' : 'merge';
+    if (mode === 'replace'){
+      learned = { byDesc: incoming.byDesc, byMerchant: incoming.byMerchant, byCategory: incoming.byCategory, byWord: incoming.byWord, personDept: incoming.personDept, _updated: j.updated || new Date().toISOString() };
+    } else {
+      const merged = CC.mergeMemory(learned, incoming); merged.personDept = { ...(learned.personDept || {}) };
+      for (const p in incoming.personDept){ merged.personDept[p] ||= {}; for (const d in incoming.personDept[p]) merged.personDept[p][d] = Math.min(999, (merged.personDept[p][d] || 0) + incoming.personDept[p][d]); }
+      merged._updated = new Date().toISOString(); learned = merged;
+    }
+    saveLearned(learned); memStats(); if (S) reclassify();
+    toast(`${mode === 'replace' ? 'Restored' : 'Merged'} backup — now ${Object.keys(memory().byMerchant).length} merchants known.`);
+  } catch (err){ toast('Restore failed: ' + err.message, true); } e.target.value = ''; };
+$('btnReset').onclick = () => { if (!confirm('Forget everything learned/trained in this browser? (The built-in starter set stays. Export a backup first if unsure.)')) return;
+  learned = blankMem(); saveLearned(learned); memStats(); if (S) reclassify(); toast('Learned memory cleared.'); };
+
+/* ---------- self-training: learn from past filled uploader files ---------- */
+const trainDrop = $('trainDrop');
+trainDrop.onclick = () => $('trainFile').click();
+trainDrop.ondragover = e => { e.preventDefault(); trainDrop.classList.add('hover'); };
+trainDrop.ondragleave = () => trainDrop.classList.remove('hover');
+trainDrop.ondrop = e => { e.preventDefault(); trainDrop.classList.remove('hover'); trainFiles(e.dataTransfer.files); };
+$('trainFile').onchange = e => { trainFiles(e.target.files); e.target.value = ''; };
+
+async function trainFromFile(f){
+  const bytes = new Uint8Array(await f.arrayBuffer());
+  const wb = await CC.openWorkbook(CC.zipOpen(bytes));
+  const td = await wb.grid('Transaction Details');
+  if (!td) throw new Error('no "Transaction Details" sheet');
+  const L = CC.detectLayout(td.rows); L.cMember = L.cDesc + 1;
+  let rows = 0, newKeys = 0;
+  for (const rn of L.dataRows){
+    const C = td.rows.get(rn);
+    const item = C.get(L.cItem), vendor = C.get(L.cVendor), dept = C.get(L.cDept);
+    if (!(typeof item === 'string' && item.trim() && typeof vendor === 'string' && vendor.trim() && typeof dept === 'string' && dept.trim())) continue;
+    const desc = String(C.get(L.cDesc) || ''); if (!desc.trim()) continue;
+    const member = C.get(L.cMember);
+    const cat = L.cCategory ? C.get(L.cCategory) : null;
+    const triple = item + CC.SEP + vendor + CC.SEP + dept;
+    const mk = CC.merchantKey(desc), nd = CC.normDesc(desc);
+    if (!learned.byMerchant[mk] && !CC.SEED.byMerchant[mk]) newKeys++;
+    (learned.byMerchant[mk] ||= {})[triple] = Math.min(999, (learned.byMerchant[mk][triple] || 0) + 1);
+    (learned.byDesc[nd] ||= {})[triple] = Math.min(999, (learned.byDesc[nd][triple] || 0) + 1);
+    if (typeof member === 'string' && member.trim()){ const pk = CC.personKey(member);
+      (learned.personDept[pk] ||= {})[dept] = Math.min(999, (learned.personDept[pk][dept] || 0) + 1); }
+    if (typeof cat === 'string' && cat.trim()){ const nc = CC.normDesc(cat);
+      (learned.byCategory[nc] ||= {})[item] = Math.min(999, (learned.byCategory[nc][item] || 0) + 1);
+      if (typeof member === 'string' && member.trim()){ const ck = nc + CC.SEP + CC.personKey(member);
+        (learned.byCategory[ck] ||= {})[item] = Math.min(999, (learned.byCategory[ck][item] || 0) + 1); } }
+    for (const w of CC.contentWords(desc))                     // learn description content words -> item
+      (learned.byWord[w] ||= {})[item] = Math.min(999, (learned.byWord[w][item] || 0) + 1);
+    rows++;
+  }
+  return { rows, newKeys };
+}
+async function trainFiles(fileList){
+  const files = [...fileList]; if (!files.length) return;
+  const before = Object.keys(memory().byMerchant).length;
+  let okFiles = 0, totalRows = 0; const errs = [];
+  $('trainReport').innerHTML = `<span class="mono">training on ${files.length} file(s)…</span>`;
+  for (const f of files){ try { const rep = await trainFromFile(f); okFiles++; totalRows += rep.rows; }
+    catch (err){ console.error(err); errs.push(`${f.name}: ${err.message}`); } }
+  learned._updated = new Date().toISOString();
+  const persisted = saveLearned(learned); memStats();
+  const after = Object.keys(memory().byMerchant).length;
+  $('trainReport').innerHTML =
+    `<b>Trained on ${okFiles} file(s).</b> Learned ${totalRows} filled rows · ${after - before} new merchant(s) · memory now knows ${after} merchants.` +
+    (persisted ? '' : `<br><span style="color:var(--red)">⚠ Could not auto-save (private window or storage blocked) — use “Backup” to keep this, or reopen in a normal window.</span>`) +
+    (errs.length ? `<br><span style="color:var(--red)">Skipped: ${errs.map(esc).join('; ')}</span>` : '') +
+    `<br><span class="mono">Stored in this browser. Use “Export memory” to back it up or move it to another machine.</span>`;
+  if (S){ reclassify(); toast('Re-applied training to the loaded sheet.'); }
+}
+/* re-run classification on the loaded sheet after memory changes (keeps your edits) */
+function reclassify(){
+  if (!S || !upDoc.lists) return;
+  const lists = upDoc.lists; const mem = memory();
+  const classify = CC.buildClassifier2(mem, lists.itemList, lists.vendorList, lists.deptList);
+  for (const r of S.rows){
+    if (r.touched || r.status === 'done' || r.status === 'kept') continue;
+    const cr = classify(r.desc, r.ext, r.member, r.cat);
+    r.fill = { item: cr.fill.item || null, vendor: cr.fill.vendor || null, dept: cr.fill.dept || null };
+    r.status = cr.status; r.tier = cr.tier; r.candidates = cr.candidates || [];
+  }
+  render();
+}
+
+/* ---------- state ---------- */
+let rawDoc = null;   // { fileName, rows, layout }
+let upDoc = null;    // { fileName, bytes, zip, wb, sheetPath, sheetXml, rows, layout, lists }
+let S = null;        // working set after build()
+let filter = 'all';
+const F = { date:'', member:'', desc:'', amount:'', item:'', vendor:'', dept:'', status:'' };  // per-column filters
+
+function toast(msg, bad){ const t = $('toast'); t.textContent = msg;
+  t.style.borderColor = bad ? 'var(--red)' : 'var(--green-d)'; t.style.display = 'block';
+  clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', 6000); }
+function fail(msg){ $('err').style.display = 'block'; $('err').textContent = msg; }
+
+/* ---------- file intake ---------- */
+const drop = $('drop');
+drop.onclick = () => $('file').click();
+drop.ondragover = e => { e.preventDefault(); drop.classList.add('hover'); };
+drop.ondragleave = () => drop.classList.remove('hover');
+drop.ondrop = e => { e.preventDefault(); drop.classList.remove('hover'); handleFiles(e.dataTransfer.files); };
+$('file').onchange = e => { handleFiles(e.target.files); e.target.value = ''; };
+
+async function handleFiles(fileList){
+  $('err').style.display = 'none';
+  for (const f of [...fileList]){ try { await intake(f); } catch (err){ console.error(err); fail('Could not read ' + f.name + '\n\n' + err.message); } }
+  tryBuild();
+}
+async function intake(f){
+  const bytes = new Uint8Array(await f.arrayBuffer());
+  const zip = CC.zipOpen(bytes);
+  const wb = await CC.openWorkbook(zip);
+  const hasRefs = wb.sheets.some(s => s.name.trim().toLowerCase() === 'item master')
+               && wb.sheets.some(s => s.name.trim().toLowerCase() === 'departments');
+  const td = await wb.grid('Transaction Details');
+  if (!td) throw new Error("No 'Transaction Details' sheet in this file.");
+  if (hasRefs){
+    const layout = CC.detectLayout(td.rows); layout.cMember = layout.cDesc + 1;
+    upDoc = { fileName: f.name, bytes, zip, wb, sheetPath: td.path, sheetXml: td.xml, rows: td.rows, layout };
+    $('slotUp').classList.add('ok'); $('slotUpV').textContent = f.name;
+  } else {
+    const layout = CC.detectRawLayout(td.rows);
+    rawDoc = { fileName: f.name, rows: td.rows, layout };
+    $('slotRaw').classList.add('ok'); $('slotRawV').textContent = `${f.name} · ${layout.dataRows.length} rows`;
+  }
+}
+
+/* ---------- build working set ---------- */
+async function ensureLists(){
+  if (upDoc.lists) return upDoc.lists;
+  const [dep, im, vm] = await Promise.all([upDoc.wb.grid('Departments'), upDoc.wb.grid('Item Master'), upDoc.wb.grid('Vendor master')]);
+  if (!dep || !im) throw new Error("Reference sheet missing — need 'Departments' and 'Item Master' in the uploader.");
+  const deptList = CC.columnList(dep.rows, 1, 1);
+  const itemList = CC.columnList(im.rows, 2, 1);
+  let vendorList, vendorSrc;
+  if (vm){ vendorList = CC.columnList(vm.rows, 9, 1); vendorSrc = 'Vendor master!I'; }
+  else { vendorList = [...new Set(CC.columnList(im.rows, 3, 1))]; vendorSrc = 'Item Master!C'; }
+  upDoc.lists = { deptList, itemList, vendorList, vendorSrc };
+  return upDoc.lists;
+}
+async function tryBuild(){
+  if (!upDoc){ if (rawDoc) toast('Raw file loaded — now drop the uploader (.xlsx with the reference sheets).'); return; }
+  $('err').style.display = 'none';
+  try {
+    const lists = await ensureLists();
+    const mem = memory();
+    const classify = CC.buildClassifier2(mem, lists.itemList, lists.vendorList, lists.deptList);
+    // empty uploader (no transactions yet) and no raw file -> nothing to do; guide the user
+    if (!rawDoc && upDoc.layout.dataRows.length === 0){
+      $('main').style.display = 'none'; $('bar').style.display = 'none';
+      toast('This uploader has no transactions yet. Also drop the weekly raw Amex file — the tool will copy it into B–N and fill S/T/U, keeping all formulas.', true);
+      return;
+    }
+    S = rawDoc ? doMerge(lists, classify) : doSuOnly(lists, classify);
+    fillDatalist('dl-items', lists.itemList); fillDatalist('dl-vendors', lists.vendorList); fillDatalist('dl-depts', lists.deptList);
+    render();
+    $('main').style.display = 'block'; $('bar').style.display = 'block';
+    const a = S.rows.filter(r => r.status === 'auto').length;
+    toast(S.mode === 'merge'
+      ? `Merged ${S.rows.length} transactions from the raw file into the uploader (B–N), filled S/T/U, all R–AM formulas kept. ${a} auto-filled.`
+      : `Loaded uploader. ${a} of ${S.rows.length} rows auto-filled.`);
+  } catch (err){ console.error(err); fail('Could not build the uploader.\n\n' + err.message); }
+}
+
+function doMerge(lists, classify){
+  const L = upDoc.layout, R = rawDoc.layout;
+  // raw col -> uploader col (positional shift +1, over raw's used column span)
+  const rawMap = [];
+  for (let rc = R.firstCol; rc <= R.lastCol; rc++) rawMap.push([rc + 1, rc]);
+  const upBN = rawMap.map(x => x[0]);
+  const stu = [L.cItem, L.cVendor, L.cDept];
+  const clearCols = [1, ci('O'), ci('P'), ci('AN')];
+  const genCols = [];
+  const maxGen = ci('AM');
+  for (let c = 1; c <= maxGen; c++){ if (upBN.includes(c) || stu.includes(c) || clearCols.includes(c)) continue; genCols.push(c); }
+  // Capture the formula/default template from EVERY template row below the header — not
+  // only rows that have a Description. A blank template (no descriptions yet) still has
+  // its formulas in R..AM, and those must be picked up so the output isn't blank.
+  const scanRows = [...upDoc.rows.keys()].filter(rn => rn > L.headerRow).sort((a, b) => a - b);
+  const tmpl = CC.captureTemplate(upDoc.sheetXml, upDoc.rows, scanRows, genCols);
+  const styleByCol = CC.styleHints(upDoc.sheetXml, [...upBN, ...stu, ...genCols]);
+  let upLast = 0; for (const rn of upDoc.rows.keys()) if (rn > upLast) upLast = rn;
+
+  const rows = R.dataRows.map((rawRow, k) => {
+    const upRow = 3 + k; const RC = rawDoc.rows.get(rawRow);
+    const bn = new Map(); for (const [upc, rc] of rawMap){ const v = RC.get(rc); bn.set(upc, v == null ? '' : v); }
+    const desc = String(RC.get(R.cDesc) || '');
+    const ext = typeof RC.get(R.cExt) === 'string' ? RC.get(R.cExt) : '';
+    const member = RC.get(R.cMember) != null ? String(RC.get(R.cMember)) : '';
+    const cat = R.cCategory && typeof RC.get(R.cCategory) === 'string' ? RC.get(R.cCategory) : '';
+    const cr = classify(desc, ext, member, cat);
+    return { upRow, desc, ext, member, cat, amount: RC.get(R.cAmount), date: RC.get(R.cDate ?? null) ?? bn.get(2),
+      bn, existing: { item:null, vendor:null, dept:null },
+      fill: { item: cr.fill.item || null, vendor: cr.fill.vendor || null, dept: cr.fill.dept || null },
+      status: cr.status, tier: cr.tier, candidates: cr.candidates || [], touched: false };
+  });
+  return { mode:'merge', L, R, rawMap, upBN, stu, clearCols, genCols, tmpl, styleByCol, upLast, ...lists, rows };
+}
+
+function doSuOnly(lists, classify){
+  const L = upDoc.layout;
+  const stu = [L.cItem, L.cVendor, L.cDept];
+  const styleByCol = CC.styleHints(upDoc.sheetXml, stu);
+  const rows = L.dataRows.map(upRow => {
+    const C = upDoc.rows.get(upRow); const get = c => c ? (C.get(c) ?? null) : null;
+    const desc = String(get(L.cDesc));
+    const existing = { item: typeof get(L.cItem)==='string'?get(L.cItem):null,
+                       vendor: typeof get(L.cVendor)==='string'?get(L.cVendor):null,
+                       dept: typeof get(L.cDept)==='string'?get(L.cDept):null };
+    const member = typeof get(L.cMember)==='string'?get(L.cMember):'';
+    const ext = typeof get(L.cExt)==='string'?get(L.cExt):'';
+    const cat = L.cCategory && typeof get(L.cCategory)==='string'?get(L.cCategory):'';
+    const row = { upRow, desc, ext, member, cat, amount: get(L.cAmount), date: get(L.cDate),
+      existing, fill: { ...existing }, candidates: [], tier:'', touched:false };
+    if (existing.item && existing.vendor && existing.dept){ row.status = 'kept'; }
+    else { const cr = classify(desc, ext, member, cat); row.status = cr.status; row.tier = cr.tier;
+      row.candidates = cr.candidates || [];
+      for (const k of ['item','vendor','dept']) if (!row.fill[k] && cr.fill[k]) row.fill[k] = cr.fill[k]; }
+    return row;
+  });
+  return { mode:'su', L, stu, styleByCol, ...lists, rows };
+}
+
+function fillDatalist(id, list){ $(id).innerHTML = [...list].sort((a,b)=>a.localeCompare(b)).map(v => `<option value="${CC.xmlEscape(v)}">`).join(''); }
+
+/* ---------- render ---------- */
+const FIELD_LIST = { item:'dl-items', vendor:'dl-vendors', dept:'dl-depts' };
+const CHIP = { auto:'AUTO', kept:'KEPT', guess:'NEW', fuzzy:'NEW', choose:'CHOOSE', done:'OK' };
+
+function counts(){ const c = { all:S.rows.length, auto:0, guess:0, choose:0, kept:0, done:0, flag:0 };
+  for (const r of S.rows){ if (r.status==='fuzzy') c.guess++; else c[r.status]++;
+    if (r.status==='guess'||r.status==='fuzzy'||r.status==='choose') c.flag++; } return c; }
+function fmtAmount(a){ return typeof a==='number' ? a.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) : (a ?? ''); }
+function fmtDate(d){ if (typeof d==='number'){ const t = new Date(Date.UTC(1899,11,30)+d*86400000);
+    return String(t.getUTCMonth()+1).padStart(2,'0')+'/'+String(t.getUTCDate()).padStart(2,'0')+'/'+t.getUTCFullYear(); } return d ?? ''; }
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]); }
+
+/* value shown for a row in a given column (what the column filter matches against) */
+function rowVal(r, col){
+  switch (col){
+    case 'date': return String(fmtDate(r.date) || '');
+    case 'member': return String(r.member || '');
+    case 'desc': return String(r.desc || '');
+    case 'amount': return r.amount;
+    case 'item': return String(r.fill.item || '');
+    case 'vendor': return String(r.fill.vendor || '');
+    case 'dept': return String(r.fill.dept || '');
+    case 'status': return CHIP[r.status] + ' ' + r.status;
+    default: return '';
+  }
+}
+/* amount filter understands >, <, >=, <=, = ; otherwise substring */
+function amountMatch(q, amt){
+  const m = /^\s*(>=|<=|>|<|=)\s*(-?\d+(?:\.\d+)?)\s*$/.exec(q);
+  if (m){ const n = +amt, x = +m[2]; if (typeof amt !== 'number' || isNaN(n)) return false;
+    switch (m[1]){ case '>': return n>x; case '<': return n<x; case '>=': return n>=x; case '<=': return n<=x; default: return n===x; } }
+  return String(amt ?? '').toLowerCase().includes(q.toLowerCase());
+}
+function passesFilters(r){
+  for (const col in F){ const q = F[col].trim(); if (!q) continue;
+    if (col === 'amount'){ if (!amountMatch(q, r.amount)) return false; }
+    else if (!rowVal(r, col).toLowerCase().includes(q.toLowerCase())) return false; }
+  return true;
+}
+
+function render(){
+  const c = counts();
+  $('cAll').textContent = c.all; $('cAuto').textContent = c.auto + c.done;
+  $('cGuess').textContent = c.guess; $('cChoose').textContent = c.choose; $('cKept').textContent = c.kept;
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.f === filter));
+  $('barnote').textContent = c.flag
+    ? `${c.choose} pre-filled to review · ${c.guess} new merchant(s) to verify. All are pre-filled where possible; download whenever you like.`
+    : 'All rows resolved.';
+  const tabShow = r => filter==='all' ? true
+    : filter==='flag' ? ['guess','fuzzy','choose'].includes(r.status)
+    : filter==='auto' ? r.status==='auto'
+    : filter==='kept' ? r.status==='kept'
+    : filter==='done' ? r.status==='done' : true;
+  const show = r => tabShow(r) && passesFilters(r);
+
+  let shown = 0;
+  const html = [];
+  S.rows.forEach((r, i) => {
+    if (!show(r)) return; shown++;
+    const cell = f => { const v = r.fill[f]; return `<div class="cellv ${v?'':'empty'}" data-i="${i}" data-f="${f}" title="click to edit">${v?esc(v):'— pick —'}</div>`; };
+    const verify = (r.status==='guess'||r.status==='fuzzy'||r.status==='choose') ? `<br><button class="okbtn" data-verify="${i}">✓ confirm</button>` : '';
+    html.push(`<tr class="r-${r.status}">
+      <td class="num">${r.upRow}</td>
+      <td class="num" style="white-space:nowrap">${esc(fmtDate(r.date))}</td>
+      <td class="member">${esc(r.member||'')}</td>
+      <td class="desc"><div class="m">${esc(String(r.desc||'').replace(/\s+/g,' ').trim())}</div>${r.ext?`<details><summary>details</summary><pre>${esc(r.ext)}</pre></details>`:''}</td>
+      <td class="amt num">${esc(fmtAmount(r.amount))}</td>
+      <td>${cell('item')}</td><td>${cell('vendor')}</td><td>${cell('dept')}</td>
+      <td><span class="chip ${r.status}">${CHIP[r.status]}</span>${verify}</td>
+    </tr>`);
+    if (r.status==='choose' && r.candidates.length){
+      const btns = r.candidates.map((t,j) => `<button class="cand" data-i="${i}" data-c="${j}">use <b>${esc(t.item)}</b> · ${esc(t.vendor)} · ${esc(t.dept)}<span class="x">seen ×${t.count}</span></button>`).join('');
+      html.push(`<tr class="cands"><td></td><td colspan="8">Booked more than one way before — pre-filled with the most frequent; pick another if needed:${btns}</td></tr>`);
+    }
+  });
+  $('tbody').innerHTML = html.join('');
+  const anyFilter = filter !== 'all' || Object.values(F).some(v => v.trim());
+  $('showcount').textContent = anyFilter ? `showing ${shown} of ${S.rows.length}` : `${S.rows.length} rows`;
+}
+document.querySelectorAll('.tab').forEach(t => t.onclick = () => { filter = t.dataset.f; render(); });
+/* per-column filters */
+document.querySelectorAll('tr.filters input').forEach(inp => {
+  inp.addEventListener('input', () => { F[inp.dataset.col] = inp.value; inp.classList.toggle('on', !!inp.value.trim()); if (S) render(); });
+});
+$('btnClearFilters').onclick = () => {
+  for (const k in F) F[k] = '';
+  document.querySelectorAll('tr.filters input').forEach(inp => { inp.value = ''; inp.classList.remove('on'); });
+  filter = 'all'; if (S) render();
+};
+
+/* ---------- editing ---------- */
+$('tbody').addEventListener('click', e => {
+  const v = e.target.closest('.cellv'); if (v) return editCell(+v.dataset.i, v.dataset.f, v);
+  const cand = e.target.closest('.cand');
+  if (cand){ const r = S.rows[+cand.dataset.i]; const t = r.candidates[+cand.dataset.c];
+    r.fill = { item:t.item, vendor:t.vendor, dept:t.dept };
+    r.status = 'done'; r.touched = true; learnRow(r); offerSameMerchant(r); render(); return; }
+  const ver = e.target.closest('[data-verify]');
+  if (ver){ const r = S.rows[+ver.dataset.verify]; r.status='done'; r.touched=true; learnRow(r); render(); }
+});
+function editCell(i, f, el){
+  const r = S.rows[i]; const inp = document.createElement('input');
+  inp.className = 'editin'; inp.value = r.fill[f] || ''; inp.setAttribute('list', FIELD_LIST[f]);
+  el.replaceWith(inp); inp.focus(); inp.select(); let done = false;
+  const lists = upDoc.lists;
+  const commit = () => { if (done) return; done = true; const val = inp.value.trim();
+    const list = f==='item'?lists.itemList : f==='vendor'?lists.vendorList : lists.deptList;
+    if (val && !list.includes(val)){ const m = list.find(x => x.toLowerCase()===val.toLowerCase());
+      if (m) r.fill[f] = m; else { toast(`"${val}" is not in the ${f} list — not saved (pick from the dropdown).`, true); render(); return; } }
+    else r.fill[f] = val || null;
+    if (val){ r.status = 'done'; r.touched = true; learnRow(r); } offerSameMerchant(r); render(); };
+  inp.onchange = commit; inp.onblur = commit;
+  inp.onkeydown = ev => { if (ev.key==='Enter') commit(); if (ev.key==='Escape'){ done = true; render(); } };
+}
+function offerSameMerchant(r){
+  if (!(r.fill.item && r.fill.vendor && r.fill.dept)) return;
+  const key = CC.merchantKey(r.desc);
+  const others = S.rows.filter(o => o!==r && CC.merchantKey(o.desc)===key && ['choose','guess','fuzzy'].includes(o.status));
+  if (!others.length) return;
+  if (confirm(`Apply the same Item / Vendor / Department to ${others.length} other unresolved row(s) of "${key}"?`))
+    for (const o of others){ o.fill = { ...r.fill }; o.status = 'done'; o.touched = true; learnRow(o); }
+}
+$('btnVerifyAll').onclick = () => { let n = 0;
+  for (const r of S.rows) if (['guess','fuzzy','choose'].includes(r.status) && r.fill.item && r.fill.vendor && r.fill.dept){ r.status='done'; r.touched=true; learnRow(r); n++; }
+  render(); toast(n ? `Confirmed & saved ${n} pre-filled row(s).` : 'No complete rows to confirm.'); };
+
+/* ---------- download ---------- */
+$('btnDownload').onclick = async () => {
+  if (!S) return; const c = counts();
+  if (c.flag && !confirm(`${c.flag} row(s) still flagged. Download anyway? Unresolved Item/Vendor cells stay blank.`)) return;
+  try {
+    const editsByRow = new Map();
+    if (S.mode === 'merge'){
+      const { L, rawMap, clearCols, genCols, tmpl, upLast, rows } = S;
+      const N = rows.length;
+      rows.forEach(r => { const m = new Map();
+        for (const [upc] of rawMap){ const v = r.bn.get(upc); m.set(upc, v == null ? '' : v); }   // raw -> B..N
+        m.set(L.cItem, r.fill.item || ''); m.set(L.cVendor, r.fill.vendor || ''); m.set(L.cDept, r.fill.dept || '');  // S/T/U
+        for (const cc of clearCols) m.set(cc, '');                                                   // A/O/P/AN
+        if (r.upRow > upLast)                                                                        // row beyond the template:
+          for (const cc of genCols){ const t = tmpl.get(cc); m.set(cc, t == null ? '' : t); }        //   generate formulas + defaults
+        // else: the row already exists in the template — leave R..AM EXACTLY as they are
+        // (every formula and standing default is preserved byte-for-byte; we only touch B..N + S/T/U)
+        editsByRow.set(r.upRow, m); });
+      for (let rn = 3 + N; rn <= upLast; rn++){ const m = new Map(); for (let cc = 1; cc <= ci('AN'); cc++) m.set(cc, ''); editsByRow.set(rn, m); }
+    } else {
+      const L = S.L;
+      for (const r of S.rows){ const m = new Map();
+        const want = { [L.cItem]: r.fill.item, [L.cVendor]: r.fill.vendor, [L.cDept]: r.fill.dept };
+        const had  = { [L.cItem]: r.existing.item, [L.cVendor]: r.existing.vendor, [L.cDept]: r.existing.dept };
+        for (const cc of [L.cItem, L.cVendor, L.cDept]) if ((want[cc]||null)!==(had[cc]||null)) m.set(+cc, want[cc] || null);
+        if (m.size) editsByRow.set(r.upRow, m); }
+    }
+    const newSheet = CC.patchSheetXml(upDoc.sheetXml, editsByRow, S.styleByCol);
+    const newWb = CC.ensureFullCalc(upDoc.wb.wbXml);
+    const repl = new Map([[upDoc.sheetPath, TE.encode(newSheet)]]);
+    if (newWb !== upDoc.wb.wbXml) repl.set('xl/workbook.xml', TE.encode(newWb));
+    const out = await CC.zipRepack(upDoc.zip, repl);
+
+    let newKeys = 0;
+    for (const r of S.rows){ if (!['kept','done'].includes(r.status)) continue; if (learnRow(r)) newKeys++; }
+    const persisted = STORAGE_OK;
+
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([out], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+    a.download = upDoc.fileName.replace(/\.xlsx$/i,'') + ' (filled).xlsx';
+    a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+    toast(`Saved "${a.download}". ${editsByRow.size} row(s) written · learned ${newKeys} new mapping(s)` + (persisted?'.':' — localStorage blocked, memory will not persist!'), !persisted);
+  } catch (err){ console.error(err); toast('Write failed: ' + err.message, true); }
+};
+})();
+
+</script>
+</body>
+</html>
