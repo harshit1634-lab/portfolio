@@ -59,14 +59,16 @@
   .spacer{flex:1}
   /* table */
   .tablewrap{border:1px solid var(--line);border-radius:12px;overflow-x:auto;background:var(--panel)}
-  table{width:100%;min-width:960px;border-collapse:collapse;table-layout:fixed}
+  table{width:100%;min-width:1040px;border-collapse:collapse;table-layout:fixed}
   thead th{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.6px;text-transform:uppercase;
-    color:var(--dim);text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);background:var(--panel2);
-    vertical-align:bottom}
-  tbody td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top;
-    word-break:break-word;overflow-wrap:anywhere}
+    color:var(--dim);text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);border-right:1px solid var(--line);
+    background:var(--panel2);vertical-align:bottom}
+  thead th:last-child{border-right:none}
+  tbody td{padding:10px 12px;border-bottom:1px solid var(--line);border-right:1px solid var(--line);vertical-align:top;
+    word-break:break-word;overflow-wrap:anywhere;overflow:hidden}
+  tbody td:last-child{border-right:none}
   tbody tr:last-child td{border-bottom:none}
-  tbody tr:hover td{background:rgba(255,255,255,.015)}
+  tbody tr:hover td{background:rgba(255,255,255,.022)}
   tr.r-auto td:first-child{box-shadow:inset 3px 0 0 var(--green-d)}
   tr.r-kept td:first-child{box-shadow:inset 3px 0 0 var(--faint)}
   tr.r-guess td:first-child, tr.r-fuzzy td:first-child{box-shadow:inset 3px 0 0 var(--amber)}
@@ -79,7 +81,8 @@
   tr.filters input:focus{outline:none;border-color:var(--green-d)}
   tr.filters input.on{border-color:var(--green);background:var(--panel)}
   #showcount{color:var(--dim);font-size:12px}
-  .desc .m{white-space:pre-wrap;word-break:break-word}
+  .desc .m{white-space:normal;word-break:break-word;line-height:1.45}
+  td.member{color:var(--ink);line-height:1.4}
   .desc .sub{color:var(--faint);font-size:12px;margin-top:2px;font-family:'IBM Plex Mono',monospace}
   .desc details{margin-top:4px}
   .desc summary{color:var(--blue);font-size:11.5px;cursor:pointer;user-select:none}
@@ -221,8 +224,8 @@
     <div class="tablewrap">
     <table>
       <colgroup>
-        <col style="width:40px"><col style="width:82px"><col style="width:130px"><col style="width:25%">
-        <col style="width:86px"><col style="width:18%"><col style="width:14%"><col style="width:14%"><col style="width:108px">
+        <col style="width:36px"><col style="width:100px"><col style="width:138px"><col style="width:22%">
+        <col style="width:88px"><col style="width:18%"><col style="width:15%"><col style="width:15%"><col style="width:112px">
       </colgroup>
       <thead>
         <tr>
@@ -1362,8 +1365,8 @@ function render(){
     html.push(`<tr class="r-${r.status}">
       <td class="num">${r.upRow}</td>
       <td class="num" style="white-space:nowrap">${esc(fmtDate(r.date))}</td>
-      <td style="white-space:nowrap">${esc(r.member||'')}</td>
-      <td class="desc"><div class="m">${esc(r.desc)}</div>${r.ext?`<details><summary>details</summary><pre>${esc(r.ext)}</pre></details>`:''}</td>
+      <td class="member">${esc(r.member||'')}</td>
+      <td class="desc"><div class="m">${esc(String(r.desc||'').replace(/\s+/g,' ').trim())}</div>${r.ext?`<details><summary>details</summary><pre>${esc(r.ext)}</pre></details>`:''}</td>
       <td class="amt num">${esc(fmtAmount(r.amount))}</td>
       <td>${cell('item')}</td><td>${cell('vendor')}</td><td>${cell('dept')}</td>
       <td><span class="chip ${r.status}">${CHIP[r.status]}</span>${verify}</td>
