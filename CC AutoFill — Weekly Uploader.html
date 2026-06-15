@@ -1242,7 +1242,11 @@ function doMerge(lists, classify){
   const genCols = [];
   const maxGen = ci('AM');
   for (let c = 1; c <= maxGen; c++){ if (upBN.includes(c) || stu.includes(c) || clearCols.includes(c)) continue; genCols.push(c); }
-  const tmpl = CC.captureTemplate(upDoc.sheetXml, upDoc.rows, L.dataRows, genCols);
+  // Capture the formula/default template from EVERY template row below the header — not
+  // only rows that have a Description. A blank template (no descriptions yet) still has
+  // its formulas in R..AM, and those must be picked up so the output isn't blank.
+  const scanRows = [...upDoc.rows.keys()].filter(rn => rn > L.headerRow).sort((a, b) => a - b);
+  const tmpl = CC.captureTemplate(upDoc.sheetXml, upDoc.rows, scanRows, genCols);
   const styleByCol = CC.styleHints(upDoc.sheetXml, [...upBN, ...stu, ...genCols]);
   let upLast = 0; for (const rn of upDoc.rows.keys()) if (rn > upLast) upLast = rn;
 
