@@ -1220,13 +1220,19 @@ async function tryBuild(){
     const lists = await ensureLists();
     const mem = memory();
     const classify = CC.buildClassifier2(mem, lists.itemList, lists.vendorList, lists.deptList);
+    // empty uploader (no transactions yet) and no raw file -> nothing to do; guide the user
+    if (!rawDoc && upDoc.layout.dataRows.length === 0){
+      $('main').style.display = 'none'; $('bar').style.display = 'none';
+      toast('This uploader has no transactions yet. Also drop the weekly raw Amex file — the tool will copy it into B–N and fill S/T/U, keeping all formulas.', true);
+      return;
+    }
     S = rawDoc ? doMerge(lists, classify) : doSuOnly(lists, classify);
     fillDatalist('dl-items', lists.itemList); fillDatalist('dl-vendors', lists.vendorList); fillDatalist('dl-depts', lists.deptList);
     render();
     $('main').style.display = 'block'; $('bar').style.display = 'block';
     const a = S.rows.filter(r => r.status === 'auto').length;
     toast(S.mode === 'merge'
-      ? `Merged ${S.rows.length} transactions. ${a} auto-filled — review the flagged rows, then download.`
+      ? `Merged ${S.rows.length} transactions from the raw file into the uploader (B–N), filled S/T/U, all R–AM formulas kept. ${a} auto-filled.`
       : `Loaded uploader. ${a} of ${S.rows.length} rows auto-filled.`);
   } catch (err){ console.error(err); fail('Could not build the uploader.\n\n' + err.message); }
 }
@@ -1428,10 +1434,13 @@ $('btnDownload').onclick = async () => {
       const { L, rawMap, clearCols, genCols, tmpl, upLast, rows } = S;
       const N = rows.length;
       rows.forEach(r => { const m = new Map();
-        for (const [upc] of rawMap){ const v = r.bn.get(upc); m.set(upc, v == null ? '' : v); }
-        m.set(L.cItem, r.fill.item || ''); m.set(L.cVendor, r.fill.vendor || ''); m.set(L.cDept, r.fill.dept || '');
-        for (const cc of clearCols) m.set(cc, '');
-        for (const cc of genCols){ const t = tmpl.get(cc); m.set(cc, t == null ? '' : t); }
+        for (const [upc] of rawMap){ const v = r.bn.get(upc); m.set(upc, v == null ? '' : v); }   // raw -> B..N
+        m.set(L.cItem, r.fill.item || ''); m.set(L.cVendor, r.fill.vendor || ''); m.set(L.cDept, r.fill.dept || '');  // S/T/U
+        for (const cc of clearCols) m.set(cc, '');                                                   // A/O/P/AN
+        if (r.upRow > upLast)                                                                        // row beyond the template:
+          for (const cc of genCols){ const t = tmpl.get(cc); m.set(cc, t == null ? '' : t); }        //   generate formulas + defaults
+        // else: the row already exists in the template — leave R..AM EXACTLY as they are
+        // (every formula and standing default is preserved byte-for-byte; we only touch B..N + S/T/U)
         editsByRow.set(r.upRow, m); });
       for (let rn = 3 + N; rn <= upLast; rn++){ const m = new Map(); for (let cc = 1; cc <= ci('AN'); cc++) m.set(cc, ''); editsByRow.set(rn, m); }
     } else {
