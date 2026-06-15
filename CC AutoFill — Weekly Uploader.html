@@ -136,6 +136,9 @@
   .traindrop .mono{color:var(--faint);font-size:12px}
   .trainreport{margin-top:10px;font-size:13px;color:var(--ink);min-height:0}
   .trainreport:empty{display:none}
+  .trainback{margin-top:12px;padding-top:10px;border-top:1px solid var(--line);display:flex;
+    align-items:center;gap:8px;flex-wrap:wrap}
+  .trainback .mono{color:var(--faint);font-size:12px}
 </style>
 </head>
 <body>
@@ -144,7 +147,7 @@
     <h1>CC AutoFill<small>raw → credit-card uploader · auto-fills item / vendor / department</small></h1>
     <div class="memops">
       <span id="memstats">memory: …</span><br>
-      <button class="btn" id="btnExport" title="Optional: save a backup file (to move to another computer or keep a safety copy). Not needed for normal use — learning is saved automatically.">⤓ Backup</button><button class="btn" id="btnImport" title="Restore learning from a backup file, or merge in someone else's.">⤒ Restore</button><button class="btn" id="btnReset" title="Forget everything learned on this machine (the built-in starter set stays).">Reset</button>
+      <button class="btn" id="btnExport" title="Save a .json backup of everything the tool has learned (merchants, descriptions, category rules, card-holders). Use it to keep a safety copy or move learning to another computer.">⤓ Export backup</button><button class="btn" id="btnImport" title="Restore from a backup file (replace what's here, or merge it in).">⤒ Restore</button><button class="btn" id="btnReset" title="Forget everything learned on this machine (the built-in starter set stays).">Reset</button>
       <input type="file" id="memfile" accept=".json" style="display:none">
     </div>
   </header>
@@ -157,6 +160,10 @@
     </div>
     <input type="file" id="trainFile" accept=".xlsx" multiple style="display:none">
     <div id="trainReport" class="trainreport"></div>
+    <div class="trainback">
+      <span class="mono">Backup: learning is auto-saved in this browser. Keep a safety copy or move it to another machine —</span>
+      <button class="btn" id="btnExport2">⤓ Export backup (.json)</button><button class="btn" id="btnImport2">⤒ Restore from backup</button>
+    </div>
   </div>
 
   <div id="drop">
@@ -934,17 +941,56 @@ function learnRow(r){
   return isNew;
 }
 
-$('btnExport').onclick = () => { const blob = new Blob([JSON.stringify({ format:'cc-autofill-memory@2', exported:new Date().toISOString(), byDesc:learned.byDesc, byMerchant:learned.byMerchant, personDept:learned.personDept, seedPersonDept:CC.SEED.personDept }, null, 1)], { type:'application/json' });
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'cc-autofill-memory.json'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); };
+/* ---------- backup / restore of everything the utility has learned ---------- */
+function buildBackup(){
+  return {
+    format: 'cc-autofill-backup@3',
+    exported: new Date().toISOString(),
+    updated: learned._updated || null,
+    stats: {
+      merchants: Object.keys(learned.byMerchant || {}).length,
+      descriptions: Object.keys(learned.byDesc || {}).length,
+      categoryRules: Object.keys(learned.byCategory || {}).length,
+      cardHolders: Object.keys(learned.personDept || {}).length,
+    },
+    // the complete learned store — every kind of learning the tool keeps
+    byDesc: learned.byDesc || {},
+    byMerchant: learned.byMerchant || {},
+    byCategory: learned.byCategory || {},
+    personDept: learned.personDept || {},
+  };
+}
+function doExport(){
+  const data = buildBackup();
+  const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+  const blob = new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `cc-autofill-backup ${stamp}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  toast(`Backed up everything learned: ${data.stats.merchants} merchants · ${data.stats.descriptions} descriptions · ${data.stats.categoryRules} category rules → "${a.download}".`);
+}
+$('btnExport').onclick = doExport;
 $('btnImport').onclick = () => $('memfile').click();
+if ($('btnExport2')) $('btnExport2').onclick = doExport;
+if ($('btnImport2')) $('btnImport2').onclick = () => $('memfile').click();
 $('memfile').onchange = async e => { const f = e.target.files[0]; if (!f) return;
-  try { const j = JSON.parse(await f.text()); if (!j.byMerchant) throw new Error('no byMerchant section');
-    learned = CC.mergeMemory(learned, { byDesc: j.byDesc || {}, byMerchant: j.byMerchant }); learned.personDept ||= {};
-    for (const p in (j.personDept || {})){ learned.personDept[p] ||= {}; for (const d in j.personDept[p]) learned.personDept[p][d] = Math.min(999,(learned.personDept[p][d]||0)+j.personDept[p][d]); }
+  try {
+    const j = JSON.parse(await f.text());
+    if (!(j.byMerchant || j.byDesc || j.byCategory)) throw new Error('this is not a CC AutoFill backup file');
+    const incoming = { byDesc: j.byDesc || {}, byMerchant: j.byMerchant || {}, byCategory: j.byCategory || {}, personDept: j.personDept || {} };
+    const have = Object.keys(learned.byMerchant || {}).length;
+    let mode = 'replace';
+    if (have) mode = confirm(`This machine already has ${have} learned merchant(s).\n\nOK  = REPLACE them with the backup (clean restore).\nCancel = MERGE the backup into what's already here.`) ? 'replace' : 'merge';
+    if (mode === 'replace'){
+      learned = { byDesc: incoming.byDesc, byMerchant: incoming.byMerchant, byCategory: incoming.byCategory, personDept: incoming.personDept, _updated: j.updated || new Date().toISOString() };
+    } else {
+      const merged = CC.mergeMemory(learned, incoming); merged.personDept = { ...(learned.personDept || {}) };
+      for (const p in incoming.personDept){ merged.personDept[p] ||= {}; for (const d in incoming.personDept[p]) merged.personDept[p][d] = Math.min(999, (merged.personDept[p][d] || 0) + incoming.personDept[p][d]); }
+      merged._updated = new Date().toISOString(); learned = merged;
+    }
     saveLearned(learned); memStats(); if (S) reclassify();
-    toast(`Imported memory — now ${Object.keys(memory().byMerchant).length} merchants known.`);
-  } catch (err){ toast('Import failed: ' + err.message, true); } e.target.value = ''; };
-$('btnReset').onclick = () => { if (!confirm('Forget everything learned/trained in this browser? (The built-in seed stays.)')) return;
+    toast(`${mode === 'replace' ? 'Restored' : 'Merged'} backup — now ${Object.keys(memory().byMerchant).length} merchants known.`);
+  } catch (err){ toast('Restore failed: ' + err.message, true); } e.target.value = ''; };
+$('btnReset').onclick = () => { if (!confirm('Forget everything learned/trained in this browser? (The built-in starter set stays. Export a backup first if unsure.)')) return;
   learned = blankMem(); saveLearned(learned); memStats(); if (S) reclassify(); toast('Learned memory cleared.'); };
 
 /* ---------- self-training: learn from past filled uploader files ---------- */
